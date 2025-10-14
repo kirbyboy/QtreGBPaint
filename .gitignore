@@ -1,0 +1,14 @@
+# Build
+build/
+*.o
+*.obj
+*.exe
+*.out
+
+# IDE
+.vscode/
+*.user
+*.sln
+
+# Otros
+*.log
