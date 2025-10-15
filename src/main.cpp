@@ -52,3 +52,18 @@ int main()
 
 	return 0;
 }
+
+
+/*
+a) ImageBuffer
+b) OverlayRegion
+struct OverlayRegion {
+    ImageBuffer buffer;
+    int offsetX, offsetY;
+};
+c) Funciones de composición
+void blitWithClipping(ImageBuffer& dst, const OverlayRegion& src);
+void resizeOverlay(OverlayRegion& overlay, const Rect& newBounds);
+
+
+*/

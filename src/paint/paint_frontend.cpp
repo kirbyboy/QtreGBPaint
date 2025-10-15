@@ -4,7 +4,8 @@
 
 using namespace std;
 
-PaintFrontend::PaintFrontend()
+PaintFrontend::PaintFrontend() :
+m_canvas(Canvas())
 {}
 
 void PaintFrontend::render()
@@ -106,10 +107,14 @@ void PaintFrontend::renderPalette()
 						   ImVec2(50, 50));
 	}
 	ImGui::EndGroup();
+
+	// Zoom slider
+	ImGui::SliderInt("Zoom", &m_zoom, 1, 8);	
 }
 
 void PaintFrontend::renderCanvas()
 {
+	/*
 	// Scrollable region (simulate a drawing surface)
 	ImVec2 cursor = ImGui::GetCursorScreenPos();
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -127,4 +132,26 @@ void PaintFrontend::renderCanvas()
 		drawList->AddLine(ImVec2(cursor.x + x, cursor.y), ImVec2(cursor.x + x, cursor.y + canvasSize.y), gridCol);
 	for (float y = 0; y < canvasSize.y; y += gridStep)
 		drawList->AddLine(ImVec2(cursor.x, cursor.y + y), ImVec2(cursor.x + canvasSize.x, cursor.y + y), gridCol);
+	*/
+
+	//ImGui::BeginChild("CanvasWindow", ImVec2(512,512), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_VerticalScrollbar);
+
+	ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+	ImVec2 canvasSize = ImGui::GetContentRegionAvail();
+	ImVec2 scroll(ImGui::GetScrollX(), ImGui::GetScrollY());
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+	// Manejo de input
+	ImVec2 mousePos = ImGui::GetMousePos();
+	bool isActive = ImGui::IsItemActive();
+	m_canvas.handleInput(mousePos, isActive, canvasPos, m_zoom);
+
+	// Render del buffer
+	m_canvas.renderBuffer(drawList, canvasPos, scroll, m_zoom, canvasSize);
+
+	// Aquí se puede dibujar la rejilla encima usando drawList
+	// drawGrid(drawList, canvasPos, canvas.getWidth(), canvas.getHeight(), zoom);
+
+	//ImGui::EndChild();
+
 }
