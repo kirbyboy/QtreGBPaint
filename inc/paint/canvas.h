@@ -23,6 +23,8 @@ class Canvas
 		int height;
 		ImageBuffer buffer;
 		Tool currentTool = Tool::Pencil;
+		uint8_t m_foreground_color_index = 0;
+		uint8_t m_background_color_index = 0;
 };
 
 #endif

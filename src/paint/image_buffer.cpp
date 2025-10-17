@@ -56,8 +56,12 @@ void ImageBuffer::resize(int newW, int newH)
 {
 		std::vector<uint8_t> newData(newW * newH, 0);
 		for (int y = 0; y < std::min(height, newH); ++y)
+		{
 			for (int x = 0; x < std::min(width, newW); ++x)
+			{
 				newData[y * newW + x] = getPixel(x, y);
+			}
+		}
 		width = newW;
 		height = newH;
 		data.swap(newData);

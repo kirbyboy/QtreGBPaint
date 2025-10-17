@@ -13,7 +13,7 @@ OBJS := $(SRCS:$(SRCDIR)/%.cpp=$(OBJDIR)/%.o)
 DEPS := $(SRCS:$(SRCDIR)/%.cpp=$(DEPDIR)/%.d)
 
 # ==== Libraries and includes ====
-CXXFLAGS += -I$(INCDIR) -I$(INCDIR)/paint -Ilib/tinyfiledialogs/src -Ilib/imgui/src -Ilib/imgui/src/backends `sdl2-config --cflags`
+CXXFLAGS += -I$(INCDIR) -Ilib/tinyfiledialogs/src -Ilib/imgui/src -Ilib/imgui/src/backends `sdl2-config --cflags`
 LDFLAGS  := lib/imgui/libimgui.a lib/tinyfiledialogs/libtinyfiledialog.a `sdl2-config --libs`
 
 TARGET := QtreGBPaint
