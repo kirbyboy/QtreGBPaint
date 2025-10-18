@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cassert>
 
-#include "paint/color.h"
+#include "core/color.h"
 #include "paint/image_buffer.h"
 
 class DrawBuffer
@@ -18,12 +18,12 @@ class DrawBuffer
 		void reset();
 		void begin(int x, int y);
 		
-		void set_pixel(int x, int y, uint8_t color_index);
+		void set_pixel(int x, int y, PaintCore::ColorIndex color_index);
 		bool is_active() const;
 
 		void blend_onto(ImageBuffer& target);
 
-		const std::vector<uint8_t>& data() const;
+		const std::vector<PaintCore::ColorIndex>& data() const;
 		int x() const;
 		int y() const;
 		int width() const;
@@ -38,7 +38,7 @@ class DrawBuffer
 		int m_height = 0;
 		bool m_active = false;
 
-		std::vector<uint8_t> m_data;
+		std::vector<PaintCore::ColorIndex> m_data;
 };
 
 #endif

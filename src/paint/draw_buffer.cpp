@@ -1,7 +1,7 @@
 #include <algorithm>
 
 #include "paint/draw_buffer.h"
-#include "paint/color.h"
+#include "core/color.h"
 
 DrawBuffer::DrawBuffer()
 {
@@ -75,7 +75,7 @@ void DrawBuffer::ensure_fit(int px, int py)
 	m_height = new_height;
 }
 
-void DrawBuffer::set_pixel(int local_x, int local_y, uint8_t color_index)
+void DrawBuffer::set_pixel(int local_x, int local_y, PaintCore::ColorIndex color_index)
 {
 	if (local_x < 0 || local_y < 0 || local_x >= m_width || local_y >= m_height)
 	{

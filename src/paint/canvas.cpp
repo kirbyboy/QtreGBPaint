@@ -1,16 +1,21 @@
 #include "paint/canvas.h"
 
 Canvas::Canvas(int w, int h): 
-width(w), 
-height(h), 
-buffer(w, h, 2)
+m_width(w), 
+m_height(h), 
+m_buffer(w, h, 2)
 {
-	buffer.fill(0);
+	m_buffer.fill(0);
 }
 
-void Canvas::setTool(Tool t)
+void Canvas::set_tool(std::unique_ptr<DrawTool> tool)
 {
-	currentTool = t;
+	if(m_currentTool)
+	{
+		m_currentTool->cancel();
+	}
+
+	m_currentTool = std::move(tool);
 }
 
 void Canvas::handleInput(const ImVec2 &mousePos, bool isActive, const ImVec2 &canvasPos, float zoom)
@@ -22,9 +27,9 @@ void Canvas::handleInput(const ImVec2 &mousePos, bool isActive, const ImVec2 &ca
 
 	int x = static_cast<int>((mousePos.x - canvasPos.x) / zoom);
 	int y = static_cast<int>((mousePos.y - canvasPos.y) / zoom);
-	if(x >= 0 && x < width && y >= 0 && y < height)
+	if(x >= 0 && x < m_width && y >= 0 && y < m_height)
 	{
-		buffer.setPixel(x, y, 3);
+		m_buffer.setPixel(x, y, 3);
 	}
 }
 
@@ -38,15 +43,15 @@ void Canvas::renderBuffer(ImDrawList *drawList, const ImVec2 &canvasPos, const I
 	// Clamp
 	startX = std::max(0, startX);
 	startY = std::max(0, startY);
-	endX   = std::min(width, endX);
-	endY   = std::min(height, endY);
+	endX   = std::min(m_width, endX);
+	endY   = std::min(m_height, endY);
 
 	// Draw visible pixels
 	for (int y = startY; y < endY; ++y)
 	{
 		for (int x = startX; x < endX; ++x)
 		{
-			uint8_t color = buffer.getPixel(x, y);
+			uint8_t color = m_buffer.getPixel(x, y);
 			ImU32 col = (color == 0) ? IM_COL32(255,255,255,255) :
 						(color == 3) ? IM_COL32(0,0,0,255) :
 						IM_COL32(128,128,128,255);
@@ -60,12 +65,45 @@ void Canvas::renderBuffer(ImDrawList *drawList, const ImVec2 &canvasPos, const I
 	}
 }
 
+void Canvas::mousePressEvent(const PaintCore::Vec2 &pos)
+{
+	if(m_currentTool)
+	{
+		m_currentTool->onMousePress(*this, pos);
+	}
+}
+
+void Canvas::mouseMoveEvent(const PaintCore::Vec2 &pos)
+{
+	if(m_currentTool)
+	{
+		m_currentTool->onMouseMove(*this, pos);
+	}
+}
+
+void Canvas::mouseReleaseEvent(const PaintCore::Vec2 &pos)
+{
+	if(m_currentTool)
+	{
+		m_currentTool->onMouseRelease(*this, pos);
+	}
+}
+
 int Canvas::getWidth() const
 {
-	return width;
+	return m_width;
 }
 
 int Canvas::getHeight() const
 {
-	return height;
+	return m_height;
+}
+const ImageBuffer &Canvas::get_main_buffer() const
+{
+	return m_buffer;
+}
+
+ImageBuffer &Canvas::get_main_buffer()
+{
+	return m_buffer;
 }

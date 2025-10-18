@@ -4,7 +4,7 @@
 #include <vector>
 #include <cstdint>
 
-#include <paint/color.h>
+#include <core/color.h>
 
 class Palette
 {
