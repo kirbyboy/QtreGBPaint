@@ -29,8 +29,9 @@ class DrawBuffer
 		int width() const;
 		int height() const;
 
-	private:
 		void ensure_fit(int x, int y);
+
+	private:
 
 		int m_x = 0;
 		int m_y = 0;

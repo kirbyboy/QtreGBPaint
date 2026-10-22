@@ -1,12 +1,20 @@
 #include <string>
+#include <memory>
 
 #include "paint/paint_frontend.h"
+#include "tools/square_tool.h"
 
 using namespace std;
 
 PaintFrontend::PaintFrontend() :
-m_canvas(Canvas())
-{}
+m_canvas_area(CanvasArea()),
+m_palette(Palette(2))
+{
+	m_palette.setColor(0, 0xFFe0f8d0);
+	m_palette.setColor(1, 0xFF88c070);
+	m_palette.setColor(2, 0xFF346856);
+	m_palette.setColor(3, 0xFF081820);
+}
 
 void PaintFrontend::render()
 {
@@ -81,7 +89,11 @@ void PaintFrontend::renderToolbar()
 	ImGui::Separator();
 	if (ImGui::Button("Pencil", ImVec2(-FLT_MIN, 30))) {}
 	if (ImGui::Button("Fill", ImVec2(-FLT_MIN, 30))) {}
-	if (ImGui::Button("Rect", ImVec2(-FLT_MIN, 30))) {}
+	if (ImGui::Button("Rect", ImVec2(-FLT_MIN, 30)))
+	{
+		auto rectTool = std::make_shared<SquareTool>(1,2);
+		m_canvas_area.canvas().set_tool(rectTool);
+	}
 	if (ImGui::Button("Circle", ImVec2(-FLT_MIN, 30))) {}
 }
 
@@ -114,44 +126,23 @@ void PaintFrontend::renderPalette()
 
 void PaintFrontend::renderCanvas()
 {
-	/*
-	// Scrollable region (simulate a drawing surface)
-	ImVec2 cursor = ImGui::GetCursorScreenPos();
-	ImDrawList* drawList = ImGui::GetWindowDrawList();
-
-	ImU32 bgCol = IM_COL32(200, 200, 200, 255);
-	ImU32 gridCol = IM_COL32(180, 180, 180, 255);
-
-	ImGui::Dummy(canvasSize);
-
-	drawList->AddRectFilled(cursor, ImVec2(cursor.x + canvasSize.x, cursor.y + canvasSize.y), bgCol);
-
-	// Draw a grid
-	const float gridStep = 32.0f;
-	for (float x = 0; x < canvasSize.x; x += gridStep)
-		drawList->AddLine(ImVec2(cursor.x + x, cursor.y), ImVec2(cursor.x + x, cursor.y + canvasSize.y), gridCol);
-	for (float y = 0; y < canvasSize.y; y += gridStep)
-		drawList->AddLine(ImVec2(cursor.x, cursor.y + y), ImVec2(cursor.x + canvasSize.x, cursor.y + y), gridCol);
-	*/
-
-	//ImGui::BeginChild("CanvasWindow", ImVec2(512,512), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_VerticalScrollbar);
-
 	ImVec2 canvasPos = ImGui::GetCursorScreenPos();
 	ImVec2 canvasSize = ImGui::GetContentRegionAvail();
-	ImVec2 scroll(ImGui::GetScrollX(), ImGui::GetScrollY());
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
+	ImVec2 content_size(m_canvas_area.canvas().getWidth() * m_zoom, m_canvas_area.canvas().getHeight() * m_zoom);
 
 	// Manejo de input
-	ImVec2 mousePos = ImGui::GetMousePos();
+	ImGui::InvisibleButton("canvas_area", content_size);
+	ImVec2 scroll(ImGui::GetScrollX(), ImGui::GetScrollY());
 	bool isActive = ImGui::IsItemActive();
-	m_canvas.handleInput(mousePos, isActive, canvasPos, m_zoom);
+
+	ImVec2 mousePos = ImGui::GetMousePos();
+	m_canvas_area.handle_input(canvasPos, canvasSize, m_zoom);
 
 	// Render del buffer
-	m_canvas.renderBuffer(drawList, canvasPos, scroll, m_zoom, canvasSize);
+	m_canvas_area.render(drawList, canvasPos, canvasSize, scroll, m_zoom, m_palette);
 
 	// Aquí se puede dibujar la rejilla encima usando drawList
 	// drawGrid(drawList, canvasPos, canvas.getWidth(), canvas.getHeight(), zoom);
-
-	//ImGui::EndChild();
 
 }

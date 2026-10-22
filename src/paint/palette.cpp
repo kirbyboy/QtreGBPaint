@@ -2,37 +2,36 @@
 
 using namespace PaintCore;
 
-Palette::Palette(size_t size):
-m_size(size),
-m_colors(size, 0)
+Palette::Palette(size_t bitsPerPixel)
+    : m_bpp(bitsPerPixel == 0 ? 1 : bitsPerPixel),
+      m_colors(1 << (bitsPerPixel == 0 ? 1 : bitsPerPixel), 0)
 {
-	if(m_size == 0)
-	{
-		// Not 0bpp allowed
-		m_size = 1;
-		m_colors.push_back(0);
-	}
 }
 
-void Palette::setColor(uint8_t index, PaintCore::Color color)
+void Palette::setColor(PaintCore::ColorIndex index, PaintCore::Color color)
 {
-	if(index >= m_colors.size())
-	{
-		return;
-	}
-	m_colors[index] = color;
+    if (index >= m_colors.size())
+    {
+        return;
+    }
+    m_colors[index] = color;
 }
 
-PaintCore::Color Palette::getColor(uint8_t index) const
+PaintCore::Color Palette::getColor(PaintCore::ColorIndex index) const
 {
-	if(index >= m_colors.size())
-	{
-		return 0xFFFFFFFF;
-	}	
-	return m_colors[index];
+    if (index >= m_colors.size())
+    {
+        return 0xFFFF00FF;
+    }
+    return m_colors[index];
 }
 
 size_t Palette::size() const
 {
-	return m_size;
+    return m_colors.size();
+}
+
+size_t Palette::bitsPerPixel() const
+{
+    return m_bpp;
 }

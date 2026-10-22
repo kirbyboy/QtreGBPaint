@@ -16,7 +16,7 @@ void ImageBuffer::allocate()
 {
 	data.assign(width * height, 0);
 }
-uint8_t ImageBuffer::getPixel(int x, int y) const
+uint8_t ImageBuffer::get_pixel(int x, int y) const
 {
 	if(x < 0 || y < 0 || x >= width || y >= height)
 	{
@@ -25,7 +25,7 @@ uint8_t ImageBuffer::getPixel(int x, int y) const
 	return data[y * width + x];
 }
 
-void ImageBuffer::setPixel(int x, int y, uint8_t value)
+void ImageBuffer::set_pixel(int x, int y, PaintCore::ColorIndex value)
 {
 	if(x < 0 || y < 0 || x >= width || y >= height)
 	{
@@ -34,19 +34,19 @@ void ImageBuffer::setPixel(int x, int y, uint8_t value)
 	data[y * width + x] = value;
 }
 
-void ImageBuffer::fill(uint8_t value)
+void ImageBuffer::fill(PaintCore::ColorIndex value)
 {
 	std::fill(data.begin(), data.end(), value);
 }
 
-ImageBuffer ImageBuffer::subBuffer(int startX, int startY, int w, int h) const
+ImageBuffer ImageBuffer::sub_buffer(int startX, int startY, int w, int h) const
 {
 	ImageBuffer sub(w, h, bitsPerPixel);
 	for(int y = 0; y < h; ++y)
 	{
 		for (int x = 0; x < w; ++x)
 		{
-			sub.setPixel(x, y, getPixel(startX + x, startY + y));
+			sub.set_pixel(x, y, get_pixel(startX + x, startY + y));
 		}
 	}
 	return sub;
@@ -59,14 +59,14 @@ void ImageBuffer::resize(int newW, int newH)
 		{
 			for (int x = 0; x < std::min(width, newW); ++x)
 			{
-				newData[y * newW + x] = getPixel(x, y);
+				newData[y * newW + x] = get_pixel(x, y);
 			}
 		}
 		width = newW;
 		height = newH;
 		data.swap(newData);
 }
-void ImageBuffer::copyFrom(const ImageBuffer &src, int dstX, int dstY)
+void ImageBuffer::copy_from(const ImageBuffer &src, int dstX, int dstY)
 {
 	if(src.bitsPerPixel != bitsPerPixel)
 	{
@@ -76,7 +76,7 @@ void ImageBuffer::copyFrom(const ImageBuffer &src, int dstX, int dstY)
 	{
 		for (int x = 0; x < src.width; ++x)
 		{
-			setPixel(dstX + x, dstY + y, src.getPixel(x, y));
+			set_pixel(dstX + x, dstY + y, src.get_pixel(x, y));
 		}
 	}
 }

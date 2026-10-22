@@ -4,23 +4,33 @@
 #include "core/vec2.h"
 #include "paint/canvas.h"
 #include "paint/draw_buffer.h"
+#include "tools/base_tool.h"
 
-class DrawTool
+class DrawTool : public ToolBase
 {
-	public:
-		virtual ~DrawTool() = default;
 
-		virtual void on_mouse_press(class Canvas& canvas, const PaintCore::Vec2& pos);
-		virtual void on_mouse_move(class Canvas& canvas, const PaintCore::Vec2& pos);
-		virtual void on_mouse_release(class Canvas& canvas, const PaintCore::Vec2& pos);
-		virtual void cancel();
+	public:
+		void on_mouse_press(Canvas& canvas, const PaintCore::Vec2& pos, int button) override;
+		void on_mouse_move(Canvas& canvas, const PaintCore::Vec2& pos) override;
+		void on_mouse_release(Canvas& canvas, const PaintCore::Vec2& pos, int button) override;
+		void on_cancel(Canvas& canvas) override;
+
+		bool has_preview() const override;
+		DrawBuffer* get_draw_buffer() override;
+		void get_normalized_rect(int &x, int &y, int &w, int &h) const;
+		PaintCore::Vec2 get_start_pos();
+		bool is_drawing() const override;
 
 	protected:
-		PaintCore::Vec2 m_startPos;
-		DrawBuffer m_temp_buffer;
-		bool m_drawing = false;
+		virtual void draw_preview(DrawBuffer& buffer) = 0;
 
-		virtual void generate_content(const PaintCore::Vec2& currentPos) = 0;
+		DrawBuffer m_preview_buffer;
+		bool m_drawing = false;
+		PaintCore::Vec2 m_start_pos{};
+		PaintCore::Vec2 m_current_pos{};
 };
+
+
+
 
 #endif

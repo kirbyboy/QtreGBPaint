@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <stdexcept>
+#include <core/color.h>
 
 class ImageBuffer
 {
@@ -12,18 +13,18 @@ class ImageBuffer
 		int width;
 		int height;
 		int bitsPerPixel; // e.g., 1, 2, 4, 8, 24, 32
-		std::vector<uint8_t> data; // 1 byte per pixel (unpacked)
+		std::vector<PaintCore::ColorIndex> data; // 1 byte per pixel (unpacked)
 
 		ImageBuffer(int w = 0, int h = 0, int bpp = 8);
 		void allocate();
 
-		uint8_t getPixel(int x, int y) const;
-		void setPixel(int x, int y, uint8_t value);
+		PaintCore::ColorIndex get_pixel(int x, int y) const;
+		void set_pixel(int x, int y, PaintCore::ColorIndex value);
 
-		void fill(uint8_t value);
-		ImageBuffer subBuffer(int startX, int startY, int w, int h) const;
+		void fill(PaintCore::ColorIndex value);
+		ImageBuffer sub_buffer(int startX, int startY, int w, int h) const;
 		void resize(int newW, int newH);
-		void copyFrom(const ImageBuffer& src, int dstX, int dstY);
+		void copy_from(const ImageBuffer& src, int dstX, int dstY);
 };
 
 

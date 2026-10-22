@@ -10,8 +10,10 @@ DrawBuffer::DrawBuffer()
 
 void DrawBuffer::clear()
 {
-	std::fill(m_data.begin(), m_data.end(), PaintCore::TRANSPARENT_INDEX);
-	m_active = false;
+	if(m_active)
+	{
+		std::fill(m_data.begin(), m_data.end(), PaintCore::TRANSPARENT_INDEX);
+	}
 }
 
 void DrawBuffer::reset()
@@ -113,7 +115,7 @@ void DrawBuffer::blend_onto(ImageBuffer &target)
 			{
 				continue;
 			}
-			target.setPixel(m_x + x, m_y + y, color);
+			target.set_pixel(m_x + x, m_y + y, color);
 		}
 	}
 	clear();

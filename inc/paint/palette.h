@@ -9,13 +9,14 @@
 class Palette
 {
 	public:
-		Palette(size_t size);
-		void setColor(uint8_t index, PaintCore::Color color);
-		PaintCore::Color getColor(uint8_t index) const;
-		size_t size() const;
+		Palette(size_t bitsPerPixel);
+		void setColor(PaintCore::ColorIndex index, PaintCore::Color color);
+		PaintCore::Color getColor(PaintCore::ColorIndex index) const;
+		size_t size() const;            // número de colores (1 << bpp)
+		size_t bitsPerPixel() const;
 
 	private:
-		size_t m_size;
+		size_t m_bpp;
 		std::vector<PaintCore::Color> m_colors;
 };
 
