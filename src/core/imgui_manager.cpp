@@ -1,29 +1,44 @@
 #include "core/imgui_manager.h"
+#include "core/ibackend.h"
 
 void ImGuiManager::init()
 {
+	if(m_initialized)
+	{
+		return;
+	}
 	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	m_context = ImGui::CreateContext();
+	ImGui::SetCurrentContext(m_context);
+
+	ImGuiIO& io = ImGui::GetIO();
 
 	// Activar docking y otras configuraciones
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // navegación con teclado
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;      // habilitar docking
 
-	ImGui::StyleColorsDark(); // tema por defecto
+	m_initialized = true;
 }
 
-void ImGuiManager::beginFrame()
+void ImGuiManager::shutdown()
 {
+	if(!m_initialized)
+	{
+		return;
+	}
+	ImGui::DestroyContext(m_context);
+	m_context = nullptr;
+	m_initialized = false;
+}
+
+void ImGuiManager::begin_frame(IGuiBackend& backend)
+{
+	backend.begin_imgui_frame();
 	ImGui::NewFrame();
 }
 
-void ImGuiManager::endFrame()
+ImDrawData* ImGuiManager::end_frame()
 {
 	ImGui::Render();
-}
-
-ImGuiIO &ImGuiManager::getIO()
-{
-	return ImGui::GetIO();
+	return ImGui::GetDrawData();
 }

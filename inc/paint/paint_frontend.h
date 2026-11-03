@@ -4,11 +4,13 @@
 #include "imgui.h"
 #include "paint/canvas_area.h"
 #include "paint/palette.h"
+#include "paint/paint_backend.h"
 
 class PaintFrontend
 {
 	public:
-		PaintFrontend();
+		PaintFrontend(PaintBackend& backend);
+		void select_tool(const std::string& name);
 		void render(); // Main render method
 		void update();
 
@@ -21,7 +23,7 @@ class PaintFrontend
 		
 
 	private:
-		ImVec2 canvasSize = ImVec2(2000, 2000); // Larger than window to show scroll
+		PaintBackend& m_backend;
 		CanvasArea m_canvas_area;
 		int m_zoom = 1;
 		Palette m_palette;

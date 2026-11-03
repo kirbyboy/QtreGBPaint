@@ -10,19 +10,24 @@ class SDLRendererBackend : public IGuiBackend
 {
 	public:
 		SDLRendererBackend();
-		void init();
-		void new_frame() override;
-		void render_draw_data() override;
-		void handle_event(const void* event) override;
+
+		void init() override;
 		void shutdown() override;
+
+		void begin_imgui_frame() override;
+		void render_imgui(ImDrawData* drawData) override;
+
+		void poll_events(bool& running) override;
+		
 		void* createTexture(int width, int height) override;
-		void updateTexture(void* textureId, const uint32_t* pixels, int width, int height) override;
+		void updateTexture(void* textureId, const PaintCore::Color* pixels, int width, int height) override;
 		void destroyTexture(void* textureId) override;
 
 	private:
-		SDL_Window* m_window;
-		SDL_Renderer* m_renderer;
+		SDL_Window* m_window = nullptr;
+		SDL_Renderer* m_renderer = nullptr;
 		std::unordered_map<void*, SDL_Texture*> m_textures;
+		bool m_imgui_ready = false;
 };
 
 #endif

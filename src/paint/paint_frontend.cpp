@@ -2,18 +2,20 @@
 #include <memory>
 
 #include "paint/paint_frontend.h"
+#include "paint/color_imgui.h"
 #include "tools/square_tool.h"
 
 using namespace std;
 
-PaintFrontend::PaintFrontend() :
+PaintFrontend::PaintFrontend(PaintBackend& backend) :
+m_backend(backend),
 m_canvas_area(CanvasArea()),
-m_palette(Palette(2))
+m_palette(Palette::dmg())
+{}
+
+void PaintFrontend::select_tool(const std::string& name)
 {
-	m_palette.setColor(0, 0xFFe0f8d0);
-	m_palette.setColor(1, 0xFF88c070);
-	m_palette.setColor(2, 0xFF346856);
-	m_palette.setColor(3, 0xFF081820);
+	m_canvas_area.canvas().set_tool(m_backend.selectButton(name));
 }
 
 void PaintFrontend::render()
@@ -87,14 +89,61 @@ void PaintFrontend::renderToolbar()
 {
 	ImGui::Text("Tools");
 	ImGui::Separator();
-	if (ImGui::Button("Pencil", ImVec2(-FLT_MIN, 30))) {}
-	if (ImGui::Button("Fill", ImVec2(-FLT_MIN, 30))) {}
-	if (ImGui::Button("Rect", ImVec2(-FLT_MIN, 30)))
+
+	float avail = ImGui::GetContentRegionAvail().x;
+	float spacing = ImGui::GetStyle().ItemSpacing.x;
+	float x = 0.0f;
+
+	for (const auto& btn : m_backend.buttons())
 	{
-		auto rectTool = std::make_shared<SquareTool>(1,2);
-		m_canvas_area.canvas().set_tool(rectTool);
+		if (x > 0.0f && x + 32.0f > avail)
+		{
+			x = 0.0f;
+		}
+		else if (x > 0.0f)
+		{
+			ImGui::SameLine();
+		}
+
+		ImVec2 pos = ImGui::GetCursorScreenPos();
+		bool active = (m_backend.activeButton() == btn.name);
+
+		ImTextureID icon = btn.iconNormal;
+		if (active && btn.iconPressed) icon = btn.iconPressed;
+
+		if (icon)
+		{
+			ImGui::Image(icon, ImVec2(32, 32));
+		}
+		else
+		{
+			ImGui::Button(btn.name.c_str(), ImVec2(32, 32));
+		}
+
+		bool hovered = ImGui::IsItemHovered();
+
+		if (!active && hovered && btn.iconHover)
+		{
+			ImGui::SetCursorScreenPos(pos);
+			ImGui::Image(btn.iconHover, ImVec2(32, 32));
+		}
+
+		ImGui::SetCursorScreenPos(pos);
+		bool clicked = ImGui::InvisibleButton(btn.name.c_str(), ImVec2(32, 32));
+
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("%s", btn.name.c_str());
+		}
+
+		if (clicked)
+		{
+			select_tool(btn.name);
+		}
+
+		x += 32.0f + spacing;
 	}
-	if (ImGui::Button("Circle", ImVec2(-FLT_MIN, 30))) {}
+
 }
 
 void PaintFrontend::renderPalette()
@@ -103,18 +152,11 @@ void PaintFrontend::renderPalette()
 	ImGui::Separator();
 
 	ImGui::BeginGroup();
-	const ImVec4 colors[4] =
-	{
-		ImVec4(0.89f, 0.91f, 0.67f, 1.0f), // Lightest
-		ImVec4(0.67f, 0.78f, 0.45f, 1.0f),
-		ImVec4(0.40f, 0.57f, 0.25f, 1.0f),
-		ImVec4(0.18f, 0.31f, 0.16f, 1.0f)  // Darkest
-	};
-
-	for (int i = 0; i < 4; ++i)
+	for (size_t i = 0; i < m_palette.size(); ++i)
 	{
 		ImGui::SameLine();
-		ImGui::ColorButton(("##col" + std::to_string(i)).c_str(), colors[i],
+		const PaintCore::Color color = m_palette.getColor(static_cast<PaintCore::ColorIndex>(i));
+		ImGui::ColorButton(("##col" + std::to_string(i)).c_str(), toImVec4(color),
 						   ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop,
 						   ImVec2(50, 50));
 	}

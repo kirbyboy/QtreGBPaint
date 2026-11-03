@@ -15,6 +15,9 @@ class Palette
 		size_t size() const;            // número de colores (1 << bpp)
 		size_t bitsPerPixel() const;
 
+		static Palette dmg();                    // 2bpp, los 4 tonos de Game Boy
+		static Palette grayscale(size_t bits);		
+
 	private:
 		size_t m_bpp;
 		std::vector<PaintCore::Color> m_colors;

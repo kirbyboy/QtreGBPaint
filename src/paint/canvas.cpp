@@ -116,7 +116,7 @@ void Canvas::handle_mouse_release(const Vec2 &pos, int button)
 	}
 }
 
-void Canvas::set_tool(shared_ptr<ToolBase> tool)
+void Canvas::set_tool(ToolBase* tool)
 {
 	if(m_active_tool)
 	{
@@ -128,7 +128,7 @@ void Canvas::set_tool(shared_ptr<ToolBase> tool)
 
 ToolBase* Canvas::active_tool() const
 {
-	return m_active_tool.get();
+	return m_active_tool;
 }
 
 const ImageBuffer &Canvas::get_main_buffer() const

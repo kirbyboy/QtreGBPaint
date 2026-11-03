@@ -14,9 +14,9 @@ public:
 	ImVec2 canvas_pos{};          // posición en pantalla del origen del canvas
 	PaintCore::Viewport view{};   // scroll (en imagen) + zoom
 
-	void draw_rect_filled(int x, int y, int w, int h, std::uint32_t color) override;
-	void draw_rect(int x, int y, int w, int h, std::uint32_t color, int thickness) override;
-	void draw_line(int x0, int y0, int x1, int y1, std::uint32_t color, int thickness) override;
+	void draw_rect_filled(int x, int y, int w, int h, const PaintCore::Color& color) override;
+	void draw_rect(int x, int y, int w, int h, const PaintCore::Color& color, int thickness) override;
+	void draw_line(int x0, int y0, int x1, int y1, const PaintCore::Color& color, int thickness) override;
 };
 
 struct VisualViewport {

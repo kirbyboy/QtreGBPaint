@@ -3,17 +3,26 @@
 
 #include "imgui.h"
 
+class IGuiBackend;
+
 class ImGuiManager
 {
 	public:
 		ImGuiManager() = default;
 		~ImGuiManager() = default;
+		ImGuiManager(const ImGuiManager&) = delete;
+		ImGuiManager& operator=(const ImGuiManager&) = delete;
 
 		void init();
-		void beginFrame();
-		void endFrame();
+		void shutdown();
+		ImGuiContext* context() const { return m_context; }
 
-		ImGuiIO& getIO();
+		void begin_frame(IGuiBackend& backend);
+		ImDrawData* end_frame();
+
+	private:
+		ImGuiContext* m_context = nullptr;
+		bool m_initialized = false;
 };
 
 #endif

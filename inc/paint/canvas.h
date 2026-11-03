@@ -16,7 +16,7 @@ class Canvas
 public:
     Canvas(int w = 256, int h = 256);
 
-    void set_tool(std::shared_ptr<ToolBase> tool);
+    void set_tool(ToolBase* tool);
     ToolBase* active_tool() const;
 
     // Input ya traducido a coordenadas de imagen
@@ -36,7 +36,7 @@ public:
 private:
     ImageBuffer m_image_buffer;
 
-    std::shared_ptr<ToolBase> m_active_tool;
+    ToolBase* m_active_tool = nullptr; // non-owning: owned by PaintBackend
 
     void render_image_buffer(ICanvasRenderer& r, const PaintCore::Viewport& v, const Palette& p);
     void render_draw_buffer(ICanvasRenderer& r, const PaintCore::Viewport& v, const Palette& p);

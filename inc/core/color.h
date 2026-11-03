@@ -5,9 +5,16 @@
 
 namespace PaintCore
 {
-	using Color = uint32_t;
 	using ColorIndex = uint8_t;
 	inline constexpr ColorIndex TRANSPARENT_INDEX = 255;
+
+	struct Color
+	{
+		uint8_t r = 0;
+		uint8_t g = 0;
+		uint8_t b = 0;
+		uint8_t a = 255;
+	};	
 }
 
 #endif

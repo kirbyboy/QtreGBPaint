@@ -1,5 +1,6 @@
 #include "paint/canvas.h"
 #include "paint/canvas_area.h"
+#include "paint/color_imgui.h"
 #include <cmath>
 
 using namespace PaintCore;
@@ -7,28 +8,29 @@ using namespace std;
 
 // ImGuiCanvasRenderer
 
-void ImGuiCanvasRenderer::draw_rect_filled(int x, int y, int w, int h, uint32_t color)
+void ImGuiCanvasRenderer::draw_rect_filled(int x, int y, int w, int h, const PaintCore::Color& color)
 {
     if(!draw_list)
 	{
 		return;
 	}
 
-    float px = canvas_pos.x + (x - view.scroll_x) * view.zoom;
-    float py = canvas_pos.y + (y - view.scroll_y) * view.zoom;
+    // canvas_pos ya incluye el scroll, por eso NO se resta view.scroll_x/y
+    float px = canvas_pos.x + x * view.zoom;
+    float py = canvas_pos.y + y * view.zoom;
     float pw = w * view.zoom;
     float ph = h * view.zoom;
 
-    draw_list->AddRectFilled(ImVec2(px, py), ImVec2(px + pw, py + ph), color);
+    draw_list->AddRectFilled(ImVec2(px, py), ImVec2(px + pw, py + ph), toImU32(color));
 }
 
-void ImGuiCanvasRenderer::draw_rect(int x, int y, int w, int h, uint32_t color, int thickness)
+void ImGuiCanvasRenderer::draw_rect(int x, int y, int w, int h, const PaintCore::Color& color, int thickness)
 {
 	(void)x; (void)y; (void)w; (void)h; (void)color; (void)thickness;
 	// TODO
 }
 
-void ImGuiCanvasRenderer::draw_line(int x0, int y0, int x1, int y1, uint32_t color, int thickness)
+void ImGuiCanvasRenderer::draw_line(int x0, int y0, int x1, int y1, const PaintCore::Color& color, int thickness)
 {
 	(void)x0; (void)y0; (void)x1; (void)y1; (void)color; (void)thickness;
 	// TODO
@@ -95,8 +97,9 @@ PaintCore::Vec2 CanvasArea::screen_to_image(const ImVec2& mouse) const
     PaintCore::Vec2 img;
     if (m_viewport.zoom <= 0.0f) return img;
 
-    img.x = static_cast<int>(floor((mouse.x - m_viewport.pos.x + m_viewport.scroll_px.x) / m_viewport.zoom));
-    img.y = static_cast<int>(floor((mouse.y - m_viewport.pos.y + m_viewport.scroll_px.y) / m_viewport.zoom));
+    // canvas_pos (pos) ya incluye el scroll (GetCursorScreenPos), por eso NO se suma scroll_px
+    img.x = static_cast<int>(floor((mouse.x - m_viewport.pos.x) / m_viewport.zoom));
+    img.y = static_cast<int>(floor((mouse.y - m_viewport.pos.y) / m_viewport.zoom));
 
     // (Opcional) clamp a los límites del buffer
     // img.x = std::clamp(img.x, 0, m_canvas.getWidth() - 1);
@@ -109,13 +112,10 @@ ImVec2 CanvasArea::image_to_screen(int ix, int iy) const
 {
     if (m_viewport.zoom <= 0.0f) return m_viewport.pos;
 
-    // scroll en coordenadas de imagen
-    float scroll_img_x = m_viewport.scroll_px.x / m_viewport.zoom;
-    float scroll_img_y = m_viewport.scroll_px.y / m_viewport.zoom;
-
+    // canvas_pos (pos) ya incluye el scroll, por eso NO se resta scroll_img
     ImVec2 screen;
-    screen.x = m_viewport.pos.x + (ix - scroll_img_x) * m_viewport.zoom;
-    screen.y = m_viewport.pos.y + (iy - scroll_img_y) * m_viewport.zoom;
+    screen.x = m_viewport.pos.x + ix * m_viewport.zoom;
+    screen.y = m_viewport.pos.y + iy * m_viewport.zoom;
     return screen;
 }
 
