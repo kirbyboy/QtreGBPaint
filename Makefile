@@ -32,11 +32,15 @@ $(BUILDDIR)/$(TARGET): $(OBJS) | $(BUILDDIR)
 $(OBJDIR) $(BUILDDIR) $(DEPDIR):
 	mkdir -p $@
 	
+test:
+	$(MAKE) -C tests
+
 clean:
 	$(RM) -r $(OBJDIR) $(DEPDIR) $(BUILDDIR)
-	
+	$(MAKE) -C tests clean
+
 ifneq ($(MAKECMDGOALS),clean)	
 -include $(DEPS)
 endif
 
-.PHONY: clean all
+.PHONY: clean all test

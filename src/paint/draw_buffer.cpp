@@ -3,6 +3,18 @@
 #include "paint/draw_buffer.h"
 #include "core/color.h"
 
+namespace
+{
+int clamp_to_bound(int value, int max_size)
+{
+	if (max_size <= 0)
+	{
+		return value;
+	}
+	return std::clamp(value, 0, max_size - 1);
+}
+}
+
 DrawBuffer::DrawBuffer()
 {
 	clear();
@@ -24,11 +36,17 @@ void DrawBuffer::reset()
 	m_active = false;
 }
 
+void DrawBuffer::set_bounds(int width, int height)
+{
+	m_max_width = std::max(0, width);
+	m_max_height = std::max(0, height);
+}
+
 void DrawBuffer::begin(int x, int y)
 {
 	reset();
-	m_x = x;
-	m_y = y;
+	m_x = clamp_to_bound(x, m_max_width);
+	m_y = clamp_to_bound(y, m_max_height);
 	m_width = 1;
 	m_height = 1;
 	m_data.resize(1, PaintCore::TRANSPARENT_INDEX);
@@ -37,6 +55,12 @@ void DrawBuffer::begin(int x, int y)
 
 void DrawBuffer::ensure_fit(int px, int py)
 {
+	// The pointer may be outside the canvas, but the buffer must not grow
+	// beyond it. Tools keep the true shape coordinates and rely on
+	// set_pixel() to drop the pixels that fall outside this clipped area.
+	px = clamp_to_bound(px, m_max_width);
+	py = clamp_to_bound(py, m_max_height);
+
 	if (!m_active)
 	{
 		begin(px, py);
@@ -103,8 +127,8 @@ void DrawBuffer::blend_onto(ImageBuffer &target)
 
 	int start_x = std::max(0, -m_x);
 	int start_y = std::max(0, -m_y);
-	int end_x = std::min(m_width, target.width - m_x);
-	int end_y = std::min(m_height, target.height - m_y);
+	int end_x = std::min(m_width, target.width() - m_x);
+	int end_y = std::min(m_height, target.height() - m_y);
 
 	for(int y = start_y; y < end_y; ++y)
 	{

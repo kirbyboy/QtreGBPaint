@@ -35,6 +35,8 @@ public:
 
     const std::vector<ToolButton>& buttons() const { return m_buttons; }
 
+    IGuiBackend* backend() const { return m_backend; }
+
     //ToolBase* activeTool() const { return m_activeTool; }
     const std::string& activeButton() const { return m_activeButton; }
     ToolBase* selectButton(const std::string& name);

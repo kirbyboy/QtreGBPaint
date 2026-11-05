@@ -21,6 +21,8 @@ class SDLRendererBackend : public IGuiBackend
 		
 		void* createTexture(int width, int height) override;
 		void updateTexture(void* textureId, const PaintCore::Color* pixels, int width, int height) override;
+		void updateTextureRegion(void* textureId, const PaintCore::Color* pixels,
+		                         int x, int y, int width, int height) override;
 		void destroyTexture(void* textureId) override;
 
 	private:

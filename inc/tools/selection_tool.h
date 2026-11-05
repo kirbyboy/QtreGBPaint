@@ -11,8 +11,6 @@ class SelectionTool : public ToolBase
 		bool m_selecting = false;
 
 	public:
-		std::string_view get_name() const override { return "Selection"; }
-
 		void on_mouse_press(Canvas& canvas, const PaintCore::Vec2& pos, int button) override;
 		void on_mouse_move(Canvas& canvas, const PaintCore::Vec2& pos) override;
 		void on_mouse_release(Canvas& canvas, const PaintCore::Vec2& pos, int button) override;

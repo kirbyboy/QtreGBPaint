@@ -72,6 +72,12 @@ void SDLRendererBackend::shutdown()
 
 	if(m_renderer)
 	{
+		for (auto& entry : m_textures)
+		{
+			SDL_DestroyTexture(entry.second);
+		}
+		m_textures.clear();
+
 		SDL_DestroyRenderer(m_renderer);
 		m_renderer = nullptr;
 	}
@@ -90,12 +96,19 @@ void *SDLRendererBackend::createTexture(int width, int height)
 	{
 		return nullptr;
 	}
+	SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
 	void* id = reinterpret_cast<void*>(texture);
 	m_textures[id] = texture;
 	return id;
 }
 
 void SDLRendererBackend::updateTexture(void *textureId, const PaintCore::Color *pixels, int width, int height)
+{
+	updateTextureRegion(textureId, pixels, 0, 0, width, height);
+}
+
+void SDLRendererBackend::updateTextureRegion(void *textureId, const PaintCore::Color *pixels,
+                                             int x, int y, int width, int height)
 {
 	if(!pixels || width <= 0 || height <= 0)
 	{
@@ -109,9 +122,10 @@ void SDLRendererBackend::updateTexture(void *textureId, const PaintCore::Color *
 	}
 
 	SDL_Texture* texture = it->second;
+	SDL_Rect region{x, y, width, height};
 	void* dst;
 	int pitch;
-	if(SDL_LockTexture(texture, NULL, &dst, &pitch) != 0)
+	if(SDL_LockTexture(texture, &region, &dst, &pitch) != 0)
 	{
 		return;
 	}
@@ -120,16 +134,16 @@ void SDLRendererBackend::updateTexture(void *textureId, const PaintCore::Color *
 	// We write channel by channel instead of memcpy so the pitch and the
 	// endianness never matter.
 	uint8_t* bytes = static_cast<uint8_t*>(dst);
-	for(int y = 0; y < height; ++y)
+	for(int row = 0; row < height; ++row)
 	{
-		uint8_t* row = bytes + static_cast<size_t>(y) * static_cast<size_t>(pitch);
-		for(int x = 0; x < width; ++x)
+		uint8_t* row_ptr = bytes + static_cast<size_t>(row) * static_cast<size_t>(pitch);
+		for(int col = 0; col < width; ++col)
 		{
-			const PaintCore::Color& color = pixels[static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)];
-			row[x * 4 + 0] = color.r;
-			row[x * 4 + 1] = color.g;
-			row[x * 4 + 2] = color.b;
-			row[x * 4 + 3] = color.a;
+			const PaintCore::Color& color = pixels[static_cast<size_t>(row) * static_cast<size_t>(width) + static_cast<size_t>(col)];
+			row_ptr[col * 4 + 0] = color.r;
+			row_ptr[col * 4 + 1] = color.g;
+			row_ptr[col * 4 + 2] = color.b;
+			row_ptr[col * 4 + 3] = color.a;
 		}
 	}
 

@@ -12,7 +12,6 @@ class PaintFrontend
 		PaintFrontend(PaintBackend& backend);
 		void select_tool(const std::string& name);
 		void render(); // Main render method
-		void update();
 
 	private:
 		void renderMenuBar();

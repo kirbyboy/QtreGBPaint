@@ -1,10 +1,24 @@
 #include "paint/palette.h"
 
+#include <stdexcept>
+
 using namespace PaintCore;
 
+namespace
+{
+size_t checked_bits_per_pixel(size_t bitsPerPixel)
+{
+	if (bitsPerPixel < 1 || bitsPerPixel > 8)
+	{
+		throw std::invalid_argument("Bits per pixel must be in the range 1..8");
+	}
+	return bitsPerPixel;
+}
+}
+
 Palette::Palette(size_t bitsPerPixel)
-	: m_bpp(bitsPerPixel == 0 ? 1 : bitsPerPixel),
-	  m_colors(1 << (bitsPerPixel == 0 ? 1 : bitsPerPixel), PaintCore::Color{})
+	: m_bpp(checked_bits_per_pixel(bitsPerPixel)),
+	  m_colors(std::size_t{1} << m_bpp, PaintCore::Color{})
 {
 }
 

@@ -13,6 +13,7 @@ void DrawTool::on_mouse_press(Canvas &canvas, const PaintCore::Vec2 &pos, int bu
 	m_drawing = true;
 	m_start_pos = pos;
 	m_current_pos = pos;
+	m_preview_buffer.set_bounds(canvas.getWidth(), canvas.getHeight());
 	m_preview_buffer.begin(pos.x, pos.y);
 	m_preview_buffer.clear();
 }
@@ -28,7 +29,7 @@ void DrawTool::on_mouse_move(Canvas &canvas, const PaintCore::Vec2 &pos)
 
 	m_current_pos = pos;
 
-	draw_preview(m_preview_buffer);
+	update_preview(canvas);
 }
 
 void DrawTool::on_mouse_release(Canvas &canvas, const PaintCore::Vec2 &pos, int button)
@@ -43,10 +44,9 @@ void DrawTool::on_mouse_release(Canvas &canvas, const PaintCore::Vec2 &pos, int 
 	m_current_pos = pos;
 	m_drawing = false;
 
-	draw_preview(m_preview_buffer);
+	update_preview(canvas);
 
-	m_preview_buffer.blend_onto(canvas.get_main_buffer());	
-	m_preview_buffer.reset();
+	canvas.commit_draw_buffer(m_preview_buffer);
 }
 
 void DrawTool::on_cancel(Canvas &canvas)
@@ -62,22 +62,15 @@ void DrawTool::on_cancel(Canvas &canvas)
 	m_preview_buffer.reset();
 }
 
-bool DrawTool::has_preview() const
+void DrawTool::update_preview(Canvas& canvas)
 {
-	return true;
+	m_preview_buffer.set_bounds(canvas.getWidth(), canvas.getHeight());
+	draw_preview(m_preview_buffer);
 }
 
 DrawBuffer* DrawTool::get_draw_buffer()
 {
 	return &m_preview_buffer;
-}
-
-void DrawTool::get_normalized_rect(int &x, int &y, int &w, int &h) const
-{
-	x = std::min(m_start_pos.x, m_current_pos.x);
-	y = std::min(m_start_pos.y, m_current_pos.y);
-	w = std::abs(m_current_pos.x - m_start_pos.x);
-	h = std::abs(m_current_pos.y - m_start_pos.y);
 }
 
 PaintCore::Vec2 DrawTool::get_start_pos()

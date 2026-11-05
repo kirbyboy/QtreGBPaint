@@ -1,61 +1,58 @@
 #include "paint/canvas.h"
 #include "tools/draw_tool.h"
-#include "core/util.h"
 #include "paint/canvas_renderer.h"
+#include "paint/draw_buffer.h"
 #include <algorithm>
+#include <cmath>
 
 using namespace PaintCore;
 using namespace std;
 
-Canvas::Canvas(int w, int h): 
-m_image_buffer(w, h, 2)
+Canvas::Canvas(int w, int h, HistoryLimits history_limits):
+m_image_buffer(w, h, 2),
+m_history(history_limits)
 {
 	m_image_buffer.fill(0);
 }
 
 int Canvas::getWidth() const
 {
-	return m_image_buffer.width;
+	return m_image_buffer.width();
 }
 
 int Canvas::getHeight() const
 {
-	return m_image_buffer.height;
+	return m_image_buffer.height();
 }
 
-void Canvas::render(ICanvasRenderer& renderer, const Viewport& view, const Palette& palette)
+void Canvas::render(ICanvasRenderer& renderer, const ViewTransform& view, const Palette& palette)
 {
 	render_image_buffer(renderer, view, palette);
-    render_draw_buffer(renderer, view, palette);
+	render_preview(renderer, palette);
 }
 
-void Canvas::render_image_buffer(ICanvasRenderer &renderer, const Viewport &view, const Palette &palette)
+void Canvas::render_image_buffer(ICanvasRenderer &renderer, const ViewTransform &view, const Palette &palette)
 {
-	int startX = static_cast<int>(view.scroll_x);
-	int startY = static_cast<int>(view.scroll_y);
+	const Rect visible = view.visible_image_rect(m_image_buffer.width(), m_image_buffer.height());
 
-	int visibleW = (view.zoom > 0.0f) ? static_cast<int>(view.canvas_width_px / view.zoom) : 0;
-	int visibleH = (view.zoom > 0.0f) ? static_cast<int>(view.canvas_height_px / view.zoom) : 0;
-
-	int endX = min(m_image_buffer.width, startX + visibleW);
-    int endY = min(m_image_buffer.height, startY + visibleH);
-
-	for (int y = startY; y < endY; ++y)
+	for (int y = visible.y; y < visible.bottom(); ++y)
 	{
-		for (int x = startX; x < endX; ++x)
+		for (int x = visible.x; x < visible.right(); ++x)
 		{
-			ColorIndex c = m_image_buffer.data[y * m_image_buffer.width + x];
+			ColorIndex c = m_image_buffer.data()[
+				static_cast<std::size_t>(y) * static_cast<std::size_t>(m_image_buffer.width()) +
+				static_cast<std::size_t>(x)];
 			if(c == PaintCore::TRANSPARENT_INDEX)	// It should never enter here...
 			{
 				continue;
 			}
-			// Coordenadas de IMAGEN; el renderer aplica zoom/canvas_pos
-            renderer.draw_rect_filled(x, y, 1, 1, palette.getColor(c));
+			// Coordenadas de IMAGEN; el renderer aplica la transformación
+			renderer.draw_rect_filled(x, y, 1, 1, palette.getColor(c));
 		}
 	}
 }
 
-void Canvas::render_draw_buffer(ICanvasRenderer &renderer, const Viewport &view, const Palette &palette)
+void Canvas::render_preview(ICanvasRenderer &renderer, const Palette &palette)
 {
 	if(!m_active_tool)
 	{
@@ -114,6 +111,90 @@ void Canvas::handle_mouse_release(const Vec2 &pos, int button)
 	{
 		m_active_tool->on_mouse_release(*this, pos, button);
 	}
+}
+
+void Canvas::commit_draw_buffer(DrawBuffer& buffer)
+{
+	if (!buffer.is_active())
+	{
+		buffer.reset();
+		return;
+	}
+
+	const int x0 = std::max(0, buffer.x());
+	const int y0 = std::max(0, buffer.y());
+	const int x1 = std::min(m_image_buffer.width(), buffer.x() + buffer.width());
+	const int y1 = std::min(m_image_buffer.height(), buffer.y() + buffer.height());
+
+	if (x0 >= x1 || y0 >= y1)
+	{
+		buffer.reset();
+		return;
+	}
+
+	const PaintCore::Rect rect{x0, y0, x1 - x0, y1 - y0};
+	std::vector<PaintCore::ColorIndex> before = m_image_buffer.read_region(rect);
+
+	buffer.blend_onto(m_image_buffer);
+	buffer.reset();
+
+	std::vector<PaintCore::ColorIndex> after = m_image_buffer.read_region(rect);
+	if (before == after)
+	{
+		return;
+	}
+
+	UndoStep step;
+	step.patches.push_back(PixelPatch{rect, std::move(before), std::move(after)});
+	m_history.push(std::move(step));
+}
+
+bool Canvas::can_undo() const
+{
+	return m_history.can_undo();
+}
+
+bool Canvas::can_redo() const
+{
+	return m_history.can_redo();
+}
+
+bool Canvas::undo()
+{
+	// Un trazo a medias todavía no está en el historial: deshacerlo
+	// equivale a cancelarlo.
+	if (m_active_tool && m_active_tool->is_drawing())
+	{
+		m_active_tool->on_cancel(*this);
+		return true;
+	}
+
+	return m_history.undo(m_image_buffer);
+}
+
+bool Canvas::redo()
+{
+	if (m_active_tool && m_active_tool->is_drawing())
+	{
+		return false;
+	}
+
+	return m_history.redo(m_image_buffer);
+}
+
+void Canvas::clear_history()
+{
+	m_history.clear();
+}
+
+void Canvas::set_history_limits(HistoryLimits limits)
+{
+	m_history.set_limits(limits);
+}
+
+HistoryLimits Canvas::history_limits() const
+{
+	return m_history.limits();
 }
 
 void Canvas::set_tool(ToolBase* tool)

@@ -15,14 +15,13 @@ class DrawTool : public ToolBase
 		void on_mouse_release(Canvas& canvas, const PaintCore::Vec2& pos, int button) override;
 		void on_cancel(Canvas& canvas) override;
 
-		bool has_preview() const override;
 		DrawBuffer* get_draw_buffer() override;
-		void get_normalized_rect(int &x, int &y, int &w, int &h) const;
 		PaintCore::Vec2 get_start_pos();
 		bool is_drawing() const override;
 
 	protected:
 		virtual void draw_preview(DrawBuffer& buffer) = 0;
+		void update_preview(Canvas& canvas);
 
 		DrawBuffer m_preview_buffer;
 		bool m_drawing = false;

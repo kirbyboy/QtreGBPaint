@@ -9,7 +9,6 @@ class SquareTool : public DrawTool
 {
 	public:
 		SquareTool(PaintCore::ColorIndex fg, PaintCore::ColorIndex bg);
-		std::string_view get_name() const override;
 
 	protected:
 		void draw_preview(DrawBuffer& buffer) override;

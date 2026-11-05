@@ -9,7 +9,7 @@ using namespace std;
 
 PaintFrontend::PaintFrontend(PaintBackend& backend) :
 m_backend(backend),
-m_canvas_area(CanvasArea()),
+m_canvas_area(backend.backend()),
 m_palette(Palette::dmg())
 {}
 
@@ -64,6 +64,8 @@ void PaintFrontend::render()
 
 void PaintFrontend::renderMenuBar()
 {
+	Canvas& canvas = m_canvas_area.canvas();
+
 	if (ImGui::BeginMenuBar())
 	{
 		if (ImGui::BeginMenu("File"))
@@ -76,12 +78,29 @@ void PaintFrontend::renderMenuBar()
 
 		if (ImGui::BeginMenu("Edit"))
 		{
-			ImGui::MenuItem("Undo", "Ctrl+Z");
-			ImGui::MenuItem("Redo", "Ctrl+Y");
+			if (ImGui::MenuItem("Undo", "Ctrl+Z", false, canvas.can_undo()))
+			{
+				canvas.undo();
+			}
+			if (ImGui::MenuItem("Redo", "Ctrl+Y", false, canvas.can_redo()))
+			{
+				canvas.redo();
+			}
 			ImGui::EndMenu();
 		}
 
 		ImGui::EndMenuBar();
+	}
+
+	// Atajos globales. Shortcut respeta el foco y los widgets de texto,
+	// y no consume la tecla si no hay historial disponible.
+	if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal) && canvas.can_undo())
+	{
+		canvas.undo();
+	}
+	if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Y, ImGuiInputFlags_RouteGlobal) && canvas.can_redo())
+	{
+		canvas.redo();
 	}
 }
 
@@ -163,7 +182,7 @@ void PaintFrontend::renderPalette()
 	ImGui::EndGroup();
 
 	// Zoom slider
-	ImGui::SliderInt("Zoom", &m_zoom, 1, 8);	
+	ImGui::SliderInt("Zoom", &m_zoom, 1, 64);
 }
 
 void PaintFrontend::renderCanvas()
@@ -173,16 +192,13 @@ void PaintFrontend::renderCanvas()
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
 	ImVec2 content_size(m_canvas_area.canvas().getWidth() * m_zoom, m_canvas_area.canvas().getHeight() * m_zoom);
 
-	// Manejo de input
+	// Una sola transformación por frame, compartida por input y render.
 	ImGui::InvisibleButton("canvas_area", content_size);
 	ImVec2 scroll(ImGui::GetScrollX(), ImGui::GetScrollY());
-	bool isActive = ImGui::IsItemActive();
+	m_canvas_area.update_view(canvasPos, canvasSize, scroll, static_cast<float>(m_zoom));
 
-	ImVec2 mousePos = ImGui::GetMousePos();
-	m_canvas_area.handle_input(canvasPos, canvasSize, m_zoom);
-
-	// Render del buffer
-	m_canvas_area.render(drawList, canvasPos, canvasSize, scroll, m_zoom, m_palette);
+	m_canvas_area.handle_input(ImGui::GetMousePos());
+	m_canvas_area.render(drawList, m_palette);
 
 	// Aquí se puede dibujar la rejilla encima usando drawList
 	// drawGrid(drawList, canvasPos, canvas.getWidth(), canvas.getHeight(), zoom);

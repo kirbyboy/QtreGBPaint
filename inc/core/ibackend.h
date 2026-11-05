@@ -22,6 +22,8 @@ class IGuiBackend
 		
 		virtual void* createTexture(int width, int height) = 0;
 		virtual void updateTexture(void* texture_id, const PaintCore::Color* pixels, int width, int height) = 0;
+		virtual void updateTextureRegion(void* texture_id, const PaintCore::Color* pixels,
+		                                 int x, int y, int width, int height) = 0;
 		virtual void destroyTexture(void* textureId) = 0;
 };
 

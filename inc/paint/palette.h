@@ -9,6 +9,8 @@
 class Palette
 {
 	public:
+		// `bitsPerPixel` debe estar en 1..8: el tamaño de paleta es 2^bpp y
+		// los índices de ImageBuffer son de 8 bits.
 		Palette(size_t bitsPerPixel);
 		void setColor(PaintCore::ColorIndex index, PaintCore::Color color);
 		PaintCore::Color getColor(PaintCore::ColorIndex index) const;

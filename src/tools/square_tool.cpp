@@ -6,11 +6,6 @@ m_background(bg)
 {}
 
 
-std::string_view SquareTool::get_name() const
-{
-	return "Square";
-}
-
 void SquareTool::draw_preview(DrawBuffer &buffer)
 {
 	buffer.ensure_fit(m_current_pos.x, m_current_pos.y);

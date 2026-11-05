@@ -1,7 +1,9 @@
 #include "paint/canvas.h"
 #include "paint/canvas_area.h"
 #include "paint/color_imgui.h"
+#include "core/ibackend.h"
 #include <cmath>
+#include <cstring>
 
 using namespace PaintCore;
 using namespace std;
@@ -10,18 +12,17 @@ using namespace std;
 
 void ImGuiCanvasRenderer::draw_rect_filled(int x, int y, int w, int h, const PaintCore::Color& color)
 {
-    if(!draw_list)
+	if(!draw_list)
 	{
 		return;
 	}
 
-    // canvas_pos ya incluye el scroll, por eso NO se resta view.scroll_x/y
-    float px = canvas_pos.x + x * view.zoom;
-    float py = canvas_pos.y + y * view.zoom;
-    float pw = w * view.zoom;
-    float ph = h * view.zoom;
+	const PaintCore::Vec2f p0 = view.image_to_screen(
+		PaintCore::Vec2f{static_cast<float>(x), static_cast<float>(y)});
+	const PaintCore::Vec2f p1 = view.image_to_screen(
+		PaintCore::Vec2f{static_cast<float>(x + w), static_cast<float>(y + h)});
 
-    draw_list->AddRectFilled(ImVec2(px, py), ImVec2(px + pw, py + ph), toImU32(color));
+	draw_list->AddRectFilled(ImVec2(p0.x, p0.y), ImVec2(p1.x, p1.y), toImU32(color));
 }
 
 void ImGuiCanvasRenderer::draw_rect(int x, int y, int w, int h, const PaintCore::Color& color, int thickness)
@@ -38,48 +39,144 @@ void ImGuiCanvasRenderer::draw_line(int x0, int y0, int x1, int y1, const PaintC
 
 // CanvasArea
 
-CanvasArea::CanvasArea(int w, int h) : m_canvas(w, h)
+CanvasArea::CanvasArea(IGuiBackend* backend, int w, int h) : m_backend(backend), m_canvas(w, h)
 {
 }
 
-void CanvasArea::render(ImDrawList* draw_list, 
-	const ImVec2& canvas_pos, 
-	const ImVec2& size, 
-	const ImVec2& scroll_px,
-	float zoom, 
-	const Palette& palette)
+CanvasArea::~CanvasArea()
 {
+	if (m_backend && m_canvas_texture)
+	{
+		m_backend->destroyTexture(m_canvas_texture);
+		m_canvas_texture = nullptr;
+	}
+}
 
-	// 1) Estado de vista (si el frontend lo actualiza, usa esos valores)
-	//    Si el scroll viene de la ventana ImGui, puedes leerlo aquí:
-	// Actualizar viewport visual cada frame (no hay problema al redimensionar/mover)
-    m_viewport.pos       = canvas_pos;
-    m_viewport.size      = size;
-    m_viewport.scroll_px = scroll_px;
-    m_viewport.zoom      = zoom;
+void CanvasArea::update_view(const ImVec2& canvas_pos,
+							 const ImVec2& size,
+							 const ImVec2& scroll_px,
+							 float zoom)
+{
+	m_view = PaintCore::ViewTransform::make(
+		PaintCore::Vec2f{canvas_pos.x, canvas_pos.y},
+		PaintCore::Vec2f{scroll_px.x, scroll_px.y},
+		PaintCore::Vec2f{size.x, size.y},
+		zoom);
+}
 
-	// 2) Convertir scroll de píxeles a coordenadas de imagen
-    // Crear Viewport de dominio (scroll en imagen)
-    PaintCore::Viewport view(
-        (m_viewport.zoom > 0) ? (m_viewport.scroll_px.x / m_viewport.zoom) : 0.0f,
-        (m_viewport.zoom > 0) ? (m_viewport.scroll_px.y / m_viewport.zoom) : 0.0f,
-        m_viewport.zoom,
-        static_cast<int>(m_viewport.size.x),
-        static_cast<int>(m_viewport.size.y)
-    );
-
-	// 3) Renderer que traduce primitivas -> ImDrawList
+void CanvasArea::render(ImDrawList* draw_list, const Palette& palette)
+{
 	ImGuiCanvasRenderer renderer;
 	renderer.draw_list = draw_list;
-	renderer.canvas_pos = canvas_pos;
-	renderer.view = view;
+	renderer.view = m_view;
 
-	// 4) El canvas pinta (imagen base + preview)
-	m_canvas.render(renderer, view, palette);
+	// Base image as one texture; preview stays as primitives for now.
+	update_canvas_texture(palette);
 
-	// 5) Actualizar hover/active si lo necesitas
-	// m_hovered = ImGui::IsItemHovered();
-	// m_active  = ImGui::IsItemActive();
+	if (draw_list && m_canvas_texture)
+	{
+		const int image_w = m_canvas.getWidth();
+		const int image_h = m_canvas.getHeight();
+		const PaintCore::Vec2f p0 = m_view.image_to_screen(PaintCore::Vec2f{0.0f, 0.0f});
+		const PaintCore::Vec2f p1 = m_view.image_to_screen(
+			PaintCore::Vec2f{static_cast<float>(image_w), static_cast<float>(image_h)});
+		draw_list->AddImage(reinterpret_cast<ImTextureID>(m_canvas_texture),
+							ImVec2(p0.x, p0.y), ImVec2(p1.x, p1.y));
+		m_canvas.render_preview(renderer, palette);
+	}
+	else
+	{
+		// Fallback if the backend cannot create a texture.
+		m_canvas.render(renderer, m_view, palette);
+	}
+}
+
+void CanvasArea::update_canvas_texture(const Palette& palette)
+{
+	if (!m_backend)
+	{
+		return;
+	}
+
+	ImageBuffer& image = m_canvas.get_main_buffer();
+	if (image.width() <= 0 || image.height() <= 0)
+	{
+		return;
+	}
+
+	if (!m_canvas_texture || m_texture_width != image.width() || m_texture_height != image.height())
+	{
+		if (m_canvas_texture)
+		{
+			m_backend->destroyTexture(m_canvas_texture);
+			m_canvas_texture = nullptr;
+		}
+
+		m_canvas_texture = m_backend->createTexture(image.width(), image.height());
+		m_texture_width = image.width();
+		m_texture_height = image.height();
+
+		if (m_canvas_texture)
+		{
+			image.mark_all_dirty();
+		}
+	}
+
+	if (!m_canvas_texture)
+	{
+		return;
+	}
+
+	// Palette -> RGBA lookup table. Rebuild/upload only if it changed.
+	std::array<PaintCore::Color, 256> lut{};
+	for (int i = 0; i < 256; ++i)
+	{
+		lut[i] = palette.getColor(static_cast<PaintCore::ColorIndex>(i));
+	}
+
+	if (!m_lut_ready || std::memcmp(m_lut.data(), lut.data(), sizeof(m_lut)) != 0)
+	{
+		m_lut = lut;
+		m_lut_ready = true;
+		image.mark_all_dirty();
+	}
+
+	if (!image.has_dirty_rect())
+	{
+		return;
+	}
+
+	const PaintCore::Rect dirty = image.dirty_rect();
+	const int x0 = std::max(0, dirty.x);
+	const int y0 = std::max(0, dirty.y);
+	const int x1 = std::min(image.width(), dirty.right());
+	const int y1 = std::min(image.height(), dirty.bottom());
+
+	if (x0 >= x1 || y0 >= y1)
+	{
+		image.clear_dirty_rect();
+		return;
+	}
+
+	const int w = x1 - x0;
+	const int h = y1 - y0;
+	m_upload_pixels.resize(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
+
+	for (int y = 0; y < h; ++y)
+	{
+		const PaintCore::ColorIndex* src = image.data().data() +
+			static_cast<std::size_t>(y0 + y) * static_cast<std::size_t>(image.width()) +
+			static_cast<std::size_t>(x0);
+		PaintCore::Color* dst = m_upload_pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
+
+		for (int x = 0; x < w; ++x)
+		{
+			dst[x] = m_lut[src[x]];
+		}
+	}
+
+	m_backend->updateTextureRegion(m_canvas_texture, m_upload_pixels.data(), x0, y0, w, h);
+	image.clear_dirty_rect();
 }
 
 Canvas& CanvasArea::canvas()
@@ -92,46 +189,16 @@ const Canvas& CanvasArea::canvas() const
 	return m_canvas;
 }
 
-PaintCore::Vec2 CanvasArea::screen_to_image(const ImVec2& mouse) const
+void CanvasArea::handle_input(const ImVec2& mouse)
 {
-    PaintCore::Vec2 img;
-    if (m_viewport.zoom <= 0.0f) return img;
+    // Misma transformación que usa el render en este frame. Intencionalmente
+    // sin clamp: las herramientas reciben coordenadas reales aunque el puntero
+    // salga del canvas, para que las figuras puedan extenderse fuera del borde
+    // (comportamiento tipo Paint). DrawBuffer recorta la preview.
+    const PaintCore::Vec2 img_pos = m_view.screen_to_image_pixel(
+        PaintCore::Vec2f{mouse.x, mouse.y});
 
-    // canvas_pos (pos) ya incluye el scroll (GetCursorScreenPos), por eso NO se suma scroll_px
-    img.x = static_cast<int>(floor((mouse.x - m_viewport.pos.x) / m_viewport.zoom));
-    img.y = static_cast<int>(floor((mouse.y - m_viewport.pos.y) / m_viewport.zoom));
-
-    // (Opcional) clamp a los límites del buffer
-    // img.x = std::clamp(img.x, 0, m_canvas.getWidth() - 1);
-    // img.y = std::clamp(img.y, 0, m_canvas.getHeight() - 1);
-
-    return img;
-}
-
-ImVec2 CanvasArea::image_to_screen(int ix, int iy) const
-{
-    if (m_viewport.zoom <= 0.0f) return m_viewport.pos;
-
-    // canvas_pos (pos) ya incluye el scroll, por eso NO se resta scroll_img
-    ImVec2 screen;
-    screen.x = m_viewport.pos.x + ix * m_viewport.zoom;
-    screen.y = m_viewport.pos.y + iy * m_viewport.zoom;
-    return screen;
-}
-
-void CanvasArea::handle_input(const ImVec2& canvas_pos, const ImVec2& size, float zoom)
-{
-    // 1) Actualizar viewport visual (igual que en render), con zoom del frame actual
-    m_viewport.pos       = canvas_pos;
-    m_viewport.size      = size;
-    m_viewport.zoom      = zoom;
-    m_viewport.scroll_px = ImVec2(ImGui::GetScrollX(), ImGui::GetScrollY());
-
-    // 2) Traducir ratón a coordenadas de imagen (con zoom actualizado)
-    ImVec2 mouse = ImGui::GetMousePos();
-    PaintCore::Vec2 img_pos = screen_to_image(mouse);
-
-    // 4) Delegar a Canvas según estado del botón
+    // Delegar a Canvas según estado del botón
     bool mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
     bool mouse_released = ImGui::IsMouseReleased(ImGuiMouseButton_Left);
 

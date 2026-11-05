@@ -1,7 +1,6 @@
 #ifndef QTREGBPAINT_BASE_TOOL_H
 #define QTREGBPAINT_BASE_TOOL_H
 
-#include <string_view>
 #include "core/vec2.h"
 
 
@@ -19,11 +18,8 @@ class ToolBase
 
 		virtual void on_cancel(Canvas& canvas) = 0;
 
-		virtual bool has_preview() const { return false; }
 		virtual DrawBuffer* get_draw_buffer() { return nullptr; }
 		virtual bool is_drawing() const { return false; }
-
-		virtual std::string_view get_name() const = 0;
 };
 
 #endif
