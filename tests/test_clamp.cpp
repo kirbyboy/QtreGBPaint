@@ -35,6 +35,7 @@ TEST_CASE("DrawBuffer and Canvas clamp")
 	{
 		Canvas canvas(256, 256);
 		SquareTool tool(1, 2);
+		tool.set_option("mode", static_cast<int>(SquareTool::Mode::Both));
 		canvas.set_tool(&tool);
 		canvas.handle_mouse_press({100, 100}, 1);
 		canvas.handle_mouse_move({-50, 200});
@@ -55,6 +56,7 @@ TEST_CASE("DrawBuffer and Canvas clamp")
 	{
 		Canvas canvas(256, 256);
 		SquareTool tool(1, 2);
+		tool.set_option("mode", static_cast<int>(SquareTool::Mode::Both));
 		canvas.set_tool(&tool);
 		canvas.handle_mouse_press({100, 100}, 1);
 		canvas.handle_mouse_move({1000, 1000});
@@ -68,4 +70,25 @@ TEST_CASE("DrawBuffer and Canvas clamp")
 		CHECK(img.get_pixel(150, 255) == 2); // interior, no fake bottom border
 		CHECK(img.get_pixel(255, 255) == 2); // interior corner
 	}
+}
+
+TEST_CASE("SquareTool uses the colors selected from the palette")
+{
+	Canvas canvas(8, 8);
+	SquareTool tool(1, 2);
+	tool.set_option("mode", static_cast<int>(SquareTool::Mode::Both));
+	canvas.set_tool(&tool);
+
+	ToolBase* base = &tool;
+	base->set_colors(3, 2);
+
+	canvas.handle_mouse_press({1, 1}, 1);
+	canvas.handle_mouse_move({4, 4});
+	canvas.handle_mouse_release({4, 4}, 1);
+
+	const ImageBuffer& img = canvas.get_main_buffer();
+	CHECK(img.get_pixel(1, 1) == 3); // foreground border
+	CHECK(img.get_pixel(4, 4) == 3); // foreground border
+	CHECK(img.get_pixel(2, 2) == 2); // background interior
+	CHECK(img.get_pixel(0, 0) == 0); // untouched canvas
 }

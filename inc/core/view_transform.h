@@ -6,14 +6,14 @@
 
 namespace PaintCore
 {
-// Transformación única entre coordenadas de imagen y de pantalla para un
-// frame. `origin` es la posición en pantalla del píxel de imagen (0,0);
-// `scroll_px` y `viewport_size` describen la ventana visible.
+// Single transformation between image and screen coordinates for one frame.
+// `origin` is the screen position of image pixel (0,0); `scroll_px` and
+// `viewport_size` describe the visible window.
 struct ViewTransform
 {
-	Vec2f origin{};         // imagen (0,0) en píxeles de pantalla
-	Vec2f scroll_px{};      // scroll crudo de ImGui, en píxeles de pantalla
-	Vec2f viewport_size{};  // tamaño visible, en píxeles de pantalla
+	Vec2f origin{};         // image (0,0) in screen pixels
+	Vec2f scroll_px{};      // raw ImGui scroll, in screen pixels
+	Vec2f viewport_size{};  // visible size, in screen pixels
 	float zoom = 1.0f;
 
 	static ViewTransform make(const Vec2f& canvas_pos,
@@ -25,7 +25,7 @@ struct ViewTransform
 	Vec2f screen_to_image(const Vec2f& screen) const;
 	Vec2 screen_to_image_pixel(const Vec2f& screen) const;
 
-	// Parte del canvas que hay que recorrer para cubrir la ventana visible.
+	// Part of the canvas that must be traversed to cover the visible window.
 	Rect visible_image_rect(int image_width, int image_height) const;
 };
 }

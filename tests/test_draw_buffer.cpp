@@ -1,6 +1,6 @@
-// Tests headless de DrawBuffer::blend_onto: recorte en los bordes del destino,
-// origen negativo y píxeles transparentes.
-// Ejecutar con `make -C tests` o `make test` desde la raíz.
+// Headless tests for DrawBuffer::blend_onto: clipping at target edges,
+// negative origin and transparent pixels.
+// Run with `make -C tests` or `make test` from the repository root.
 
 #include "doctest/doctest.h"
 
@@ -25,10 +25,10 @@ TEST_CASE("DrawBuffer blends with a negative origin")
 	CHECK_EQ(buffer.width(), 4);
 	CHECK_EQ(buffer.height(), 3);
 
-	buffer.set_pixel(0, 0, 1); // destino (-2,-1): fuera
-	buffer.set_pixel(1, 0, 2); // destino (-1,-1): fuera
-	buffer.set_pixel(2, 1, 3); // destino (0,0)
-	buffer.set_pixel(3, 2, 1); // destino (1,1)
+	buffer.set_pixel(0, 0, 1); // target (-2,-1): outside
+	buffer.set_pixel(1, 0, 2); // target (-1,-1): outside
+	buffer.set_pixel(2, 1, 3); // target (0,0)
+	buffer.set_pixel(3, 2, 1); // target (1,1)
 
 	buffer.blend_onto(target);
 
@@ -55,10 +55,10 @@ TEST_CASE("DrawBuffer blends with overflow at the target edges")
 	CHECK_EQ(buffer.width(), 4);
 	CHECK_EQ(buffer.height(), 4);
 
-	buffer.set_pixel(0, 0, 1); // destino (2,2): dentro
-	buffer.set_pixel(1, 1, 2); // destino (3,3): fuera
-	buffer.set_pixel(2, 2, 3); // destino (4,4): fuera
-	buffer.set_pixel(3, 3, 1); // destino (5,5): fuera
+	buffer.set_pixel(0, 0, 1); // target (2,2): inside
+	buffer.set_pixel(1, 1, 2); // target (3,3): outside
+	buffer.set_pixel(2, 2, 3); // target (4,4): outside
+	buffer.set_pixel(3, 3, 1); // target (5,5): outside
 
 	buffer.blend_onto(target);
 
@@ -88,7 +88,7 @@ TEST_CASE("DrawBuffer skips transparent pixels and clears after blending")
 	CHECK_EQ(target.get_pixel(0, 0), 0);
 	CHECK_EQ(target.get_pixel(1, 1), 2);
 
-	// blend_onto() limpia el buffer: un segundo blend no vuelve a pintar.
+	// blend_onto() clears the buffer: a second blend does not paint again.
 	buffer.blend_onto(target);
 	CHECK_EQ(buffer.data()[0], PaintCore::TRANSPARENT_INDEX);
 	CHECK_EQ(buffer.data()[3], PaintCore::TRANSPARENT_INDEX);

@@ -21,13 +21,13 @@ public:
     void set_tool(ToolBase* tool);
     ToolBase* active_tool() const;
 
-    // Input ya traducido a coordenadas de imagen
+    // Input already translated to image coordinates.
     void handle_mouse_press(const PaintCore::Vec2& pos, int button);
     void handle_mouse_move(const PaintCore::Vec2& pos);
     void handle_mouse_release(const PaintCore::Vec2& pos, int button);
 
-    // Confirma el buffer de preview y, si cambia píxeles, lo apila en el
-    // historial. Las herramientas no gestionan undo directamente.
+    // Confirms the preview buffer and, if it changes pixels, pushes it onto
+    // the history. Tools do not manage undo directly.
     void commit_draw_buffer(DrawBuffer& buffer);
 
     bool can_undo() const;
@@ -35,6 +35,8 @@ public:
     bool undo();
     bool redo();
     void clear_history();
+
+    bool resize(int new_width, int new_height, PaintCore::ColorIndex fill);
 
     void set_history_limits(HistoryLimits limits);
     HistoryLimits history_limits() const;
@@ -45,7 +47,7 @@ public:
     const ImageBuffer& get_main_buffer() const;
     ImageBuffer& get_main_buffer();
 
-    // Render desacoplado: la vista pasa la transformación + renderer + paleta
+    // Decoupled render: the view passes the transformation, renderer and palette.
     void render(ICanvasRenderer& renderer, const PaintCore::ViewTransform& view, const Palette& palette);
     // Preview layer only (draw buffer); used when the base image is a texture.
     void render_preview(ICanvasRenderer& renderer, const Palette& palette);

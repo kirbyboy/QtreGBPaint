@@ -15,8 +15,8 @@ ViewTransform ViewTransform::make(const Vec2f& canvas_pos,
 	transform.viewport_size = viewport_size;
 	transform.zoom = (zoom > 0.0f) ? zoom : 1.0f;
 
-	// Alinear el origen a píxeles enteros y conservar solo la parte
-	// fraccionaria del scroll, que es la que ImGui no redondea.
+	// Align the origin to whole pixels and keep only the fractional part of
+	// the scroll, which is what ImGui does not round.
 	const float snapped_x = std::floor(scroll_px.x / transform.zoom) * transform.zoom;
 	const float snapped_y = std::floor(scroll_px.y / transform.zoom) * transform.zoom;
 

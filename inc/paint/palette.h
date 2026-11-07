@@ -9,15 +9,15 @@
 class Palette
 {
 	public:
-		// `bitsPerPixel` debe estar en 1..8: el tamaño de paleta es 2^bpp y
-		// los índices de ImageBuffer son de 8 bits.
+		// `bitsPerPixel` must be in 1..8: the palette size is 2^bpp and
+		// ImageBuffer indices are 8-bit.
 		Palette(size_t bitsPerPixel);
 		void setColor(PaintCore::ColorIndex index, PaintCore::Color color);
 		PaintCore::Color getColor(PaintCore::ColorIndex index) const;
-		size_t size() const;            // número de colores (1 << bpp)
+		size_t size() const;            // number of colors (1 << bpp)
 		size_t bitsPerPixel() const;
 
-		static Palette dmg();                    // 2bpp, los 4 tonos de Game Boy
+		static Palette dmg();                    // 2bpp, the four Game Boy shades
 		static Palette grayscale(size_t bits);		
 
 	private:

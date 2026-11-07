@@ -1,7 +1,7 @@
 #include <SDL.h>
+#include <cstdio>
 #include <memory>
-#include <unistd.h>
-#include <limits.h>
+#include <string>
 
 #include "core/ibackend.h"
 #include "core/imgui_manager.h"
@@ -19,75 +19,80 @@ int main()
 	SDLRendererBackend backend;
 	backend.init();
 
-	const Palette grayPalette = Palette::grayscale(3);
-
-	// Ruta robusta a los assets (relativa al ejecutable, no al cwd)
-	char exeBuf[PATH_MAX];
+	// Robust asset path (relative to the executable, not the cwd).
 	std::string assetBase = "assets";
-	ssize_t len = readlink("/proc/self/exe", exeBuf, sizeof(exeBuf) - 1);
-	if (len != -1)
+	if (char* basePath = SDL_GetBasePath())
 	{
-		exeBuf[len] = '\0';
-		std::string exeDir = exeBuf;
-		auto pos = exeDir.find_last_of("/\\");
-		if (pos != std::string::npos) exeDir = exeDir.substr(0, pos);
-		assetBase = exeDir + "/../assets";
+		assetBase = std::string(basePath) + "../assets";
+		SDL_free(basePath);
 	}
 
 	PaintBackend resources(&backend);
+	const Palette& grayPalette = resources.iconPalette();
 	resources.addButton("Rect", std::make_shared<SquareTool>(1, 2),
-	                    assetBase + "/rect_normal.ppm",
-	                    assetBase + "/rect_hover.ppm",
-	                    assetBase + "/rect_pressed.ppm", grayPalette);
+	                    PaintCore::CursorType::Rect,
+	                    assetBase + "/rect_normal.idx",
+	                    assetBase + "/rect_hover.idx",
+	                    assetBase + "/rect_pressed.idx", grayPalette);
 
 	resources.addButton("Pencil", nullptr,
-	                    assetBase + "/pencil_normal.ppm",
-	                    assetBase + "/pencil_hover.ppm",
-	                    assetBase + "/pencil_pressed.ppm", grayPalette);
+	                    PaintCore::CursorType::Pencil,
+	                    assetBase + "/pencil_normal.idx",
+	                    assetBase + "/pencil_hover.idx",
+	                    assetBase + "/pencil_pressed.idx", grayPalette);
 
 	resources.addButton("Fill", nullptr,
-	                    assetBase + "/fill_normal.ppm",
-	                    assetBase + "/fill_hover.ppm",
-	                    assetBase + "/fill_pressed.ppm", grayPalette);
+	                    PaintCore::CursorType::Fill,
+	                    assetBase + "/fill_normal.idx",
+	                    assetBase + "/fill_hover.idx",
+	                    assetBase + "/fill_pressed.idx", grayPalette);
 
 	resources.addButton("Circle", nullptr,
-	                    assetBase + "/circle_normal.ppm",
-	                    assetBase + "/circle_hover.ppm",
-	                    assetBase + "/circle_pressed.ppm", grayPalette);
+	                    PaintCore::CursorType::Circle,
+	                    assetBase + "/circle_normal.idx",
+	                    assetBase + "/circle_hover.idx",
+	                    assetBase + "/circle_pressed.idx", grayPalette);
 
-	resources.addButton("Missing", nullptr,
-	                    assetBase + "/no_normal.ppm",
-	                    assetBase + "/no_hover.ppm",
-	                    assetBase + "/no_pressed.ppm", grayPalette);
+	const auto load_cursor = [&](const char* name, const std::string& path)
+	{
+		std::string error;
+		if (!resources.loadCursor(name, path, error))
+		{
+			std::fprintf(stderr, "Cursor for %s: %s (system fallback)\n",
+			             name, error.c_str());
+		}
+	};
 
-	resources.addButton("HoverOnly", nullptr,
-	                    assetBase + "/no_normal2.ppm",
-	                    assetBase + "/rect_hover.ppm",
-	                    assetBase + "/no_pressed2.ppm", grayPalette);
+	load_cursor("Rect", assetBase + "/cursors/rect.ipx");
+	load_cursor("Pencil", assetBase + "/cursors/pencil.ipx");
+	load_cursor("Fill", assetBase + "/cursors/fill.ipx");
+	load_cursor("Circle", assetBase + "/cursors/circle.ipx");
+
+	const auto load_option_icon = [&](const char* key, int y)
+	{
+		if (!resources.loadOptionIcon(key, assetBase + "/rect_options.idx",
+		                              0, y, 60, 16))
+		{
+			std::fprintf(stderr, "Option icon %s could not be loaded\n", key);
+		}
+	};
+
+	load_option_icon("rect.outline", 0);
+	load_option_icon("rect.fill", 16);
+	load_option_icon("rect.both", 32);
 
 	PaintFrontend main_window(resources);
 
 	bool running = true;
 
-	uint32_t FPS = 1000 / 60;    
-
 	while (running)
 	{
-		// Procesar eventos SDL (y reenviarlos a ImGui)
+		// Process SDL events (and forward them to ImGui).
 		backend.poll_events(running);
 
 		imgui_manager.begin_frame(backend);
 		main_window.render();
 		backend.render_imgui(imgui_manager.end_frame());
-
-		auto start = SDL_GetTicks();
-		while (1)
-		{
-			auto now = SDL_GetTicks();
-			if (now - start > FPS)
-				break;
-		}
-
 	}
 
 	backend.shutdown();
@@ -104,7 +109,7 @@ struct OverlayRegion {
     ImageBuffer buffer;
     int offsetX, offsetY;
 };
-c) Funciones de composición
+c) Composition functions
 void blitWithClipping(ImageBuffer& dst, const OverlayRegion& src);
 void resizeOverlay(OverlayRegion& overlay, const Rect& newBounds);
 

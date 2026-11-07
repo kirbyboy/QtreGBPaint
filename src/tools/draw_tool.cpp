@@ -1,5 +1,17 @@
 #include "tools/draw_tool.h"
 
+DrawTool::DrawTool(PaintCore::ColorIndex foreground, PaintCore::ColorIndex background) :
+m_foreground(foreground),
+m_background(background)
+{
+}
+
+void DrawTool::set_colors(PaintCore::ColorIndex foreground, PaintCore::ColorIndex background)
+{
+	m_foreground = foreground;
+	m_background = background;
+}
+
 void DrawTool::on_mouse_press(Canvas &canvas, const PaintCore::Vec2 &pos, int button)
 {
 	(void)canvas;

@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "core/color.h"
+#include "core/cursor.h"
 
 struct ImDrawData;
 
@@ -18,6 +19,10 @@ class IGuiBackend
 		virtual void begin_imgui_frame() = 0;
 		virtual void render_imgui(ImDrawData* drawData) = 0;
 
+		virtual void set_minimum_window_size(int width, int height) = 0;
+		virtual void set_cursor(PaintCore::CursorType cursor) = 0;
+		virtual bool set_cursor_image(PaintCore::CursorType cursor,
+		                              const PaintCore::CursorImage& image) = 0;
 		virtual void poll_events(bool& running) = 0;
 		
 		virtual void* createTexture(int width, int height) = 0;

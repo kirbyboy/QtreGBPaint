@@ -11,9 +11,9 @@
 class ImageBuffer
 {
 	public:
-		// `bpp` es el tamaño de paleta del formato (1..8 bits). El almacenamiento
-		// sigue siendo un byte por píxel; el bpp solo describe cuántos índices
-		// tienen sentido para la imagen.
+		// `bpp` is the format's palette size (1..8 bits). Storage is still one
+		// byte per pixel; bpp only describes how many indices are meaningful
+		// for the image.
 		ImageBuffer(int w = 0, int h = 0, int bpp = 8);
 
 		int width() const { return m_width; }
@@ -26,11 +26,11 @@ class ImageBuffer
 
 		void fill(PaintCore::ColorIndex value);
 		ImageBuffer sub_buffer(int startX, int startY, int w, int h) const;
-		void resize(int newW, int newH);
+		void resize(int newW, int newH, PaintCore::ColorIndex fill = 0);
 		void copy_from(const ImageBuffer& src, int dstX, int dstY);
 
-		// Copia una región contigua (fila a fila). El rect debe estar dentro
-		// del buffer; los rects fuera de rango se rechazan.
+		// Copies a contiguous region (row by row). The rect must be inside the
+		// buffer; out-of-range rects are rejected.
 		std::vector<PaintCore::ColorIndex> read_region(const PaintCore::Rect& rect) const;
 		void write_region(const PaintCore::Rect& rect, const PaintCore::ColorIndex* src);
 

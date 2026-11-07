@@ -1,5 +1,5 @@
-// Tests headless del modelo ImageBuffer/Palette: acceso, validación de bpp
-// y preservación de metadatos. Ejecutar con `make -C tests` o `make test` desde la raíz.
+// Headless tests for the ImageBuffer/Palette model: access, bpp validation
+// and metadata preservation. Run with `make -C tests` or `make test` from the repository root.
 
 #include "doctest/doctest.h"
 

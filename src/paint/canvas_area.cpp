@@ -5,8 +5,31 @@
 #include <cmath>
 #include <cstring>
 
+#include "imgui_internal.h"
+
 using namespace PaintCore;
 using namespace std;
+
+namespace
+{
+struct ContentClip
+{
+	ImVec2 min{};
+	ImVec2 max{};
+};
+
+ContentClip current_content_clip()
+{
+	ImGuiWindow* window = ImGui::GetCurrentWindow();
+	const ImGuiStyle& style = ImGui::GetStyle();
+	ContentClip clip;
+	clip.min = ImVec2(window->InnerRect.Min.x + style.WindowPadding.x,
+	                  window->InnerRect.Min.y + style.WindowPadding.y);
+	clip.max = ImVec2(window->InnerRect.Max.x - style.WindowPadding.x,
+	                  window->InnerRect.Max.y - style.WindowPadding.y);
+	return clip;
+}
+}
 
 // ImGuiCanvasRenderer
 
@@ -39,7 +62,7 @@ void ImGuiCanvasRenderer::draw_line(int x0, int y0, int x1, int y1, const PaintC
 
 // CanvasArea
 
-CanvasArea::CanvasArea(IGuiBackend* backend, int w, int h) : m_backend(backend), m_canvas(w, h)
+CanvasArea::CanvasArea(IGuiBackend* backend, int w, int h) : m_backend(backend), m_canvas(w, h), m_grid(backend)
 {
 }
 
@@ -66,6 +89,11 @@ void CanvasArea::update_view(const ImVec2& canvas_pos,
 
 void CanvasArea::render(ImDrawList* draw_list, const Palette& palette)
 {
+	if (!draw_list)
+	{
+		return;
+	}
+
 	ImGuiCanvasRenderer renderer;
 	renderer.draw_list = draw_list;
 	renderer.view = m_view;
@@ -73,7 +101,12 @@ void CanvasArea::render(ImDrawList* draw_list, const Palette& palette)
 	// Base image as one texture; preview stays as primitives for now.
 	update_canvas_texture(palette);
 
-	if (draw_list && m_canvas_texture)
+	// Keep the image, grid and handles inside the visible content area, not in
+	// the child padding or under the scrollbars.
+	const ContentClip clip = current_content_clip();
+	draw_list->PushClipRect(clip.min, clip.max, true);
+
+	if (m_canvas_texture)
 	{
 		const int image_w = m_canvas.getWidth();
 		const int image_h = m_canvas.getHeight();
@@ -89,6 +122,12 @@ void CanvasArea::render(ImDrawList* draw_list, const Palette& palette)
 		// Fallback if the backend cannot create a texture.
 		m_canvas.render(renderer, m_view, palette);
 	}
+
+	m_grid.render(draw_list, m_view, m_canvas.getWidth(), m_canvas.getHeight(),
+	              m_grid_enabled);
+	m_resize_gizmo.draw(draw_list, m_view, m_canvas);
+
+	draw_list->PopClipRect();
 }
 
 void CanvasArea::update_canvas_texture(const Palette& palette)
@@ -191,18 +230,33 @@ const Canvas& CanvasArea::canvas() const
 
 void CanvasArea::handle_input(const ImVec2& mouse)
 {
-    // Misma transformación que usa el render en este frame. Intencionalmente
-    // sin clamp: las herramientas reciben coordenadas reales aunque el puntero
-    // salga del canvas, para que las figuras puedan extenderse fuera del borde
-    // (comportamiento tipo Paint). DrawBuffer recorta la preview.
+    // Same transformation used by rendering in this frame. Intentionally
+    // unclamped: tools receive real coordinates even when the pointer leaves
+    // the canvas, so shapes can extend beyond the border (Paint-like behavior).
+    // DrawBuffer clips the preview.
     const PaintCore::Vec2 img_pos = m_view.screen_to_image_pixel(
         PaintCore::Vec2f{mouse.x, mouse.y});
 
-    // Delegar a Canvas según estado del botón
-    bool mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
-    bool mouse_released = ImGui::IsMouseReleased(ImGuiMouseButton_Left);
+    const bool mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+    const bool mouse_released = ImGui::IsMouseReleased(ImGuiMouseButton_Left);
+    const bool pressed = mouse_down && !m_mouse_was_down;
+    const bool item_hovered = ImGui::IsItemHovered();
+    const ContentClip clip = current_content_clip();
 
-    if (mouse_down && !m_mouse_was_down && ImGui::IsItemHovered())
+    // Resize handles take priority over the active tool.
+    if (m_resize_gizmo.handle_input(m_canvas, m_backend, m_view, mouse,
+                                    pressed, mouse_released, item_hovered,
+                                    m_resize_fill, clip.min, clip.max))
+    {
+        m_mouse_was_down = mouse_down;
+        return;
+    }
+
+    const bool inside_image =
+        img_pos.x >= 0 && img_pos.y >= 0 &&
+        img_pos.x < m_canvas.getWidth() && img_pos.y < m_canvas.getHeight();
+
+    if (mouse_down && !m_mouse_was_down && item_hovered && inside_image)
     {
         m_canvas.handle_mouse_press(img_pos, 1);
         m_mouse_was_down = true;

@@ -11,6 +11,30 @@ void apply_patch(ImageBuffer& image, const PixelPatch& patch, bool use_after)
 	const std::vector<PaintCore::ColorIndex>& pixels = use_after ? patch.after : patch.before;
 	image.write_region(patch.rect, pixels.data());
 }
+
+bool snapshot_valid(const CanvasSnapshot& snapshot)
+{
+	if (snapshot.width <= 0 || snapshot.height <= 0 ||
+	    snapshot.bits_per_pixel < 1 || snapshot.bits_per_pixel > 8)
+	{
+		return false;
+	}
+	const std::size_t expected =
+		static_cast<std::size_t>(snapshot.width) * static_cast<std::size_t>(snapshot.height);
+	return snapshot.pixels.size() == expected;
+}
+
+void restore_snapshot(ImageBuffer& image, const CanvasSnapshot& snapshot)
+{
+	image = ImageBuffer(snapshot.width, snapshot.height, snapshot.bits_per_pixel);
+	if (!snapshot.pixels.empty())
+	{
+		image.write_region(
+			PaintCore::Rect{0, 0, snapshot.width, snapshot.height},
+			snapshot.pixels.data());
+	}
+	image.mark_all_dirty();
+}
 }
 
 std::size_t UndoStep::bytes() const
@@ -19,6 +43,14 @@ std::size_t UndoStep::bytes() const
 	for (const PixelPatch& patch : patches)
 	{
 		total += (patch.before.size() + patch.after.size()) * sizeof(PaintCore::ColorIndex);
+	}
+	if (before_canvas)
+	{
+		total += before_canvas->bytes();
+	}
+	if (after_canvas)
+	{
+		total += after_canvas->bytes();
 	}
 	return total;
 }
@@ -31,7 +63,7 @@ void UndoHistory::set_limits(HistoryLimits limits)
 {
 	m_limits = limits;
 
-	// Un límite a cero desactiva el historial.
+	// A zero limit disables the history.
 	if (m_limits.max_steps == 0 || m_limits.max_bytes == 0)
 	{
 		clear();
@@ -43,20 +75,39 @@ void UndoHistory::set_limits(HistoryLimits limits)
 
 void UndoHistory::push(UndoStep step)
 {
-	if (step.patches.empty())
+	const bool has_before_canvas = step.before_canvas.has_value();
+	const bool has_after_canvas = step.after_canvas.has_value();
+	if (has_before_canvas != has_after_canvas)
 	{
 		return;
 	}
 
-	// Rechazar parches mal formados antes de que puedan corromper la imagen.
-	for (const PixelPatch& patch : step.patches)
+	if (has_before_canvas)
 	{
-		const std::size_t expected =
-			static_cast<std::size_t>(patch.rect.w) * static_cast<std::size_t>(patch.rect.h);
-		if (patch.rect.empty() || patch.rect.x < 0 || patch.rect.y < 0 ||
-			patch.before.size() != expected || patch.after.size() != expected)
+		if (!step.patches.empty() ||
+		    !snapshot_valid(*step.before_canvas) ||
+		    !snapshot_valid(*step.after_canvas))
 		{
 			return;
+		}
+	}
+	else
+	{
+		if (step.patches.empty())
+		{
+			return;
+		}
+
+		// Reject malformed patches before they can corrupt the image.
+		for (const PixelPatch& patch : step.patches)
+		{
+			const std::size_t expected =
+				static_cast<std::size_t>(patch.rect.w) * static_cast<std::size_t>(patch.rect.h);
+			if (patch.rect.empty() || patch.rect.x < 0 || patch.rect.y < 0 ||
+				patch.before.size() != expected || patch.after.size() != expected)
+			{
+				return;
+			}
 		}
 	}
 
@@ -66,7 +117,7 @@ void UndoHistory::push(UndoStep step)
 		return;
 	}
 
-	// Cualquier edición nueva invalida la rama de redo.
+	// Any new edit invalidates the redo branch.
 	clear_redo();
 
 	m_bytes += step.bytes();
@@ -84,11 +135,18 @@ bool UndoHistory::undo(ImageBuffer& image)
 	UndoStep step = std::move(m_undo.back());
 	m_undo.pop_back();
 
-	// Si los parches se solapan, restaurar en orden inverso deja la imagen
-	// en el estado anterior correcto.
-	for (auto it = step.patches.rbegin(); it != step.patches.rend(); ++it)
+	if (step.before_canvas)
 	{
-		apply_patch(image, *it, false);
+		restore_snapshot(image, *step.before_canvas);
+	}
+	else
+	{
+		// If patches overlap, restoring in reverse order leaves the image in
+		// the correct previous state.
+		for (auto it = step.patches.rbegin(); it != step.patches.rend(); ++it)
+		{
+			apply_patch(image, *it, false);
+		}
 	}
 
 	m_redo.push_back(std::move(step));
@@ -105,9 +163,16 @@ bool UndoHistory::redo(ImageBuffer& image)
 	UndoStep step = std::move(m_redo.back());
 	m_redo.pop_back();
 
-	for (const PixelPatch& patch : step.patches)
+	if (step.after_canvas)
 	{
-		apply_patch(image, patch, true);
+		restore_snapshot(image, *step.after_canvas);
+	}
+	else
+	{
+		for (const PixelPatch& patch : step.patches)
+		{
+			apply_patch(image, patch, true);
+		}
 	}
 
 	m_undo.push_back(std::move(step));
@@ -151,8 +216,8 @@ void UndoHistory::evict_oldest()
 
 void UndoHistory::trim()
 {
-	// El paso más reciente se conserva aunque él solo supere el presupuesto;
-	// así la última acción siempre se puede deshacer (límite blando).
+	// The most recent step is kept even if it alone exceeds the budget, so the
+	// last action can always be undone (soft limit).
 	while (over_budget() && step_count() > 1)
 	{
 		evict_oldest();

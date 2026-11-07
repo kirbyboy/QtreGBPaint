@@ -14,10 +14,11 @@ CXXFLAGS += -I$(ROOTDIR)/inc -I$(ROOTDIR)/lib
 PROJECT_SRCS := \
 	$(ROOTDIR)/src/core/view_transform.cpp \
 	$(ROOTDIR)/src/paint/canvas.cpp \
+	$(ROOTDIR)/src/paint/cursor_asset.cpp \
 	$(ROOTDIR)/src/paint/draw_buffer.cpp \
 	$(ROOTDIR)/src/paint/image_buffer.cpp \
+	$(ROOTDIR)/src/paint/indexed_image.cpp \
 	$(ROOTDIR)/src/paint/palette.cpp \
-	$(ROOTDIR)/src/paint/ppm_image.cpp \
 	$(ROOTDIR)/src/paint/undo_history.cpp \
 	$(ROOTDIR)/src/tools/draw_tool.cpp \
 	$(ROOTDIR)/src/tools/square_tool.cpp
@@ -34,10 +35,15 @@ TEST_BINS := \
 	$(BUILDDIR)/test_undo \
 	$(BUILDDIR)/test_clamp \
 	$(BUILDDIR)/test_view_transform \
-	$(BUILDDIR)/test_ppm_image
+	$(BUILDDIR)/test_indexed_image \
+	$(BUILDDIR)/test_cursor_asset \
+	$(BUILDDIR)/test_tool_options \
+	$(BUILDDIR)/test_canvas_resize
 
 IMAGE_OBJS := $(OBJDIR)/src/paint/image_buffer.o
 PALETTE_OBJS := $(IMAGE_OBJS) $(OBJDIR)/src/paint/palette.o
+CURSOR_OBJS := $(OBJDIR)/src/paint/cursor_asset.o \
+	$(OBJDIR)/src/paint/indexed_image.o
 CANVAS_OBJS := $(PALETTE_OBJS) \
 	$(OBJDIR)/src/core/view_transform.o \
 	$(OBJDIR)/src/paint/canvas.o \
@@ -86,8 +92,20 @@ $(BUILDDIR)/test_view_transform: $(OBJDIR)/tests/test_view_transform.o \
 		$(OBJDIR)/src/core/view_transform.o $(DOCTEST_OBJ)
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(BUILDDIR)/test_ppm_image: $(OBJDIR)/tests/test_ppm_image.o \
-		$(OBJDIR)/src/paint/ppm_image.o $(DOCTEST_OBJ)
+$(BUILDDIR)/test_indexed_image: $(OBJDIR)/tests/test_indexed_image.o \
+		$(OBJDIR)/src/paint/indexed_image.o $(DOCTEST_OBJ)
+	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+$(BUILDDIR)/test_cursor_asset: $(OBJDIR)/tests/test_cursor_asset.o \
+		$(CURSOR_OBJS) $(DOCTEST_OBJ)
+	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+$(BUILDDIR)/test_tool_options: $(OBJDIR)/tests/test_tool_options.o \
+		$(CANVAS_OBJS) $(OBJDIR)/src/tools/square_tool.o $(DOCTEST_OBJ)
+	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+$(BUILDDIR)/test_canvas_resize: $(OBJDIR)/tests/test_canvas_resize.o \
+		$(CANVAS_OBJS) $(DOCTEST_OBJ)
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 clean:

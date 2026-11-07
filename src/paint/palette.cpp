@@ -65,7 +65,7 @@ Palette Palette::dmg()
 Palette Palette::grayscale(size_t bitsPerPixel)
 {
 	Palette palette(bitsPerPixel);
-	const size_t levels = palette.size();          // siempre >= 2
+	const size_t levels = palette.size();          // always >= 2
 	
 	for (size_t i = 0; i < levels; ++i)
 	{

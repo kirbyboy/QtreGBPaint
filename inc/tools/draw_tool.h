@@ -10,10 +10,16 @@ class DrawTool : public ToolBase
 {
 
 	public:
+		DrawTool(PaintCore::ColorIndex foreground = 1,
+		         PaintCore::ColorIndex background = 0);
+
 		void on_mouse_press(Canvas& canvas, const PaintCore::Vec2& pos, int button) override;
 		void on_mouse_move(Canvas& canvas, const PaintCore::Vec2& pos) override;
 		void on_mouse_release(Canvas& canvas, const PaintCore::Vec2& pos, int button) override;
 		void on_cancel(Canvas& canvas) override;
+
+		void set_colors(PaintCore::ColorIndex foreground,
+		                PaintCore::ColorIndex background) override;
 
 		DrawBuffer* get_draw_buffer() override;
 		PaintCore::Vec2 get_start_pos();
@@ -23,6 +29,8 @@ class DrawTool : public ToolBase
 		virtual void draw_preview(DrawBuffer& buffer) = 0;
 		void update_preview(Canvas& canvas);
 
+		PaintCore::ColorIndex m_foreground;
+		PaintCore::ColorIndex m_background;
 		DrawBuffer m_preview_buffer;
 		bool m_drawing = false;
 		PaintCore::Vec2 m_start_pos{};

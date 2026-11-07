@@ -8,13 +8,16 @@
 class SquareTool : public DrawTool
 {
 	public:
-		SquareTool(PaintCore::ColorIndex fg, PaintCore::ColorIndex bg);
+		enum class Mode : int
+		{
+			Outline = 0,
+			Fill = 1,
+			Both = 2,
+		};
+
+		SquareTool(PaintCore::ColorIndex fg = 1, PaintCore::ColorIndex bg = 0);
 
 	protected:
 		void draw_preview(DrawBuffer& buffer) override;
-
-	private:
-		PaintCore::ColorIndex m_foreground;
-		PaintCore::ColorIndex m_background;
 };
 #endif

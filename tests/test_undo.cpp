@@ -1,5 +1,5 @@
-// Tests headless de UndoHistory, ImageBuffer y Canvas.
-// Ejecutar con `make -C tests` o `make test` desde la raíz.
+// Headless tests for UndoHistory, ImageBuffer and Canvas.
+// Run with `make -C tests` or `make test` from the repository root.
 
 #include "doctest/doctest.h"
 
@@ -155,7 +155,7 @@ TEST_CASE("test_overlapping_patch_order")
 	image.fill(0);
 
 	UndoStep step;
-	// Mismo píxel: el segundo parche es el estado final.
+	// Same pixel: the second patch is the final state.
 	step.patches.push_back(PixelPatch{Rect{0, 0, 1, 1}, {0}, {10}});
 	step.patches.push_back(PixelPatch{Rect{0, 0, 1, 1}, {1}, {20}});
 
@@ -236,14 +236,14 @@ TEST_CASE("test_byte_limit")
 	CHECK(!history.undo(image));
 	CHECK_EQ(image.get_pixel(0, 0), 1);
 
-	// Un paso que por sí solo supera el presupuesto se conserva (límite blando).
+	// A step that alone exceeds the budget is kept (soft limit).
 	UndoHistory small(HistoryLimits{1, 100});
 	small.push(single_pixel_step(0, 0, 1, 2));
 	CHECK_EQ(small.step_count(), 1u);
 	CHECK_EQ(small.bytes(), 2u);
 	CHECK(small.can_undo());
 
-	// Cero pasos o cero bytes desactivan el historial.
+	// Zero steps or zero bytes disable the history.
 	UndoHistory no_steps(HistoryLimits{1024, 0});
 	no_steps.push(single_pixel_step(0, 0, 0, 1));
 	CHECK(!no_steps.can_undo());
@@ -306,7 +306,7 @@ TEST_CASE("test_invalid_pushes")
 	history.push(std::move(bad_size));
 	CHECK(!history.can_undo());
 
-	// Un push inválido no debe destruir la rama de redo existente.
+	// An invalid push must not destroy the existing redo branch.
 	history.push(single_pixel_step(0, 0, 0, 1));
 	history.push(single_pixel_step(0, 0, 1, 2));
 	ImageBuffer image(1, 1, 2);
@@ -355,7 +355,7 @@ TEST_CASE("test_canvas_commit_and_undo")
 
 TEST_CASE("test_canvas_noop_and_clipping")
 {
-	// Buffer activo con solo píxeles transparentes: no debe crear historial.
+	// Active buffer with only transparent pixels: must not create history.
 	{
 		Canvas canvas(4, 4);
 		DrawBuffer buffer;
@@ -366,7 +366,7 @@ TEST_CASE("test_canvas_noop_and_clipping")
 		CHECK(!buffer.is_active());
 	}
 
-	// Buffer inactivo: no debe crear historial.
+	// Inactive buffer: must not create history.
 	{
 		Canvas canvas(4, 4);
 		DrawBuffer buffer;
@@ -374,7 +374,7 @@ TEST_CASE("test_canvas_noop_and_clipping")
 		CHECK(!canvas.can_undo());
 	}
 
-	// Buffer parcialmente fuera: el parche se recorta al canvas.
+	// Buffer partially outside: the patch is clipped to the canvas.
 	{
 		Canvas canvas(4, 4);
 		DrawBuffer buffer;
@@ -395,7 +395,7 @@ TEST_CASE("test_canvas_noop_and_clipping")
 		CHECK(!canvas.can_undo());
 	}
 
-	// Buffer totalmente fuera: se descarta sin tocar el historial.
+	// Buffer fully outside: discarded without touching the history.
 	{
 		Canvas canvas(2, 2);
 		DrawBuffer buffer;
@@ -426,19 +426,19 @@ TEST_CASE("test_canvas_drawing_guards")
 	FakeTool tool;
 	canvas.set_tool(&tool);
 
-	// Undo durante un trazo en curso lo cancela y no toca el historial.
+	// Undo during an in-progress stroke cancels it and does not touch the history.
 	tool.drawing = true;
 	CHECK(canvas.undo());
 	CHECK(!tool.drawing);
 	CHECK_EQ(tool.cancels, 1);
 	CHECK(!canvas.can_undo());
 
-	// Preparar un redo disponible.
+	// Prepare an available redo.
 	paint_pixel(canvas, 1, 1, 5);
 	CHECK(canvas.undo());
 	CHECK(canvas.can_redo());
 
-	// Mientras se dibuja, redo se rechaza.
+	// While drawing, redo is rejected.
 	tool.drawing = true;
 	CHECK(!canvas.redo());
 	CHECK(canvas.can_redo());
@@ -460,7 +460,7 @@ TEST_CASE("test_canvas_rebranch_and_limits")
 	CHECK_EQ(canvas.get_main_buffer().get_pixel(1, 0), 0);
 	CHECK(canvas.can_redo());
 
-	// Una edición nueva descarta la rama de redo.
+	// A new edit discards the redo branch.
 	paint_pixel(canvas, 2, 0, 3);
 	CHECK(!canvas.can_redo());
 
@@ -469,7 +469,7 @@ TEST_CASE("test_canvas_rebranch_and_limits")
 	CHECK(!canvas.can_undo());
 	CHECK_EQ(canvas.get_main_buffer().get_pixel(0, 0), 0);
 
-	// set_history_limits recorta de inmediato y Canvas lo reenvía.
+	// set_history_limits trims immediately and Canvas forwards it.
 	Canvas limited(8, 8);
 	for (int x = 0; x < 4; ++x)
 	{

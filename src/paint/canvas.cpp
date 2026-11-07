@@ -4,9 +4,23 @@
 #include "paint/draw_buffer.h"
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 using namespace PaintCore;
 using namespace std;
+
+namespace
+{
+CanvasSnapshot make_canvas_snapshot(const ImageBuffer& image)
+{
+	CanvasSnapshot snapshot;
+	snapshot.width = image.width();
+	snapshot.height = image.height();
+	snapshot.bits_per_pixel = image.bitsPerPixel();
+	snapshot.pixels = image.data();
+	return snapshot;
+}
+}
 
 Canvas::Canvas(int w, int h, HistoryLimits history_limits):
 m_image_buffer(w, h, 2),
@@ -46,7 +60,7 @@ void Canvas::render_image_buffer(ICanvasRenderer &renderer, const ViewTransform 
 			{
 				continue;
 			}
-			// Coordenadas de IMAGEN; el renderer aplica la transformación
+			// IMAGE coordinates; the renderer applies the transformation.
 			renderer.draw_rect_filled(x, y, 1, 1, palette.getColor(c));
 		}
 	}
@@ -83,7 +97,7 @@ void Canvas::render_preview(ICanvasRenderer &renderer, const Palette &palette)
 				continue;
 			}
 
-			// Coordenadas de imagen del preview (buf origin + offset)
+			// Preview image coordinates (buffer origin + offset).
             renderer.draw_rect_filled(buf_x + x, buf_y + y, 1, 1, palette.getColor(color_index));
 		}
 	}	
@@ -161,8 +175,8 @@ bool Canvas::can_redo() const
 
 bool Canvas::undo()
 {
-	// Un trazo a medias todavía no está en el historial: deshacerlo
-	// equivale a cancelarlo.
+	// An in-progress stroke is not in the history yet: undoing it is
+	// equivalent to cancelling it.
 	if (m_active_tool && m_active_tool->is_drawing())
 	{
 		m_active_tool->on_cancel(*this);
@@ -185,6 +199,34 @@ bool Canvas::redo()
 void Canvas::clear_history()
 {
 	m_history.clear();
+}
+
+bool Canvas::resize(int new_width, int new_height, PaintCore::ColorIndex fill)
+{
+	if (new_width < 1 || new_height < 1)
+	{
+		return false;
+	}
+	if (new_width == m_image_buffer.width() &&
+	    new_height == m_image_buffer.height())
+	{
+		return false;
+	}
+
+	if (m_active_tool)
+	{
+		m_active_tool->on_cancel(*this);
+	}
+
+	CanvasSnapshot before = make_canvas_snapshot(m_image_buffer);
+	m_image_buffer.resize(new_width, new_height, fill);
+	CanvasSnapshot after = make_canvas_snapshot(m_image_buffer);
+
+	UndoStep step;
+	step.before_canvas = std::move(before);
+	step.after_canvas = std::move(after);
+	m_history.push(std::move(step));
+	return true;
 }
 
 void Canvas::set_history_limits(HistoryLimits limits)

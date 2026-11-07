@@ -13,9 +13,9 @@ void ImGuiManager::init()
 
 	ImGuiIO& io = ImGui::GetIO();
 
-	// Activar docking y otras configuraciones
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // navegación con teclado
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;      // habilitar docking
+	// Enable docking and other settings.
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // keyboard navigation
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;      // enable docking
 
 	m_initialized = true;
 }

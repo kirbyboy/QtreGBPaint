@@ -2,6 +2,7 @@
 #define QTREGBPAINT_UNDO_HISTORY_H
 
 #include <cstddef>
+#include <optional>
 #include <vector>
 
 #include "core/color.h"
@@ -15,7 +16,7 @@ struct HistoryLimits
 	std::size_t max_steps = 200;
 };
 
-// Cambios de una región rectangular: píxeles antes y después del paso.
+// Changes in a rectangular region: pixels before and after the step.
 struct PixelPatch
 {
 	PaintCore::Rect rect;
@@ -23,16 +24,34 @@ struct PixelPatch
 	std::vector<PaintCore::ColorIndex> after;
 };
 
+// Full image state, used by steps that change the canvas dimensions.
+struct CanvasSnapshot
+{
+	int width = 0;
+	int height = 0;
+	int bits_per_pixel = 0;
+	std::vector<PaintCore::ColorIndex> pixels;
+
+	std::size_t bytes() const
+	{
+		return pixels.size() * sizeof(PaintCore::ColorIndex);
+	}
+};
+
 struct UndoStep
 {
 	std::vector<PixelPatch> patches;
 
+	// Snapshot steps change the canvas dimensions; they do not use patches.
+	std::optional<CanvasSnapshot> before_canvas;
+	std::optional<CanvasSnapshot> after_canvas;
+
 	std::size_t bytes() const;
 };
 
-// Pilas undo/redo. Los pasos deshechos se mueven a la pila de redo:
-// su memoria solo se recicla cuando se descarta esa rama o se recorta
-// el historial por límite de memoria/pasos.
+// Undo/redo stacks. Undone steps move to the redo stack: their memory is
+// only reclaimed when that branch is discarded or the history is trimmed
+// by the memory/step limits.
 class UndoHistory
 {
 public:

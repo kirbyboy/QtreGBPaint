@@ -84,7 +84,7 @@ ImageBuffer ImageBuffer::sub_buffer(int startX, int startY, int w, int h) const
 	return sub;
 }
 
-void ImageBuffer::resize(int newW, int newH)
+void ImageBuffer::resize(int newW, int newH, PaintCore::ColorIndex fill)
 {
 	if (newW < 0 || newH < 0)
 	{
@@ -93,7 +93,7 @@ void ImageBuffer::resize(int newW, int newH)
 
 	const std::size_t pixel_count =
 		static_cast<std::size_t>(newW) * static_cast<std::size_t>(newH);
-	std::vector<PaintCore::ColorIndex> newData(pixel_count, 0);
+	std::vector<PaintCore::ColorIndex> newData(pixel_count, fill);
 	for (int y = 0; y < std::min(m_height, newH); ++y)
 	{
 		for (int x = 0; x < std::min(m_width, newW); ++x)
