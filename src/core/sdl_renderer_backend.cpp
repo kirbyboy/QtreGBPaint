@@ -250,7 +250,8 @@ void *SDLRendererBackend::createTexture(int width, int height)
 	{
 		return nullptr;
 	}
-	if (SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest) != 0)
+	if (SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest) != 0 ||
+	    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND) != 0)
 	{
 		SDL_DestroyTexture(texture);
 		return nullptr;
@@ -338,6 +339,7 @@ void SDLRendererBackend::create_cursors()
 	create_tool_cursor(PaintCore::CursorType::ResizeEW, SDL_SYSTEM_CURSOR_SIZEWE);
 	create_tool_cursor(PaintCore::CursorType::ResizeNS, SDL_SYSTEM_CURSOR_SIZENS);
 	create_tool_cursor(PaintCore::CursorType::ResizeNWSE, SDL_SYSTEM_CURSOR_SIZENWSE);
+	create_tool_cursor(PaintCore::CursorType::Move, SDL_SYSTEM_CURSOR_SIZEALL);
 
 	m_imgui_cursors.assign(ImGuiMouseCursor_COUNT, nullptr);
 	auto create_imgui_cursor = [this](ImGuiMouseCursor type, SDL_SystemCursor shape)

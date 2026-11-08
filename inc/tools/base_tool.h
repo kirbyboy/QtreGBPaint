@@ -7,11 +7,12 @@
 #include <vector>
 
 #include "core/color.h"
+#include "core/rect.h"
 #include "core/vec2.h"
 #include "tools/tool_option.h"
 
 
-class Canvas;
+class PaintSession;
 class DrawBuffer;
 
 class ToolBase
@@ -19,11 +20,11 @@ class ToolBase
 	public:
 		virtual ~ToolBase() = default;
 
-		virtual void on_mouse_press(Canvas& canvas, const PaintCore::Vec2& pos, int button) = 0;
-		virtual void on_mouse_move(Canvas& canvas, const PaintCore::Vec2& pos) = 0;
-		virtual void on_mouse_release(Canvas& canvas, const PaintCore::Vec2& pos, int button) = 0;
+		virtual void on_mouse_press(PaintSession& canvas, const PaintCore::Vec2& pos, int button) = 0;
+		virtual void on_mouse_move(PaintSession& canvas, const PaintCore::Vec2& pos) = 0;
+		virtual void on_mouse_release(PaintSession& canvas, const PaintCore::Vec2& pos, int button) = 0;
 
-		virtual void on_cancel(Canvas& canvas) = 0;
+		virtual void on_cancel(PaintSession& canvas) = 0;
 
 		// Tools that paint can update the palette indices they use. The
 		// default implementation ignores them (e.g. selection tools).
@@ -93,6 +94,15 @@ class ToolBase
 
 		virtual DrawBuffer* get_draw_buffer() { return nullptr; }
 		virtual bool is_drawing() const { return false; }
+
+		// Transient marquee drawn by selection-like tools while dragging.
+		// Floating content itself lives in the editor, not in the tool.
+		virtual bool has_marquee() const { return false; }
+		virtual PaintCore::Rect marquee_rect() const { return {}; }
+
+		// Tools with live canvas state (e.g. selection transparency) can
+		// update the active floating region. Called after colors/options change.
+		virtual void sync_floating_region(PaintSession& canvas) { (void)canvas; }
 
 	protected:
 		void add_option(ToolOption option)

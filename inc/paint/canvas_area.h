@@ -2,10 +2,11 @@
 #define QTREGBPAINT_CANVAS_AREA_H
 
 #include <array>
+#include <cstdint>
 #include <vector>
 
 #include <imgui.h>
-#include "paint/canvas.h"
+#include "paint/paint_session.h"
 #include "paint/canvas_renderer.h"
 #include "paint/canvas_grid.h"
 #include "paint/canvas_resize_gizmo.h"
@@ -42,8 +43,12 @@ public:
 
 	void render(ImDrawList* draw_list, const Palette& palette);
 
-	Canvas& canvas();
-	const Canvas& canvas() const;
+	PaintSession& session();
+	const PaintSession& session() const;
+
+	// Image pixel at the top-left of the visible canvas area. Used to place
+	// paste near the user's current viewport instead of always at (0,0).
+	PaintCore::Vec2 visible_image_origin() const;
 
 	void handle_input(const ImVec2& mouse);
 
@@ -58,7 +63,7 @@ public:
 
 private:
 	IGuiBackend* m_backend = nullptr;
-	Canvas m_canvas;
+	PaintSession m_session;
 	CanvasResizeGizmo m_resize_gizmo;
 	CanvasGrid m_grid;
 	PaintCore::ColorIndex m_resize_fill = 0;
@@ -70,13 +75,30 @@ private:
 	bool m_lut_ready = false;
 	std::vector<PaintCore::Color> m_upload_pixels;
 
+	void* m_floating_texture = nullptr;
+	int m_floating_texture_width = 0;
+	int m_floating_texture_height = 0;
+	std::uint64_t m_floating_texture_revision = 0;
+
 	PaintCore::ViewTransform m_view{};
 	bool m_hovered = false;
 	bool m_active = false;
 
 	bool m_mouse_was_down = false;
+	bool m_floating_dragging = false;
+	PaintCore::Vec2 m_floating_last_img{};
 
-	void update_canvas_texture(const Palette& palette);
+	bool update_palette_lut(const Palette& palette);
+	void update_canvas_texture(bool palette_changed);
+	void update_floating_texture(bool palette_changed);
+	bool handle_floating_input(const PaintCore::Vec2& img_pos,
+	                           bool pressed, bool released,
+	                           bool item_hovered);
+	void draw_floating_region(ImDrawList* draw_list,
+	                          ImGuiCanvasRenderer& renderer,
+	                          const Palette& palette);
+	void draw_marquee(ImDrawList* draw_list,
+	                  const PaintCore::Rect& rect) const;
 };
 
 #endif

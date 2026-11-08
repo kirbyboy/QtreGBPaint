@@ -1,4 +1,4 @@
-// Headless tests for UndoHistory, ImageBuffer and Canvas.
+// Headless tests for UndoHistory, ImageBuffer and PaintSession.
 // Run with `make -C tests` or `make test` from the repository root.
 
 #include "doctest/doctest.h"
@@ -10,7 +10,8 @@
 #include "core/color.h"
 #include "core/rect.h"
 #include "core/vec2.h"
-#include "paint/canvas.h"
+#include "paint/paint_session.h"
+#include "paint/canvas_document.h"
 #include "paint/draw_buffer.h"
 #include "paint/image_buffer.h"
 #include "paint/undo_history.h"
@@ -33,7 +34,7 @@ UndoStep single_pixel_step(int x, int y, ColorIndex before, ColorIndex after)
 	return step;
 }
 
-void paint_pixel(Canvas& canvas, int x, int y, ColorIndex value)
+void paint_pixel(PaintSession& canvas, int x, int y, ColorIndex value)
 {
 	DrawBuffer buffer;
 	buffer.begin(x, y);
@@ -318,7 +319,7 @@ TEST_CASE("test_invalid_pushes")
 
 TEST_CASE("test_canvas_commit_and_undo")
 {
-	Canvas canvas(8, 8);
+	PaintSession canvas(8, 8);
 	CHECK_EQ(canvas.get_main_buffer().get_pixel(2, 3), 0);
 
 	DrawBuffer buffer;
@@ -357,7 +358,7 @@ TEST_CASE("test_canvas_noop_and_clipping")
 {
 	// Active buffer with only transparent pixels: must not create history.
 	{
-		Canvas canvas(4, 4);
+		PaintSession canvas(4, 4);
 		DrawBuffer buffer;
 		buffer.begin(1, 1);
 		buffer.clear();
@@ -368,7 +369,7 @@ TEST_CASE("test_canvas_noop_and_clipping")
 
 	// Inactive buffer: must not create history.
 	{
-		Canvas canvas(4, 4);
+		PaintSession canvas(4, 4);
 		DrawBuffer buffer;
 		canvas.commit_draw_buffer(buffer);
 		CHECK(!canvas.can_undo());
@@ -376,7 +377,7 @@ TEST_CASE("test_canvas_noop_and_clipping")
 
 	// Buffer partially outside: the patch is clipped to the canvas.
 	{
-		Canvas canvas(4, 4);
+		PaintSession canvas(4, 4);
 		DrawBuffer buffer;
 		buffer.begin(3, 3);
 		buffer.ensure_fit(5, 5);
@@ -397,7 +398,7 @@ TEST_CASE("test_canvas_noop_and_clipping")
 
 	// Buffer fully outside: discarded without touching the history.
 	{
-		Canvas canvas(2, 2);
+		PaintSession canvas(2, 2);
 		DrawBuffer buffer;
 		buffer.begin(5, 5);
 		buffer.set_pixel(0, 0, 7);
@@ -410,10 +411,10 @@ TEST_CASE("test_canvas_noop_and_clipping")
 class FakeTool : public ToolBase
 {
 public:
-	void on_mouse_press(Canvas&, const PaintCore::Vec2&, int) override { drawing = true; }
-	void on_mouse_move(Canvas&, const PaintCore::Vec2&) override {}
-	void on_mouse_release(Canvas&, const PaintCore::Vec2&, int) override { drawing = false; }
-	void on_cancel(Canvas&) override { drawing = false; ++cancels; }
+	void on_mouse_press(PaintSession&, const PaintCore::Vec2&, int) override { drawing = true; }
+	void on_mouse_move(PaintSession&, const PaintCore::Vec2&) override {}
+	void on_mouse_release(PaintSession&, const PaintCore::Vec2&, int) override { drawing = false; }
+	void on_cancel(PaintSession&) override { drawing = false; ++cancels; }
 	bool is_drawing() const override { return drawing; }
 
 	bool drawing = false;
@@ -422,7 +423,7 @@ public:
 
 TEST_CASE("test_canvas_drawing_guards")
 {
-	Canvas canvas(4, 4);
+	PaintSession canvas(4, 4);
 	FakeTool tool;
 	canvas.set_tool(&tool);
 
@@ -450,7 +451,7 @@ TEST_CASE("test_canvas_drawing_guards")
 
 TEST_CASE("test_canvas_rebranch_and_limits")
 {
-	Canvas canvas(4, 4);
+	PaintSession canvas(4, 4);
 	CHECK_EQ(canvas.history_limits().max_bytes, 64u * 1024u * 1024u);
 	CHECK_EQ(canvas.history_limits().max_steps, 200u);
 
@@ -469,8 +470,8 @@ TEST_CASE("test_canvas_rebranch_and_limits")
 	CHECK(!canvas.can_undo());
 	CHECK_EQ(canvas.get_main_buffer().get_pixel(0, 0), 0);
 
-	// set_history_limits trims immediately and Canvas forwards it.
-	Canvas limited(8, 8);
+	// set_history_limits trims immediately and PaintSession forwards it.
+	PaintSession limited(8, 8);
 	for (int x = 0; x < 4; ++x)
 	{
 		paint_pixel(limited, x, 0, static_cast<ColorIndex>(x + 1));
@@ -484,5 +485,21 @@ TEST_CASE("test_canvas_rebranch_and_limits")
 	CHECK_EQ(limited.get_main_buffer().get_pixel(0, 0), 1);
 	CHECK_EQ(limited.get_main_buffer().get_pixel(1, 0), 2);
 	CHECK_EQ(limited.get_main_buffer().get_pixel(2, 0), 0);
+}
+
+TEST_CASE("CanvasDocument owns image and history without PaintSession")
+{
+	CanvasDocument document(4, 4);
+	DrawBuffer buffer;
+	buffer.begin(1, 1);
+	buffer.set_pixel(0, 0, 2);
+	document.commit_draw_buffer(buffer);
+
+	CHECK(document.can_undo());
+	CHECK_EQ(document.get_main_buffer().get_pixel(1, 1), 2);
+
+	CHECK(document.undo());
+	CHECK_EQ(document.get_main_buffer().get_pixel(1, 1), 0);
+	CHECK(document.can_redo());
 }
 } // namespace

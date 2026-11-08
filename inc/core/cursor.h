@@ -21,6 +21,7 @@ namespace PaintCore
 		ResizeEW,
 		ResizeNS,
 		ResizeNWSE,
+		Move,
 		Count,
 	};
 

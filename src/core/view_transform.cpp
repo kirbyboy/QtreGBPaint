@@ -15,13 +15,12 @@ ViewTransform ViewTransform::make(const Vec2f& canvas_pos,
 	transform.viewport_size = viewport_size;
 	transform.zoom = (zoom > 0.0f) ? zoom : 1.0f;
 
-	// Align the origin to whole pixels and keep only the fractional part of
-	// the scroll, which is what ImGui does not round.
-	const float snapped_x = std::floor(scroll_px.x / transform.zoom) * transform.zoom;
-	const float snapped_y = std::floor(scroll_px.y / transform.zoom) * transform.zoom;
-
-	transform.origin.x = std::floor(canvas_pos.x + (scroll_px.x - snapped_x) + 0.5f);
-	transform.origin.y = std::floor(canvas_pos.y + (scroll_px.y - snapped_y) + 0.5f);
+	// `canvas_pos` already includes the window scroll (it is what
+	// GetCursorScreenPos returns), so the image follows the scroll 1:1 and the
+	// top/left edge can show a partially clipped pixel. Keep only the origin
+	// aligned to whole screen pixels so zoomed pixels stay crisp.
+	transform.origin.x = std::floor(canvas_pos.x + 0.5f);
+	transform.origin.y = std::floor(canvas_pos.y + 0.5f);
 
 	return transform;
 }

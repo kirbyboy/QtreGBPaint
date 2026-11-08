@@ -12,7 +12,7 @@ void DrawTool::set_colors(PaintCore::ColorIndex foreground, PaintCore::ColorInde
 	m_background = background;
 }
 
-void DrawTool::on_mouse_press(Canvas &canvas, const PaintCore::Vec2 &pos, int button)
+void DrawTool::on_mouse_press(PaintSession &canvas, const PaintCore::Vec2 &pos, int button)
 {
 	(void)canvas;
 	(void)button;
@@ -30,7 +30,7 @@ void DrawTool::on_mouse_press(Canvas &canvas, const PaintCore::Vec2 &pos, int bu
 	m_preview_buffer.clear();
 }
 
-void DrawTool::on_mouse_move(Canvas &canvas, const PaintCore::Vec2 &pos)
+void DrawTool::on_mouse_move(PaintSession &canvas, const PaintCore::Vec2 &pos)
 {
 	(void)canvas;
 
@@ -44,7 +44,7 @@ void DrawTool::on_mouse_move(Canvas &canvas, const PaintCore::Vec2 &pos)
 	update_preview(canvas);
 }
 
-void DrawTool::on_mouse_release(Canvas &canvas, const PaintCore::Vec2 &pos, int button)
+void DrawTool::on_mouse_release(PaintSession &canvas, const PaintCore::Vec2 &pos, int button)
 {
 	(void)button;
 
@@ -61,7 +61,7 @@ void DrawTool::on_mouse_release(Canvas &canvas, const PaintCore::Vec2 &pos, int 
 	canvas.commit_draw_buffer(m_preview_buffer);
 }
 
-void DrawTool::on_cancel(Canvas &canvas)
+void DrawTool::on_cancel(PaintSession &canvas)
 {
 	(void)canvas;
 	
@@ -74,7 +74,7 @@ void DrawTool::on_cancel(Canvas &canvas)
 	m_preview_buffer.reset();
 }
 
-void DrawTool::update_preview(Canvas& canvas)
+void DrawTool::update_preview(PaintSession& canvas)
 {
 	m_preview_buffer.set_bounds(canvas.getWidth(), canvas.getHeight());
 	draw_preview(m_preview_buffer);

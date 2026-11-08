@@ -13,7 +13,9 @@ CXXFLAGS += -I$(ROOTDIR)/inc -I$(ROOTDIR)/lib
 # Código de producción que usan los tests headless.
 PROJECT_SRCS := \
 	$(ROOTDIR)/src/core/view_transform.cpp \
-	$(ROOTDIR)/src/paint/canvas.cpp \
+	$(ROOTDIR)/src/paint/canvas_document.cpp \
+	$(ROOTDIR)/src/paint/floating_region_editor.cpp \
+	$(ROOTDIR)/src/paint/paint_session.cpp \
 	$(ROOTDIR)/src/paint/cursor_asset.cpp \
 	$(ROOTDIR)/src/paint/draw_buffer.cpp \
 	$(ROOTDIR)/src/paint/image_buffer.cpp \
@@ -21,6 +23,7 @@ PROJECT_SRCS := \
 	$(ROOTDIR)/src/paint/palette.cpp \
 	$(ROOTDIR)/src/paint/undo_history.cpp \
 	$(ROOTDIR)/src/tools/draw_tool.cpp \
+	$(ROOTDIR)/src/tools/selection_tool.cpp \
 	$(ROOTDIR)/src/tools/square_tool.cpp
 
 PROJECT_OBJS := $(patsubst $(ROOTDIR)/src/%.cpp,$(OBJDIR)/src/%.o,$(PROJECT_SRCS))
@@ -38,7 +41,8 @@ TEST_BINS := \
 	$(BUILDDIR)/test_indexed_image \
 	$(BUILDDIR)/test_cursor_asset \
 	$(BUILDDIR)/test_tool_options \
-	$(BUILDDIR)/test_canvas_resize
+	$(BUILDDIR)/test_canvas_resize \
+	$(BUILDDIR)/test_floating_region
 
 IMAGE_OBJS := $(OBJDIR)/src/paint/image_buffer.o
 PALETTE_OBJS := $(IMAGE_OBJS) $(OBJDIR)/src/paint/palette.o
@@ -46,7 +50,9 @@ CURSOR_OBJS := $(OBJDIR)/src/paint/cursor_asset.o \
 	$(OBJDIR)/src/paint/indexed_image.o
 CANVAS_OBJS := $(PALETTE_OBJS) \
 	$(OBJDIR)/src/core/view_transform.o \
-	$(OBJDIR)/src/paint/canvas.o \
+	$(OBJDIR)/src/paint/canvas_document.o \
+	$(OBJDIR)/src/paint/floating_region_editor.o \
+	$(OBJDIR)/src/paint/paint_session.o \
 	$(OBJDIR)/src/paint/draw_buffer.o \
 	$(OBJDIR)/src/paint/undo_history.o \
 	$(OBJDIR)/src/tools/draw_tool.o
@@ -106,6 +112,10 @@ $(BUILDDIR)/test_tool_options: $(OBJDIR)/tests/test_tool_options.o \
 
 $(BUILDDIR)/test_canvas_resize: $(OBJDIR)/tests/test_canvas_resize.o \
 		$(CANVAS_OBJS) $(DOCTEST_OBJ)
+	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+$(BUILDDIR)/test_floating_region: $(OBJDIR)/tests/test_floating_region.o \
+		$(CANVAS_OBJS) $(OBJDIR)/src/tools/selection_tool.o $(DOCTEST_OBJ)
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 clean:

@@ -175,12 +175,6 @@ bool PaintBackend::loadCursor(const std::string& buttonName,
 {
 	error.clear();
 
-	if (!m_backend)
-	{
-		error = "No GUI backend";
-		return false;
-	}
-
 	for (const auto& btn : m_buttons)
 	{
 		if (btn.name != buttonName)
@@ -188,19 +182,34 @@ bool PaintBackend::loadCursor(const std::string& buttonName,
 			continue;
 		}
 
-		PaintCore::CursorImage image;
-		if (!PaintCore::load_cursor_asset(path, image, &error))
-		{
-			return false;
-		}
-		if (!m_backend->set_cursor_image(btn.cursor, image))
-		{
-			error = "Backend could not create the cursor";
-			return false;
-		}
-		return true;
+		return loadCursor(btn.cursor, path, error);
 	}
 
 	error = "Button not found: " + buttonName;
 	return false;
+}
+
+bool PaintBackend::loadCursor(PaintCore::CursorType cursor,
+                              const std::string& path,
+                              std::string& error)
+{
+	error.clear();
+
+	if (!m_backend)
+	{
+		error = "No GUI backend";
+		return false;
+	}
+
+	PaintCore::CursorImage image;
+	if (!PaintCore::load_cursor_asset(path, image, &error))
+	{
+		return false;
+	}
+	if (!m_backend->set_cursor_image(cursor, image))
+	{
+		error = "Backend could not create the cursor";
+		return false;
+	}
+	return true;
 }

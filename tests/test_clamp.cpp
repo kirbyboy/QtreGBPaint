@@ -2,11 +2,11 @@
 
 #include <climits>
 
-#include "paint/canvas.h"
+#include "paint/paint_session.h"
 #include "paint/draw_buffer.h"
 #include "tools/square_tool.h"
 
-TEST_CASE("DrawBuffer and Canvas clamp")
+TEST_CASE("DrawBuffer and PaintSession clamp")
 {
 	// The draw buffer must stay inside the canvas even with extreme pointers.
 	DrawBuffer buffer;
@@ -33,7 +33,7 @@ TEST_CASE("DrawBuffer and Canvas clamp")
 	// Square dragged down-left outside the canvas: the out-of-canvas left
 	// border is dropped and no fake border appears on the canvas edge.
 	{
-		Canvas canvas(256, 256);
+		PaintSession canvas(256, 256);
 		SquareTool tool(1, 2);
 		tool.set_option("mode", static_cast<int>(SquareTool::Mode::Both));
 		canvas.set_tool(&tool);
@@ -54,7 +54,7 @@ TEST_CASE("DrawBuffer and Canvas clamp")
 	// Square dragged down-right outside the canvas: right/bottom borders are
 	// dropped and the interior reaches the canvas edges.
 	{
-		Canvas canvas(256, 256);
+		PaintSession canvas(256, 256);
 		SquareTool tool(1, 2);
 		tool.set_option("mode", static_cast<int>(SquareTool::Mode::Both));
 		canvas.set_tool(&tool);
@@ -74,7 +74,7 @@ TEST_CASE("DrawBuffer and Canvas clamp")
 
 TEST_CASE("SquareTool uses the colors selected from the palette")
 {
-	Canvas canvas(8, 8);
+	PaintSession canvas(8, 8);
 	SquareTool tool(1, 2);
 	tool.set_option("mode", static_cast<int>(SquareTool::Mode::Both));
 	canvas.set_tool(&tool);

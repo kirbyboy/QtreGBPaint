@@ -37,6 +37,7 @@ class PaintFrontend
 		PaintBackend& m_backend;
 		CanvasArea m_canvas_area;
 		int m_zoom = 1;
+		int m_last_canvas_zoom = 1;
 		bool m_show_grid = true;
 		bool m_open_canvas_size_popup = false;
 		int m_canvas_size_width = 0;

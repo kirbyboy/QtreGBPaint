@@ -4,7 +4,8 @@
 #include <cmath>
 
 #include "core/ibackend.h"
-#include "paint/canvas.h"
+#include "paint/paint_session.h"
+#include "tools/base_tool.h"
 
 namespace
 {
@@ -51,6 +52,13 @@ struct HandleGeometry
 	ImVec2 corner_max{};
 };
 
+// Start of a centered handle on the [span_min, span_max] visible span, rounded
+// to whole screen pixels so the drawn rectangles stay crisp.
+float centered_start(float span_min, float span_max, float length)
+{
+	return std::floor((span_min + span_max - length) * 0.5f + 0.5f);
+}
+
 HandleGeometry compute_geometry(const PaintCore::ViewTransform& view,
                                 int width, int height,
                                 const ImVec2& clip_min, const ImVec2& clip_max,
@@ -61,63 +69,59 @@ HandleGeometry compute_geometry(const PaintCore::ViewTransform& view,
 	const PaintCore::Vec2f origin = view.image_to_screen({0.0f, 0.0f});
 	const PaintCore::Vec2f end = view.image_to_screen(
 		{static_cast<float>(width), static_cast<float>(height)});
-	const float right = end.x + offset.x;
-	const float bottom = end.y + offset.y;
+
+	// Visible span of the canvas inside the child content clip.
 	const float visible_left = std::max(origin.x, clip_min.x);
 	const float visible_top = std::max(origin.y, clip_min.y);
 	const float visible_right = std::min(end.x, clip_max.x);
 	const float visible_bottom = std::min(end.y, clip_max.y);
-	const float half_length = kEdgeHandleLength * 0.5f;
-	const float zoom = view.zoom > 0.0f ? view.zoom : 1.0f;
-
-	// Reserve room for the handle plus its outward hit area. Then snap down to
-	// the last whole canvas pixel that fits. This keeps the handles at the
-	// maximum visible pixel extent instead of depending on the partial pixel
-	// left by scroll snapping.
-	constexpr float kHandleSpace =
-		kHandleGap + kEdgeHandleWidth + kHitOutset;
-	const float max_right = std::min(right, clip_max.x - kHandleSpace);
-	const float max_bottom = std::min(bottom, clip_max.y - kHandleSpace);
-	const int columns = static_cast<int>(
-		std::floor((max_right - origin.x) / zoom));
-	const int rows = static_cast<int>(
-		std::floor((max_bottom - origin.y) / zoom));
-	const float effective_right =
-		origin.x + std::max(0, columns) * zoom;
-	const float effective_bottom =
-		origin.y + std::max(0, rows) * zoom;
-
-	const float right_x0 = effective_right + kHandleGap;
-	const float bottom_y0 = effective_bottom + kHandleGap;
-
-	if (visible_left < visible_right && visible_top < visible_bottom &&
-	    effective_right >= visible_left && right_x0 < clip_max.x)
+	if (visible_left >= visible_right || visible_top >= visible_bottom)
 	{
+		return geometry;
+	}
+
+	// Handles sit one pixel outside the real canvas edge, so they never mix
+	// with the last grid line.
+	const float handle_x = end.x + offset.x + kHandleGap;
+	const float handle_y = end.y + offset.y + kHandleGap;
+
+	// Right edge: only when the edge is visible and the whole handle fits in
+	// the clip. It is centered on the visible vertical span, which is the
+	// canvas itself for a small image or the viewport when the canvas is
+	// scrolled. Too short a span leaves room only for the corner handle.
+	if (handle_x + kEdgeHandleWidth <= clip_max.x &&
+	    visible_bottom - visible_top >= kEdgeHandleLength)
+	{
+		const float y0 = centered_start(visible_top, visible_bottom,
+		                                kEdgeHandleLength);
 		geometry.right_visible = true;
-		const float y0 = std::max(clip_min.y, effective_bottom - half_length);
-		geometry.right_min = ImVec2(right_x0, y0);
-		geometry.right_max = ImVec2(right_x0 + kEdgeHandleWidth,
-		                            effective_bottom);
+		geometry.right_min = ImVec2(handle_x, y0);
+		geometry.right_max = ImVec2(handle_x + kEdgeHandleWidth,
+		                            y0 + kEdgeHandleLength);
 	}
 
-	if (visible_left < visible_right && visible_top < visible_bottom &&
-	    effective_bottom >= visible_top && bottom_y0 < clip_max.y)
+	// Bottom edge: same rule, centered on the visible horizontal span.
+	if (handle_y + kEdgeHandleWidth <= clip_max.y &&
+	    visible_right - visible_left >= kEdgeHandleLength)
 	{
+		const float x0 = centered_start(visible_left, visible_right,
+		                                kEdgeHandleLength);
 		geometry.bottom_visible = true;
-		const float x0 = std::max(clip_min.x, effective_right - half_length);
-		geometry.bottom_min = ImVec2(x0, bottom_y0);
-		geometry.bottom_max = ImVec2(effective_right,
-		                             bottom_y0 + kEdgeHandleWidth);
+		geometry.bottom_min = ImVec2(x0, handle_y);
+		geometry.bottom_max = ImVec2(x0 + kEdgeHandleLength,
+		                             handle_y + kEdgeHandleWidth);
 	}
 
-	if (visible_left < visible_right && visible_top < visible_bottom &&
-	    effective_right >= visible_left && effective_bottom >= visible_top &&
-	    right_x0 < clip_max.x && bottom_y0 < clip_max.y)
+	// Corner: only when the actual corner has been reached. It does not
+	// depend on the canvas spanning the handle length, so it is available for
+	// canvases too small for the edge handles.
+	if (handle_x + kCornerSize <= clip_max.x &&
+	    handle_y + kCornerSize <= clip_max.y)
 	{
 		geometry.corner_visible = true;
-		geometry.corner_min = ImVec2(right_x0, bottom_y0);
-		geometry.corner_max = ImVec2(right_x0 + kCornerSize,
-		                             bottom_y0 + kCornerSize);
+		geometry.corner_min = ImVec2(handle_x, handle_y);
+		geometry.corner_max = ImVec2(handle_x + kCornerSize,
+		                             handle_y + kCornerSize);
 	}
 
 	return geometry;
@@ -125,7 +129,7 @@ HandleGeometry compute_geometry(const PaintCore::ViewTransform& view,
 }
 
 CanvasResizeGizmo::Handle CanvasResizeGizmo::handle_at(
-	const PaintCore::ViewTransform& view, const Canvas& canvas,
+	const PaintCore::ViewTransform& view, const PaintSession& canvas,
 	const ImVec2& mouse, const ImVec2& clip_min, const ImVec2& clip_max) const
 {
 	const HandleGeometry geometry = compute_geometry(
@@ -170,7 +174,7 @@ PaintCore::CursorType CanvasResizeGizmo::cursor_for(Handle handle)
 	return PaintCore::CursorType::Arrow;
 }
 
-bool CanvasResizeGizmo::handle_input(Canvas& canvas, IGuiBackend* backend,
+bool CanvasResizeGizmo::handle_input(PaintSession& canvas, IGuiBackend* backend,
                                      const PaintCore::ViewTransform& view,
                                      const ImVec2& mouse, bool pressed,
                                      bool released, bool item_hovered,
@@ -249,7 +253,7 @@ bool CanvasResizeGizmo::handle_input(Canvas& canvas, IGuiBackend* backend,
 
 void CanvasResizeGizmo::draw(ImDrawList* draw_list,
                              const PaintCore::ViewTransform& view,
-                             const Canvas& canvas) const
+                             const PaintSession& canvas) const
 {
 	if (!draw_list)
 	{

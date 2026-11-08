@@ -99,7 +99,7 @@ m_palette(5)
 
 void PaintFrontend::select_tool(const std::string& name)
 {
-	m_canvas_area.canvas().set_tool(m_backend.selectButton(name));
+	m_canvas_area.session().set_tool(m_backend.selectButton(name));
 	apply_tool_colors();
 }
 
@@ -155,6 +155,26 @@ void PaintFrontend::render()
 	// --- Canvas area ---
 	ImVec2 canvasRegion = ImVec2(contentRegion.x - toolbar.width - columnGap,
 	                             contentRegion.y - paletteHeight);
+
+	// When zoom changes, the canvas content size shrinks/grows before ImGui
+	// would normally recalculate ScrollMax. If the view is scrolled to an edge,
+	// that leaves one frame with a stale scroll and a visible blank strip.
+	// Declaring the new content size before BeginChild makes ImGui clamp the
+	// scroll in the same frame as the new zoom.
+	if (m_zoom != m_last_canvas_zoom)
+	{
+		const int content_width = std::max(
+			m_canvas_area.session().getWidth(),
+			m_canvas_area.resize_preview_width());
+		const int content_height = std::max(
+			m_canvas_area.session().getHeight(),
+			m_canvas_area.resize_preview_height());
+		ImGui::SetNextWindowContentSize(ImVec2(
+			static_cast<float>(content_width * m_zoom) + kCanvasResizeMargin,
+			static_cast<float>(content_height * m_zoom) + kCanvasResizeMargin));
+		m_last_canvas_zoom = m_zoom;
+	}
+
 	ImGui::BeginChild("Canvas", canvasRegion, true, ImGuiWindowFlags_HorizontalScrollbar);
 	renderCanvas();
 	ImGui::EndChild();
@@ -170,7 +190,7 @@ void PaintFrontend::render()
 
 void PaintFrontend::renderMenuBar()
 {
-	Canvas& canvas = m_canvas_area.canvas();
+	PaintSession& session = m_canvas_area.session();
 
 	if (ImGui::BeginMenuBar())
 	{
@@ -184,13 +204,13 @@ void PaintFrontend::renderMenuBar()
 
 		if (ImGui::BeginMenu("Edit"))
 		{
-			if (ImGui::MenuItem("Undo", "Ctrl+Z", false, canvas.can_undo()))
+			if (ImGui::MenuItem("Undo", "Ctrl+Z", false, session.can_undo()))
 			{
-				canvas.undo();
+				session.undo();
 			}
-			if (ImGui::MenuItem("Redo", "Ctrl+Y", false, canvas.can_redo()))
+			if (ImGui::MenuItem("Redo", "Ctrl+Y", false, session.can_redo()))
 			{
-				canvas.redo();
+				session.redo();
 			}
 			ImGui::EndMenu();
 		}
@@ -201,9 +221,40 @@ void PaintFrontend::renderMenuBar()
 			ImGui::Separator();
 			if (ImGui::MenuItem("Canvas Size..."))
 			{
-				m_canvas_size_width = canvas.getWidth();
-				m_canvas_size_height = canvas.getHeight();
+				m_canvas_size_width = session.getWidth();
+				m_canvas_size_height = session.getHeight();
 				m_open_canvas_size_popup = true;
+			}
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Selection"))
+		{
+			const bool has_floating = session.has_floating_region();
+			if (ImGui::MenuItem("Copy", nullptr, false, has_floating))
+			{
+				session.copy_to_clipboard();
+			}
+			if (ImGui::MenuItem("Cut", nullptr, false, has_floating))
+			{
+				session.cut_to_clipboard();
+			}
+			if (ImGui::MenuItem("Paste", nullptr, false, session.has_clipboard()))
+			{
+				// Paste enters selection mode so the pasted region can use
+				// and toggle the current selection transparency option.
+				select_tool("Selection");
+				session.paste_from_clipboard(
+					m_canvas_area.visible_image_origin());
+				if (ToolBase* tool = session.active_tool())
+				{
+					tool->sync_floating_region(session);
+				}
+			}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Invert Colors", nullptr, false, has_floating))
+			{
+				session.invert_floating_region_colors();
 			}
 			ImGui::EndMenu();
 		}
@@ -272,7 +323,7 @@ void PaintFrontend::renderMenuBar()
 		ImGui::Separator();
 		if (ImGui::Button("OK", ImVec2(80.0f, 0.0f)))
 		{
-			canvas.resize(m_canvas_size_width, m_canvas_size_height,
+			session.resize(m_canvas_size_width, m_canvas_size_height,
 			              static_cast<PaintCore::ColorIndex>(m_background_index));
 			ImGui::CloseCurrentPopup();
 		}
@@ -286,13 +337,13 @@ void PaintFrontend::renderMenuBar()
 
 	// Global shortcuts. Shortcut respects focus and text widgets, and does not
 	// consume the key when there is no history available.
-	if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal) && canvas.can_undo())
+	if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal) && session.can_undo())
 	{
-		canvas.undo();
+		session.undo();
 	}
-	if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Y, ImGuiInputFlags_RouteGlobal) && canvas.can_redo())
+	if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Y, ImGuiInputFlags_RouteGlobal) && session.can_redo())
 	{
-		canvas.redo();
+		session.redo();
 	}
 }
 
@@ -359,7 +410,7 @@ void PaintFrontend::renderToolbar()
 
 void PaintFrontend::renderToolOptions()
 {
-	ToolBase* tool = m_canvas_area.canvas().active_tool();
+	ToolBase* tool = m_canvas_area.session().active_tool();
 	if (!tool)
 	{
 		return;
@@ -462,6 +513,7 @@ void PaintFrontend::renderToolOptions()
 	}
 
 	ImGui::PopStyleVar();
+	tool->sync_floating_region(m_canvas_area.session());
 }
 
 void PaintFrontend::regenerate_palette()
@@ -558,10 +610,11 @@ void PaintFrontend::regenerate_palette()
 
 void PaintFrontend::apply_tool_colors()
 {
-	if (ToolBase* tool = m_canvas_area.canvas().active_tool())
+	if (ToolBase* tool = m_canvas_area.session().active_tool())
 	{
 		tool->set_colors(static_cast<PaintCore::ColorIndex>(m_foreground_index),
 		                 static_cast<PaintCore::ColorIndex>(m_background_index));
+		tool->sync_floating_region(m_canvas_area.session());
 	}
 }
 
@@ -695,10 +748,10 @@ void PaintFrontend::renderCanvas()
 	ImVec2 canvasSize = ImGui::GetContentRegionAvail();
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
 	const int content_width = std::max(
-		m_canvas_area.canvas().getWidth(),
+		m_canvas_area.session().getWidth(),
 		m_canvas_area.resize_preview_width());
 	const int content_height = std::max(
-		m_canvas_area.canvas().getHeight(),
+		m_canvas_area.session().getHeight(),
 		m_canvas_area.resize_preview_height());
 	ImVec2 content_size(
 		content_width * m_zoom + kCanvasResizeMargin,

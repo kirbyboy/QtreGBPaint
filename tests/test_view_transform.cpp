@@ -41,17 +41,29 @@ TEST_CASE("test_make_basic")
 	CHECK_NEAR(view.zoom, 3.0f);
 }
 
-TEST_CASE("test_make_aligns_origin_and_keeps_fractional_scroll")
+TEST_CASE("test_make_aligns_origin_to_screen_pixels")
 {
-	// scroll 7.5 with zoom 3 => snapped 6, fraction 1.5; the origin is rounded
-	// to a whole screen pixel.
+	// canvas_pos already includes the scroll; the origin only snaps to whole
+	// screen pixels.
 	const ViewTransform view = ViewTransform::make(
 		Vec2f{10.25f, 20.75f}, Vec2f{7.5f, 2.5f}, Vec2f{100.0f, 80.0f}, 3.0f);
 
-	CHECK_NEAR(view.origin.x, 12.0f);  // floor(10.25 + 1.5 + 0.5)
-	CHECK_NEAR(view.origin.y, 23.0f);  // floor(20.75 + 2.5 + 0.5)
+	CHECK_NEAR(view.origin.x, 10.0f);  // floor(10.25 + 0.5)
+	CHECK_NEAR(view.origin.y, 21.0f);  // floor(20.75 + 0.5)
 	CHECK_NEAR(std::fmod(view.origin.x, 1.0f), 0.0f);
 	CHECK_NEAR(std::fmod(view.origin.y, 1.0f), 0.0f);
+}
+
+TEST_CASE("test_make_does_not_snap_scroll_to_image_pixels")
+{
+	// A scroll smaller than one image pixel must move the image by that exact
+	// amount instead of sticking to the previous pixel boundary.
+	const ViewTransform view = ViewTransform::make(
+		Vec2f{100.0f - 3.0f, 50.0f - 7.0f}, Vec2f{3.0f, 7.0f},
+		Vec2f{200.0f, 200.0f}, 16.0f);
+
+	CHECK_NEAR(view.origin.x, 97.0f);
+	CHECK_NEAR(view.origin.y, 43.0f);
 }
 
 TEST_CASE("test_make_clamps_invalid_zoom")

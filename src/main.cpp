@@ -9,6 +9,7 @@
 #include "paint/palette.h"
 #include "paint/paint_backend.h"
 #include "paint/paint_frontend.h"
+#include "tools/selection_tool.h"
 #include "tools/square_tool.h"
 
 int main()
@@ -29,6 +30,12 @@ int main()
 
 	PaintBackend resources(&backend);
 	const Palette& grayPalette = resources.iconPalette();
+	resources.addButton("Selection", std::make_shared<SelectionTool>(),
+	                    PaintCore::CursorType::Crosshair,
+	                    assetBase + "/selection_normal.idx",
+	                    assetBase + "/selection_hover.idx",
+	                    assetBase + "/selection_pressed.idx", grayPalette);
+
 	resources.addButton("Rect", std::make_shared<SquareTool>(1, 2),
 	                    PaintCore::CursorType::Rect,
 	                    assetBase + "/rect_normal.idx",
@@ -68,18 +75,38 @@ int main()
 	load_cursor("Fill", assetBase + "/cursors/fill.ipx");
 	load_cursor("Circle", assetBase + "/cursors/circle.ipx");
 
-	const auto load_option_icon = [&](const char* key, int y)
+	// Cursors that are not tied to a toolbar button (overrides like Move).
+	const auto load_cursor_type = [&](PaintCore::CursorType type,
+	                                  const char* name,
+	                                  const std::string& path)
 	{
-		if (!resources.loadOptionIcon(key, assetBase + "/rect_options.idx",
-		                              0, y, 60, 16))
+		std::string error;
+		if (!resources.loadCursor(type, path, error))
+		{
+			std::fprintf(stderr, "Cursor for %s: %s (system fallback)\n",
+			             name, error.c_str());
+		}
+	};
+
+	load_cursor_type(PaintCore::CursorType::Move, "Move",
+	                 assetBase + "/cursors/move.ipx");
+
+	const auto load_option_icon = [&](const char* key, const std::string& path,
+	                                  int y)
+	{
+		if (!resources.loadOptionIcon(key, path, 0, y, 60, 16))
 		{
 			std::fprintf(stderr, "Option icon %s could not be loaded\n", key);
 		}
 	};
 
-	load_option_icon("rect.outline", 0);
-	load_option_icon("rect.fill", 16);
-	load_option_icon("rect.both", 32);
+	load_option_icon("rect.outline", assetBase + "/rect_options.idx", 0);
+	load_option_icon("rect.fill", assetBase + "/rect_options.idx", 16);
+	load_option_icon("rect.both", assetBase + "/rect_options.idx", 32);
+	load_option_icon("selection.normal",
+	                 assetBase + "/selection_options.idx", 0);
+	load_option_icon("selection.transparent",
+	                 assetBase + "/selection_options.idx", 16);
 
 	PaintFrontend main_window(resources);
 

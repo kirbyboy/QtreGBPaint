@@ -51,6 +51,8 @@ public:
 
     bool loadCursor(const std::string& buttonName, const std::string& path,
                     std::string& error);
+    bool loadCursor(PaintCore::CursorType cursor, const std::string& path,
+                    std::string& error);
 
     bool loadOptionIcon(const std::string& key, const std::string& sheetPath,
                         int x, int y, int width, int height);

@@ -3,7 +3,7 @@
 
 #include "doctest/doctest.h"
 
-#include "paint/canvas.h"
+#include "paint/paint_session.h"
 #include "paint/image_buffer.h"
 #include "tools/base_tool.h"
 #include "tools/square_tool.h"
@@ -17,13 +17,13 @@ struct ProbeTool : ToolBase
 		add_option(ToolOption::integer("size", "Size", 3, 1, 5));
 	}
 
-	void on_mouse_press(Canvas&, const PaintCore::Vec2&, int) override {}
-	void on_mouse_move(Canvas&, const PaintCore::Vec2&) override {}
-	void on_mouse_release(Canvas&, const PaintCore::Vec2&, int) override {}
-	void on_cancel(Canvas&) override {}
+	void on_mouse_press(PaintSession&, const PaintCore::Vec2&, int) override {}
+	void on_mouse_move(PaintSession&, const PaintCore::Vec2&) override {}
+	void on_mouse_release(PaintSession&, const PaintCore::Vec2&, int) override {}
+	void on_cancel(PaintSession&) override {}
 };
 
-void draw_rectangle(Canvas& canvas, SquareTool& tool,
+void draw_rectangle(PaintSession& canvas, SquareTool& tool,
                     int start_x, int start_y, int end_x, int end_y)
 {
 	canvas.set_tool(&tool);
@@ -73,7 +73,7 @@ TEST_CASE("Integer tool options clamp to their range")
 
 TEST_CASE("SquareTool draws only the outline by default")
 {
-	Canvas canvas(8, 8);
+	PaintSession canvas(8, 8);
 	SquareTool tool(1, 2);
 	draw_rectangle(canvas, tool, 1, 1, 4, 4);
 
@@ -86,7 +86,7 @@ TEST_CASE("SquareTool draws only the outline by default")
 
 TEST_CASE("SquareTool fill mode uses the background color")
 {
-	Canvas canvas(8, 8);
+	PaintSession canvas(8, 8);
 	SquareTool tool(1, 2);
 	tool.set_option("mode", static_cast<int>(SquareTool::Mode::Fill));
 	draw_rectangle(canvas, tool, 1, 1, 4, 4);
@@ -100,7 +100,7 @@ TEST_CASE("SquareTool fill mode uses the background color")
 
 TEST_CASE("SquareTool both mode combines outline and fill")
 {
-	Canvas canvas(8, 8);
+	PaintSession canvas(8, 8);
 	SquareTool tool(1, 2);
 	tool.set_option("mode", static_cast<int>(SquareTool::Mode::Both));
 	draw_rectangle(canvas, tool, 1, 1, 4, 4);
