@@ -185,3 +185,82 @@ IndexedImage IndexedImage::loadFromFile(const std::string& path)
 		return fail(error.what());
 	}
 }
+
+bool save_indexed_image(const std::string& path, int width, int height,
+                        int bits_per_pixel,
+                        const std::vector<PaintCore::ColorIndex>& data,
+                        std::string& error)
+{
+	error.clear();
+
+	if (path.empty())
+	{
+		error = "No file path";
+		return false;
+	}
+	if (width <= 0 || height <= 0)
+	{
+		error = "Image dimensions must be positive";
+		return false;
+	}
+	if (bits_per_pixel < 1 || bits_per_pixel > 8)
+	{
+		error = "Bits per pixel must be in the range 1..8";
+		return false;
+	}
+
+	const std::size_t expected =
+		static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+	if (data.size() != expected)
+	{
+		error = "Pixel count does not match width*height";
+		return false;
+	}
+
+	const unsigned max_value = 1u << bits_per_pixel;
+	for (const PaintCore::ColorIndex value : data)
+	{
+		if (value >= max_value)
+		{
+			error = "An index is outside the range allowed by bpp";
+			return false;
+		}
+	}
+
+	std::ofstream file(path, std::ios::trunc);
+	if (!file)
+	{
+		error = "Could not open the file for writing";
+		return false;
+	}
+
+	file << "IndexedImage Index\n";
+	file << width << ' ' << height << '\n';
+	file << bits_per_pixel << '\n';
+
+	for (int y = 0; y < height; ++y)
+	{
+		for (int x = 0; x < width; ++x)
+		{
+			const std::size_t index =
+				static_cast<std::size_t>(y) * static_cast<std::size_t>(width) +
+				static_cast<std::size_t>(x);
+			file << static_cast<int>(data[index]);
+			file << (x + 1 == width ? '\n' : ' ');
+		}
+	}
+
+	if (!file.good())
+	{
+		error = "Failed to write the file";
+		return false;
+	}
+
+	file.flush();
+	if (!file.good())
+	{
+		error = "Failed to flush the file";
+		return false;
+	}
+	return true;
+}

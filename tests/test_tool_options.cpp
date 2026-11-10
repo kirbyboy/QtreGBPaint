@@ -3,6 +3,7 @@
 
 #include "doctest/doctest.h"
 
+#include "core/modifiers.h"
 #include "paint/paint_session.h"
 #include "paint/image_buffer.h"
 #include "tools/base_tool.h"
@@ -24,12 +25,13 @@ struct ProbeTool : ToolBase
 };
 
 void draw_rectangle(PaintSession& canvas, SquareTool& tool,
-                    int start_x, int start_y, int end_x, int end_y)
+                    int start_x, int start_y, int end_x, int end_y,
+                    int button = 1)
 {
 	canvas.set_tool(&tool);
-	canvas.handle_mouse_press({start_x, start_y}, 1);
+	canvas.handle_mouse_press({start_x, start_y}, button);
 	canvas.handle_mouse_move({end_x, end_y});
-	canvas.handle_mouse_release({end_x, end_y}, 1);
+	canvas.handle_mouse_release({end_x, end_y}, button);
 }
 }
 
@@ -109,6 +111,41 @@ TEST_CASE("SquareTool both mode combines outline and fill")
 	CHECK_EQ(image.get_pixel(1, 1), 1);
 	CHECK_EQ(image.get_pixel(4, 4), 1);
 	CHECK_EQ(image.get_pixel(2, 2), 2);
+	CHECK_EQ(image.get_pixel(0, 0), 0);
+}
+
+TEST_CASE("SquareTool constrains to a perfect square with Shift")
+{
+	PaintSession canvas(10, 10);
+	SquareTool tool(1, 2);
+	canvas.set_tool(&tool);
+	PaintCore::Modifiers modifiers;
+	modifiers.shift = true;
+	canvas.set_modifiers(modifiers);
+	canvas.handle_mouse_press({1, 1}, 1);
+	canvas.handle_mouse_move({6, 3});
+	canvas.handle_mouse_release({6, 3}, 1);
+
+	const ImageBuffer& image = canvas.get_main_buffer();
+	CHECK_EQ(image.get_pixel(1, 1), 1);
+	CHECK_EQ(image.get_pixel(3, 1), 1);
+	CHECK_EQ(image.get_pixel(1, 3), 1);
+	CHECK_EQ(image.get_pixel(3, 3), 1);
+	CHECK_EQ(image.get_pixel(6, 3), 0);
+	CHECK_EQ(image.get_pixel(2, 2), 0);
+}
+
+TEST_CASE("SquareTool swaps foreground and background on the right button")
+{
+	PaintSession canvas(8, 8);
+	SquareTool tool(1, 2);
+	tool.set_option("mode", static_cast<int>(SquareTool::Mode::Both));
+	draw_rectangle(canvas, tool, 1, 1, 4, 4, 2);
+
+	const ImageBuffer& image = canvas.get_main_buffer();
+	CHECK_EQ(image.get_pixel(1, 1), 2);
+	CHECK_EQ(image.get_pixel(4, 4), 2);
+	CHECK_EQ(image.get_pixel(2, 2), 1);
 	CHECK_EQ(image.get_pixel(0, 0), 0);
 }
 

@@ -17,12 +17,15 @@ bool fail(std::string* error, std::string message)
 	return false;
 }
 
-PaintCore::Color cursor_color(int index)
+PaintCore::Color cursor_color(int index, bool black_as_dark_gray)
 {
 	switch (index)
 	{
-		case 3: return {0, 0, 0, 255};       // black
-		case 4: return {255, 255, 255, 255}; // white
+		case 2:
+			return black_as_dark_gray
+				? PaintCore::Color{96, 96, 96, 255}
+				: PaintCore::Color{0, 0, 0, 255};
+		case 3: return {255, 255, 255, 255}; // white
 		default: return {0, 0, 0, 0};        // transparent (0 and hotspot)
 	}
 }
@@ -31,7 +34,7 @@ PaintCore::Color cursor_color(int index)
 namespace PaintCore
 {
 bool load_cursor_asset(const std::string& path, CursorImage& image,
-                       std::string* error)
+                       std::string* error, bool black_as_dark_gray)
 {
 	if (error)
 	{
@@ -45,9 +48,9 @@ bool load_cursor_asset(const std::string& path, CursorImage& image,
 		return fail(error, source.error());
 	}
 
-	if (source.bitsPerPixel() < 3)
+	if (source.bitsPerPixel() != 2)
 	{
-		return fail(error, "Cursor assets require at least 3 bpp");
+		return fail(error, "Cursor assets must be 2 bpp");
 	}
 
 	const auto& data = source.data();
@@ -61,20 +64,6 @@ bool load_cursor_asset(const std::string& path, CursorImage& image,
 		{
 			const int index =
 				data[static_cast<std::size_t>(y) * source.width() + x];
-			switch (index)
-			{
-				case 0:
-				case 1:
-				case 3:
-				case 4:
-					break;
-				default:
-					return fail(error,
-						"Unsupported cursor index " + std::to_string(index) +
-						" at (" + std::to_string(x) + ", " +
-						std::to_string(y) + ")");
-			}
-
 			if (index == 1)
 			{
 				++hotspot_count;
@@ -98,7 +87,7 @@ bool load_cursor_asset(const std::string& path, CursorImage& image,
 
 	for (std::size_t i = 0; i < data.size(); ++i)
 	{
-		image.pixels[i] = cursor_color(data[i]);
+		image.pixels[i] = cursor_color(data[i], black_as_dark_gray);
 	}
 
 	return true;

@@ -5,6 +5,8 @@
 #include <utility>
 #include <vector>
 
+#include "core/vec2.h"
+
 enum class ToolOptionType
 {
 	Choice,
@@ -17,6 +19,9 @@ struct ToolOptionChoice
 	std::string label;
 	std::string short_label;
 	std::string icon;
+	// Optional footprint preview for compact grids. Offsets are relative to
+	// the hotspot. Empty means fall back to the icon or short label.
+	std::vector<PaintCore::Vec2> preview;
 };
 
 struct ToolOption
@@ -25,6 +30,9 @@ struct ToolOption
 	std::string label;
 	ToolOptionType type = ToolOptionType::Choice;
 	bool visible_in_options_bar = true;
+	// Choice layout: 1 keeps the full-width list; >1 renders a row-major grid
+	// with that many columns (used by the brush palette).
+	int grid_columns = 1;
 	int value = 0;
 	int min_value = 0;
 	int max_value = 0;

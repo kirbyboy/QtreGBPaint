@@ -67,4 +67,11 @@ private:
     std::string m_error;
 };
 
+// Writes an IndexedImage in Index mode without constructing an intermediate
+// copy. Returns false and fills `error` on failure.
+bool save_indexed_image(const std::string& path, int width, int height,
+                        int bits_per_pixel,
+                        const std::vector<PaintCore::ColorIndex>& data,
+                        std::string& error);
+
 #endif

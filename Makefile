@@ -26,6 +26,7 @@ DEPDIR := $(ROOTDIR)/deps
 endif
 
 TARGET_PATH := $(BUILDDIR)/$(TARGET)
+IMGUIFILE_DIALOG_LIB := $(ROOTDIR)/lib/ImGuiFileDialog/libImGuiFileDialog.a
 
 SRCS := $(shell find $(SRCDIR) -name '*.cpp')
 OBJS := $(SRCS:$(SRCDIR)/%.cpp=$(OBJDIR)/%.o)
@@ -37,11 +38,13 @@ CXXFLAGS += $(OPTFLAGS) \
 	-I$(ROOTDIR)/lib/tinyfiledialogs/src \
 	-I$(ROOTDIR)/lib/imgui/src \
 	-I$(ROOTDIR)/lib/imgui/src/backends \
+	-I$(ROOTDIR)/lib/ImGuiFileDialog \
 	$(shell sdl2-config --cflags)
 LDLIBS += \
+	$(IMGUIFILE_DIALOG_LIB) \
 	$(ROOTDIR)/lib/imgui/libimgui.a \
 	$(ROOTDIR)/lib/tinyfiledialogs/libtinyfiledialog.a \
-	$(shell sdl2-config --libs)
+	$(shell sdl2-config --libs) -pthread
 
 all: $(TARGET_PATH)
 
@@ -50,14 +53,30 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.cpp | $(OBJDIR) $(DEPDIR)
 	@mkdir -p $(dir $(DEPDIR)/$*)
 	$(CXX) $(CXXFLAGS) -MMD -MP -MF $(DEPDIR)/$*.d -c $< -o $@
 
-$(TARGET_PATH): $(OBJS) | $(BUILDDIR)
+$(TARGET_PATH): $(OBJS) $(IMGUIFILE_DIALOG_LIB) | $(BUILDDIR)
 	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
+
+$(IMGUIFILE_DIALOG_LIB):
+	$(MAKE) -C $(ROOTDIR)/lib/ImGuiFileDialog
 
 $(OBJDIR) $(BUILDDIR) $(DEPDIR):
 	mkdir -p $@
 
 test:
 	$(MAKE) -C tests
+
+test-asan:
+	$(MAKE) -C tests test-asan
+
+test-ubsan:
+	$(MAKE) -C tests test-ubsan
+
+test-sanitize:
+	$(MAKE) -C tests test-sanitize
+
+# Full verification: normal suite plus every sanitizer variant. Run it with
+# `make -j$(nproc) test-full`; the recursive makes share the jobserver.
+test-full: test test-asan test-ubsan test-sanitize
 
 run: $(TARGET_PATH)
 	$(TARGET_PATH)
@@ -77,4 +96,4 @@ ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS)
 endif
 
-.PHONY: all clean test run release run-release
+.PHONY: all clean test test-full test-asan test-ubsan test-sanitize run release run-release

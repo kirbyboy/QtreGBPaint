@@ -2,7 +2,9 @@
 
 DrawTool::DrawTool(PaintCore::ColorIndex foreground, PaintCore::ColorIndex background) :
 m_foreground(foreground),
-m_background(background)
+m_background(background),
+m_stroke_foreground(foreground),
+m_stroke_background(background)
 {
 }
 
@@ -10,17 +12,28 @@ void DrawTool::set_colors(PaintCore::ColorIndex foreground, PaintCore::ColorInde
 {
 	m_foreground = foreground;
 	m_background = background;
+	if (!m_drawing)
+	{
+		m_stroke_foreground = foreground;
+		m_stroke_background = background;
+	}
 }
 
 void DrawTool::on_mouse_press(PaintSession &canvas, const PaintCore::Vec2 &pos, int button)
 {
-	(void)canvas;
-	(void)button;
-
-	if(m_drawing)
+	if (m_drawing)
 	{
+		if (button != m_active_button)
+		{
+			on_cancel(canvas);
+		}
 		return;
 	}
+
+	m_active_button = button;
+	const bool right_button = button == kRightButton;
+	m_stroke_foreground = right_button ? m_background : m_foreground;
+	m_stroke_background = right_button ? m_foreground : m_background;
 
 	m_drawing = true;
 	m_start_pos = pos;
@@ -46,15 +59,18 @@ void DrawTool::on_mouse_move(PaintSession &canvas, const PaintCore::Vec2 &pos)
 
 void DrawTool::on_mouse_release(PaintSession &canvas, const PaintCore::Vec2 &pos, int button)
 {
-	(void)button;
-
 	if (!m_drawing)
+	{
+		return;
+	}
+	if (button != m_active_button)
 	{
 		return;
 	}
 
 	m_current_pos = pos;
 	m_drawing = false;
+	m_active_button = 0;
 
 	update_preview(canvas);
 
@@ -71,13 +87,14 @@ void DrawTool::on_cancel(PaintSession &canvas)
 	}
 
 	m_drawing = false;
+	m_active_button = 0;
 	m_preview_buffer.reset();
 }
 
 void DrawTool::update_preview(PaintSession& canvas)
 {
 	m_preview_buffer.set_bounds(canvas.getWidth(), canvas.getHeight());
-	draw_preview(m_preview_buffer);
+	draw_preview(m_preview_buffer, canvas.modifiers());
 }
 
 DrawBuffer* DrawTool::get_draw_buffer()

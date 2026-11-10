@@ -39,6 +39,7 @@ public:
 
 	bool copy_to_clipboard();
 	bool cut_to_clipboard();
+	bool delete_floating_region();
 	bool paste_from_clipboard(const PaintCore::Vec2& pos = {});
 	bool invert_floating_region_colors();
 
@@ -52,6 +53,10 @@ private:
 	CanvasDocument& m_document;
 	FloatingRegion m_floating;
 	ImageBuffer m_clipboard;
+
+	// Fills the selection hole with its saved background and discards the
+	// floating content. Used by Cut (after copying) and Delete.
+	void remove_floating_region();
 };
 
 #endif

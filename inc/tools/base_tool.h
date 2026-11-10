@@ -26,6 +26,16 @@ class ToolBase
 
 		virtual void on_cancel(PaintSession& canvas) = 0;
 
+		static constexpr int kLeftButton = 1;
+		static constexpr int kRightButton = 2;
+
+		// Whether a mouse press with this button may start the tool. Drawing
+		// tools accept both buttons; selection-like tools only the left one.
+		virtual bool accepts_button(int button) const
+		{
+			return button == kLeftButton;
+		}
+
 		// Tools that paint can update the palette indices they use. The
 		// default implementation ignores them (e.g. selection tools).
 		virtual void set_colors(PaintCore::ColorIndex foreground,
@@ -34,6 +44,71 @@ class ToolBase
 			(void)foreground;
 			(void)background;
 		}
+
+		// Result of a color-picker click. `background` is true for the right
+		// button; otherwise the color goes to the foreground slot.
+		struct ColorPick
+		{
+			PaintCore::ColorIndex color = 0;
+			bool background = false;
+		};
+
+		// Color-picker-like tools expose the last clicked color once. The
+		// application consumes it after input routing to update the palette
+		// and restore the previous editing tool.
+		virtual bool take_color_pick(ColorPick& pick)
+		{
+			(void)pick;
+			return false;
+		}
+
+		// A tool with an uncommitted edit (for example a curve being shaped)
+		// exposes its lifecycle so PaintSession can make it exclusive with the
+		// floating selection and with undo/redo.
+		virtual bool has_pending_edit() const { return false; }
+		virtual bool commit_pending_edit(PaintSession& canvas)
+		{
+			(void)canvas;
+			return false;
+		}
+		virtual void cancel_pending_edit(PaintSession& canvas)
+		{
+			(void)canvas;
+		}
+
+		struct EditGuide
+		{
+			PaintCore::Vec2 from{};
+			PaintCore::Vec2 to{};
+		};
+
+		struct EditHandle
+		{
+			PaintCore::Vec2 pos{};
+			bool draggable = true;
+		};
+
+		struct EditOverlay
+		{
+			std::vector<EditGuide> guides;
+			std::vector<EditHandle> handles;
+		};
+
+		// Editable tools expose their handles in image coordinates. The view
+		// draws them as an overlay and routes drags back by handle index.
+		virtual bool edit_overlay(EditOverlay& overlay) const
+		{
+			(void)overlay;
+			return false;
+		}
+		virtual void begin_edit_handle(int index) { (void)index; }
+		virtual void move_edit_handle(int index,
+		                              const PaintCore::Vec2& pos)
+		{
+			(void)index;
+			(void)pos;
+		}
+		virtual void end_edit_handle() {}
 
 		const std::vector<ToolOption>& options() const { return m_options; }
 
@@ -99,6 +174,26 @@ class ToolBase
 		// Floating content itself lives in the editor, not in the tool.
 		virtual bool has_marquee() const { return false; }
 		virtual PaintCore::Rect marquee_rect() const { return {}; }
+
+		// Footprint preview under the pointer. The tool chooses the color and
+		// whether the fill is opaque and needs a fixed 1-pixel screen border
+		// (the eraser). nullptr offsets mean the tool has no preview.
+		struct StampPreview
+		{
+			const std::vector<PaintCore::Vec2>* offsets = nullptr;
+			PaintCore::ColorIndex color = 0;
+			bool opaque = false;
+			bool border = false;
+		};
+
+		virtual StampPreview stamp_preview(
+			PaintCore::ColorIndex foreground,
+			PaintCore::ColorIndex background) const
+		{
+			(void)foreground;
+			(void)background;
+			return {};
+		}
 
 		// Tools with live canvas state (e.g. selection transparency) can
 		// update the active floating region. Called after colors/options change.

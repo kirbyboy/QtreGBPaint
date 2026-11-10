@@ -267,3 +267,42 @@ TEST_CASE("IndexedImage data accessor is read-only")
 					 const std::vector<ColorIndex>&>::value,
 		"IndexedImage::data() must expose read-only storage");
 }
+
+TEST_CASE("save_indexed_image round-trips Index mode")
+{
+	static int counter = 0;
+	const std::string path = (std::filesystem::temp_directory_path() /
+		("qtre_idx_write_" + std::to_string(static_cast<long>(::getpid())) +
+		 "_" + std::to_string(++counter) + ".idx")).string();
+
+	const std::vector<ColorIndex> pixels{0, 1, 2, 3};
+	std::string error;
+	REQUIRE(save_indexed_image(path, 2, 2, 2, pixels, error));
+	CHECK(error.empty());
+
+	const IndexedImage loaded = IndexedImage::loadFromFile(path);
+	REQUIRE(loaded.isValid());
+	CHECK_EQ(loaded.width(), 2);
+	CHECK_EQ(loaded.height(), 2);
+	CHECK_EQ(loaded.bitsPerPixel(), 2);
+	CHECK(loaded.data() == pixels);
+
+	std::error_code remove_error;
+	std::filesystem::remove(path, remove_error);
+}
+
+TEST_CASE("save_indexed_image rejects invalid data")
+{
+	std::string error;
+	const std::vector<ColorIndex> pixels{0, 1, 2, 3};
+
+	CHECK_FALSE(save_indexed_image("", 2, 2, 2, pixels, error));
+	CHECK_FALSE(error.empty());
+
+	CHECK_FALSE(save_indexed_image("/tmp/qtre_invalid.idx", 0, 2, 2, pixels, error));
+	CHECK_FALSE(save_indexed_image("/tmp/qtre_invalid.idx", 2, -1, 2, pixels, error));
+	CHECK_FALSE(save_indexed_image("/tmp/qtre_invalid.idx", 2, 2, 0, pixels, error));
+	CHECK_FALSE(save_indexed_image("/tmp/qtre_invalid.idx", 2, 2, 9, pixels, error));
+	CHECK_FALSE(save_indexed_image("/tmp/qtre_invalid.idx", 2, 2, 2, {0, 1, 2}, error));
+	CHECK_FALSE(save_indexed_image("/tmp/qtre_invalid.idx", 2, 2, 2, {0, 1, 2, 4}, error));
+}

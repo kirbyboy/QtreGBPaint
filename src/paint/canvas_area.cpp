@@ -3,6 +3,7 @@
 #include "paint/canvas_area.h"
 #include "paint/color_imgui.h"
 #include "core/ibackend.h"
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -47,6 +48,99 @@ PaintCore::Rect intersect(const PaintCore::Rect& a, const PaintCore::Rect& b)
 		return {};
 	}
 	return {x0, y0, x1 - x0, y1 - y0};
+}
+
+// The visible rect is derived from scroll values; expand it by one image pixel
+// so rounding at the edges can never leave an uncovered strip.
+PaintCore::Rect expand_image_rect(const PaintCore::Rect& rect, int amount,
+                                  int image_width, int image_height)
+{
+	if (rect.empty())
+	{
+		return {};
+	}
+
+	const int x0 = std::clamp(rect.x - amount, 0, image_width);
+	const int y0 = std::clamp(rect.y - amount, 0, image_height);
+	const int x1 = std::clamp(rect.right() + amount, 0, image_width);
+	const int y1 = std::clamp(rect.bottom() + amount, 0, image_height);
+	if (x0 >= x1 || y0 >= y1)
+	{
+		return {};
+	}
+	return {x0, y0, x1 - x0, y1 - y0};
+}
+
+// Tiles kept in the cache: the visible ones plus one tile of margin, so small
+// scrolls across a tile edge do not destroy and re-upload textures.
+PaintCore::TileSpan kept_tile_span(const PaintCore::TileSpan& needed,
+                                   int image_width, int image_height)
+{
+	PaintCore::TileSpan keep;
+	if (needed.empty())
+	{
+		return keep;
+	}
+
+	keep.x0 = std::max(0, needed.x0 - 1);
+	keep.y0 = std::max(0, needed.y0 - 1);
+	keep.x1 = std::min(PaintCore::tile_count(image_width), needed.x1 + 1);
+	keep.y1 = std::min(PaintCore::tile_count(image_height), needed.y1 + 1);
+	return keep;
+}
+
+// 2 px highlight just outside the right and bottom image edges. The grid's
+// last line covers the first pixel and the resize handles cover the second one
+// where they are visible, so the remaining pixel marks the canvas edge without
+// moving any existing element.
+void draw_canvas_edge_highlight(ImDrawList* draw_list,
+                                const PaintCore::ViewTransform& view,
+                                int width, int height)
+{
+	if (!draw_list || width <= 0 || height <= 0)
+	{
+		return;
+	}
+
+	const ImVec2 clip_min = draw_list->GetClipRectMin();
+	const ImVec2 clip_max = draw_list->GetClipRectMax();
+	const PaintCore::Vec2f origin = view.image_to_screen({0.0f, 0.0f});
+	const PaintCore::Vec2f end = view.image_to_screen(
+		{static_cast<float>(width), static_cast<float>(height)});
+
+	const float visible_left = std::max(origin.x, clip_min.x);
+	const float visible_top = std::max(origin.y, clip_min.y);
+	const float visible_right = std::min(end.x, clip_max.x);
+	const float visible_bottom = std::min(end.y, clip_max.y);
+	if (visible_left >= visible_right || visible_top >= visible_bottom)
+	{
+		return;
+	}
+
+	// Same blue ImGui uses for selection/hover highlights.
+	const ImU32 color = ImGui::GetColorU32(ImGuiCol_HeaderActive);
+
+	if (end.x >= clip_min.x && end.x <= clip_max.x)
+	{
+		const float x0 = std::max(end.x, clip_min.x);
+		const float x1 = std::min(end.x + 2.0f, clip_max.x);
+		if (x0 < x1)
+		{
+			draw_list->AddRectFilled(
+				ImVec2(x0, visible_top), ImVec2(x1, visible_bottom), color);
+		}
+	}
+
+	if (end.y >= clip_min.y && end.y <= clip_max.y)
+	{
+		const float y0 = std::max(end.y, clip_min.y);
+		const float y1 = std::min(end.y + 2.0f, clip_max.y);
+		if (y0 < y1)
+		{
+			draw_list->AddRectFilled(
+				ImVec2(visible_left, y0), ImVec2(visible_right, y1), color);
+		}
+	}
 }
 
 void add_dashed_edge(ImDrawList* draw_list, const ImVec2& a, const ImVec2& b)
@@ -118,24 +212,18 @@ void ImGuiCanvasRenderer::draw_line(int x0, int y0, int x1, int y1, const PaintC
 
 // CanvasArea
 
-CanvasArea::CanvasArea(IGuiBackend* backend, int w, int h) : m_backend(backend), m_session(w, h), m_grid(backend)
+CanvasArea::CanvasArea(IGuiBackend* backend, PaintSession& session)
+	: m_backend(backend), m_session(session), m_grid(backend)
 {
 }
 
 CanvasArea::~CanvasArea()
 {
-	if (m_backend)
+	destroy_canvas_tiles();
+	if (m_backend && m_floating_texture)
 	{
-		if (m_canvas_texture)
-		{
-			m_backend->destroyTexture(m_canvas_texture);
-			m_canvas_texture = nullptr;
-		}
-		if (m_floating_texture)
-		{
-			m_backend->destroyTexture(m_floating_texture);
-			m_floating_texture = nullptr;
-		}
+		m_backend->destroyTexture(m_floating_texture);
+		m_floating_texture = nullptr;
 	}
 }
 
@@ -151,7 +239,9 @@ void CanvasArea::update_view(const ImVec2& canvas_pos,
 		zoom);
 }
 
-void CanvasArea::render(ImDrawList* draw_list, const Palette& palette)
+void CanvasArea::render(ImDrawList* draw_list, const Palette& palette,
+                        PaintCore::ColorIndex foreground,
+                        PaintCore::ColorIndex background)
 {
 	if (!draw_list)
 	{
@@ -162,9 +252,10 @@ void CanvasArea::render(ImDrawList* draw_list, const Palette& palette)
 	renderer.draw_list = draw_list;
 	renderer.view = m_view;
 
-	// Base image as one texture; preview stays as primitives for now.
+	// Base image as a cache of visible tiles; preview stays as primitives for
+	// now.
 	const bool palette_changed = update_palette_lut(palette);
-	update_canvas_texture(palette_changed);
+	const bool canvas_tiles_ready = update_canvas_tiles(palette_changed);
 	update_floating_texture(palette_changed);
 
 	// Keep the image, grid and handles inside the visible content area, not in
@@ -172,15 +263,9 @@ void CanvasArea::render(ImDrawList* draw_list, const Palette& palette)
 	const ContentClip clip = current_content_clip();
 	draw_list->PushClipRect(clip.min, clip.max, true);
 
-	if (m_canvas_texture)
+	if (canvas_tiles_ready)
 	{
-		const int image_w = m_session.getWidth();
-		const int image_h = m_session.getHeight();
-		const PaintCore::Vec2f p0 = m_view.image_to_screen(PaintCore::Vec2f{0.0f, 0.0f});
-		const PaintCore::Vec2f p1 = m_view.image_to_screen(
-			PaintCore::Vec2f{static_cast<float>(image_w), static_cast<float>(image_h)});
-		draw_list->AddImage(reinterpret_cast<ImTextureID>(m_canvas_texture),
-							ImVec2(p0.x, p0.y), ImVec2(p1.x, p1.y));
+		draw_canvas_tiles(draw_list);
 		m_session.render_preview(renderer, palette);
 	}
 	else
@@ -193,8 +278,19 @@ void CanvasArea::render(ImDrawList* draw_list, const Palette& palette)
 	// them. The marquee is drawn afterwards to keep it crisp.
 	draw_floating_region(draw_list, renderer, palette);
 
+	// Canvas edge highlight; the grid and handles are drawn over it.
+	draw_canvas_edge_highlight(draw_list, m_view,
+	                           m_session.getWidth(), m_session.getHeight());
+
 	m_grid.render(draw_list, m_view, m_session.getWidth(), m_session.getHeight(),
 	              m_grid_enabled);
+
+	// Brush footprint follows the pointer, snapped to image pixels. It is a
+	// view overlay: it never touches the document or the history.
+	draw_stamp_preview(draw_list, palette, foreground, background);
+
+	// Pending tool edits (curve handles and guide lines) live above the grid.
+	draw_edit_overlay(draw_list);
 
 	if (m_session.has_floating_region())
 	{
@@ -208,9 +304,9 @@ void CanvasArea::render(ImDrawList* draw_list, const Palette& palette)
 		}
 	}
 
-	// Resize handles stay disabled while a floating region must be resolved
-	// first.
-	if (!m_session.has_floating_region())
+	// Resize handles stay disabled while a floating region or a pending tool
+	// edit must be resolved first.
+	if (!m_session.has_floating_region() && !m_session.has_pending_edit())
 	{
 		m_resize_gizmo.draw(draw_list, m_view, m_session);
 	}
@@ -237,83 +333,229 @@ bool CanvasArea::update_palette_lut(const Palette& palette)
 	return true;
 }
 
-void CanvasArea::update_canvas_texture(bool palette_changed)
+void CanvasArea::destroy_canvas_tiles()
 {
-	if (!m_backend)
+	if (m_backend)
 	{
-		return;
-	}
-
-	ImageBuffer& image = m_session.get_main_buffer();
-	if (image.width() <= 0 || image.height() <= 0)
-	{
-		return;
-	}
-
-	if (!m_canvas_texture || m_texture_width != image.width() || m_texture_height != image.height())
-	{
-		if (m_canvas_texture)
+		for (auto& entry : m_canvas_tiles)
 		{
-			m_backend->destroyTexture(m_canvas_texture);
-			m_canvas_texture = nullptr;
-		}
-
-		m_canvas_texture = m_backend->createTexture(image.width(), image.height());
-		m_texture_width = image.width();
-		m_texture_height = image.height();
-
-		if (m_canvas_texture)
-		{
-			image.mark_all_dirty();
+			if (entry.second.texture)
+			{
+				m_backend->destroyTexture(entry.second.texture);
+			}
 		}
 	}
 
-	if (!m_canvas_texture)
+	m_canvas_tiles.clear();
+	m_tile_image_width = 0;
+	m_tile_image_height = 0;
+	m_tiles_full_upload = false;
+}
+
+bool CanvasArea::upload_canvas_tile(CanvasTile& tile, int tile_x, int tile_y,
+                                    const ImageBuffer& image)
+{
+	const PaintCore::Rect rect = PaintCore::tile_rect(
+		image.width(), image.height(), tile_x, tile_y);
+	if (rect.empty())
 	{
-		return;
+		return true;
 	}
 
-	if (palette_changed)
+	if (!tile.texture)
 	{
-		image.mark_all_dirty();
+		tile.texture = m_backend->createTexture(rect.w, rect.h);
+		tile.width = rect.w;
+		tile.height = rect.h;
+	}
+	if (!tile.texture || tile.width != rect.w || tile.height != rect.h)
+	{
+		return false;
 	}
 
-	if (!image.has_dirty_rect())
+	const int image_width = image.width();
+	const std::vector<PaintCore::ColorIndex>& data = image.data();
+	m_upload_pixels.resize(static_cast<std::size_t>(rect.w) *
+	                       static_cast<std::size_t>(rect.h));
+
+	for (int y = 0; y < rect.h; ++y)
 	{
-		return;
-	}
+		const PaintCore::ColorIndex* src = data.data() +
+			static_cast<std::size_t>(rect.y + y) * static_cast<std::size_t>(image_width) +
+			static_cast<std::size_t>(rect.x);
+		PaintCore::Color* dst = m_upload_pixels.data() +
+			static_cast<std::size_t>(y) * static_cast<std::size_t>(rect.w);
 
-	const PaintCore::Rect dirty = image.dirty_rect();
-	const int x0 = std::max(0, dirty.x);
-	const int y0 = std::max(0, dirty.y);
-	const int x1 = std::min(image.width(), dirty.right());
-	const int y1 = std::min(image.height(), dirty.bottom());
-
-	if (x0 >= x1 || y0 >= y1)
-	{
-		image.clear_dirty_rect();
-		return;
-	}
-
-	const int w = x1 - x0;
-	const int h = y1 - y0;
-	m_upload_pixels.resize(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
-
-	for (int y = 0; y < h; ++y)
-	{
-		const PaintCore::ColorIndex* src = image.data().data() +
-			static_cast<std::size_t>(y0 + y) * static_cast<std::size_t>(image.width()) +
-			static_cast<std::size_t>(x0);
-		PaintCore::Color* dst = m_upload_pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(w);
-
-		for (int x = 0; x < w; ++x)
+		for (int x = 0; x < rect.w; ++x)
 		{
 			dst[x] = m_lut[src[x]];
 		}
 	}
 
-	m_backend->updateTextureRegion(m_canvas_texture, m_upload_pixels.data(), x0, y0, w, h);
-	image.clear_dirty_rect();
+	m_backend->updateTexture(tile.texture, m_upload_pixels.data(), rect.w, rect.h);
+	return true;
+}
+
+bool CanvasArea::update_canvas_tiles(bool palette_changed)
+{
+	if (!m_backend)
+	{
+		return false;
+	}
+
+	const ImageBuffer& image = m_session.get_main_buffer();
+	const int image_width = image.width();
+	const int image_height = image.height();
+	if (image_width <= 0 || image_height <= 0)
+	{
+		destroy_canvas_tiles();
+		return false;
+	}
+
+	if (image_width != m_tile_image_width || image_height != m_tile_image_height)
+	{
+		destroy_canvas_tiles();
+		m_tile_image_width = image_width;
+		m_tile_image_height = image_height;
+	}
+
+	if (palette_changed)
+	{
+		m_tiles_full_upload = true;
+	}
+
+	// Consume the dirty region once per frame. A full upload covers it.
+	PaintCore::Rect dirty = m_session.take_dirty_rect();
+	if (m_tiles_full_upload)
+	{
+		dirty = {};
+	}
+	else
+	{
+		dirty = intersect(dirty, PaintCore::Rect{0, 0, image_width, image_height});
+	}
+
+	const PaintCore::Rect visible = expand_image_rect(
+		m_view.visible_image_rect(image_width, image_height), 1,
+		image_width, image_height);
+	if (visible.empty())
+	{
+		destroy_canvas_tiles();
+		m_tile_image_width = image_width;
+		m_tile_image_height = image_height;
+		return true;
+	}
+
+	const PaintCore::TileSpan needed = PaintCore::tiles_covering(
+		visible, image_width, image_height);
+	const PaintCore::TileSpan keep = kept_tile_span(
+		needed, image_width, image_height);
+
+	// Drop tiles that left the visible area and its margin.
+	for (auto it = m_canvas_tiles.begin(); it != m_canvas_tiles.end();)
+	{
+		const int tile_x = static_cast<int>(it->first & 0xffffffffu);
+		const int tile_y = static_cast<int>(it->first >> 32);
+		if (tile_x < keep.x0 || tile_x >= keep.x1 ||
+		    tile_y < keep.y0 || tile_y >= keep.y1)
+		{
+			m_backend->destroyTexture(it->second.texture);
+			it = m_canvas_tiles.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+
+	bool ready = true;
+	for (int tile_y = keep.y0; tile_y < keep.y1; ++tile_y)
+	{
+		for (int tile_x = keep.x0; tile_x < keep.x1; ++tile_x)
+		{
+			const bool visible_tile =
+				tile_x >= needed.x0 && tile_x < needed.x1 &&
+				tile_y >= needed.y0 && tile_y < needed.y1;
+			if (!visible_tile && !m_tiles_full_upload && dirty.empty())
+			{
+				// Existing margin tiles are already current; missing margin
+				// tiles are only created when they become visible.
+				continue;
+			}
+
+			const std::uint64_t key = PaintCore::tile_key(tile_x, tile_y);
+			auto it = m_canvas_tiles.find(key);
+			if (it == m_canvas_tiles.end())
+			{
+				if (!visible_tile)
+				{
+					continue;
+				}
+
+				auto inserted = m_canvas_tiles.emplace(key, CanvasTile{});
+				auto it_new = inserted.first;
+				if (!upload_canvas_tile(it_new->second, tile_x, tile_y, image))
+				{
+					m_canvas_tiles.erase(it_new);
+					ready = false;
+				}
+				continue;
+			}
+
+			if (m_tiles_full_upload ||
+			    !intersect(PaintCore::tile_rect(image_width, image_height,
+			                                    tile_x, tile_y), dirty).empty())
+			{
+				if (!upload_canvas_tile(it->second, tile_x, tile_y, image))
+				{
+					ready = false;
+				}
+			}
+		}
+	}
+
+	m_tiles_full_upload = false;
+	return ready;
+}
+
+void CanvasArea::draw_canvas_tiles(ImDrawList* draw_list)
+{
+	const int image_width = m_session.getWidth();
+	const int image_height = m_session.getHeight();
+	if (image_width <= 0 || image_height <= 0)
+	{
+		return;
+	}
+
+	const PaintCore::Rect visible = expand_image_rect(
+		m_view.visible_image_rect(image_width, image_height), 1,
+		image_width, image_height);
+	const PaintCore::TileSpan span = PaintCore::tiles_covering(
+		visible, image_width, image_height);
+
+	for (int tile_y = span.y0; tile_y < span.y1; ++tile_y)
+	{
+		for (int tile_x = span.x0; tile_x < span.x1; ++tile_x)
+		{
+			auto it = m_canvas_tiles.find(PaintCore::tile_key(tile_x, tile_y));
+			if (it == m_canvas_tiles.end() || !it->second.texture)
+			{
+				continue;
+			}
+
+			const PaintCore::Rect rect = PaintCore::tile_rect(
+				image_width, image_height, tile_x, tile_y);
+			const PaintCore::Vec2f p0 = m_view.image_to_screen(
+				PaintCore::Vec2f{static_cast<float>(rect.x),
+				                 static_cast<float>(rect.y)});
+			const PaintCore::Vec2f p1 = m_view.image_to_screen(
+				PaintCore::Vec2f{static_cast<float>(rect.right()),
+				                 static_cast<float>(rect.bottom())});
+			draw_list->AddImage(
+				reinterpret_cast<ImTextureID>(it->second.texture),
+				ImVec2(p0.x, p0.y), ImVec2(p1.x, p1.y));
+		}
+	}
 }
 
 void CanvasArea::update_floating_texture(bool palette_changed)
@@ -337,7 +579,7 @@ void CanvasArea::update_floating_texture(bool palette_changed)
 		return;
 	}
 
-	const ImageBuffer& content = region.content;
+	const ImageBuffer& content = region.content();
 	if (content.width() <= 0 || content.height() <= 0)
 	{
 		return;
@@ -366,7 +608,7 @@ void CanvasArea::update_floating_texture(bool palette_changed)
 	}
 
 	if (!palette_changed &&
-	    m_floating_texture_revision == region.content_revision)
+	    m_floating_texture_revision == region.revision())
 	{
 		return;
 	}
@@ -395,7 +637,7 @@ void CanvasArea::update_floating_texture(bool palette_changed)
 
 	m_backend->updateTexture(m_floating_texture, m_upload_pixels.data(),
 	                         content.width(), content.height());
-	m_floating_texture_revision = region.content_revision;
+	m_floating_texture_revision = region.revision();
 }
 
 void CanvasArea::draw_floating_region(ImDrawList* draw_list,
@@ -455,7 +697,7 @@ void CanvasArea::draw_floating_region(ImDrawList* draw_list,
 	{
 		for (int x = visible.x; x < visible.right(); ++x)
 		{
-			const PaintCore::ColorIndex color = region.content.get_pixel(
+			const PaintCore::ColorIndex color = region.content().get_pixel(
 				x - region.rect.x, y - region.rect.y);
 			const bool transparent =
 				color == PaintCore::TRANSPARENT_INDEX ||
@@ -519,6 +761,189 @@ void CanvasArea::draw_marquee(ImDrawList* draw_list,
 	draw_list->PopClipRect();
 }
 
+void CanvasArea::draw_stamp_preview(ImDrawList* draw_list,
+                                    const Palette& palette,
+                                    PaintCore::ColorIndex foreground,
+                                    PaintCore::ColorIndex background) const
+{
+	if (!draw_list || !m_hover_inside ||
+	    m_session.has_floating_region())
+	{
+		return;
+	}
+
+	ToolBase* tool = m_session.active_tool();
+	if (!tool)
+	{
+		return;
+	}
+
+	const ToolBase::StampPreview preview =
+		tool->stamp_preview(foreground, background);
+	if (!preview.offsets || preview.offsets->empty())
+	{
+		return;
+	}
+
+	const PaintCore::Color color = palette.getColor(preview.color);
+	const int alpha = preview.opaque ? 255 : 150;
+	const ImU32 fill = IM_COL32(color.r, color.g, color.b, alpha);
+	const int width = m_session.getWidth();
+	const int height = m_session.getHeight();
+
+	int min_x = preview.offsets->front().x;
+	int max_x = preview.offsets->front().x;
+	int min_y = preview.offsets->front().y;
+	int max_y = preview.offsets->front().y;
+
+	for (const PaintCore::Vec2& offset : *preview.offsets)
+	{
+		min_x = std::min(min_x, offset.x);
+		max_x = std::max(max_x, offset.x);
+		min_y = std::min(min_y, offset.y);
+		max_y = std::max(max_y, offset.y);
+
+		const int x = m_hover_image_pos.x + offset.x;
+		const int y = m_hover_image_pos.y + offset.y;
+		if (x < 0 || y < 0 || x >= width || y >= height)
+		{
+			continue;
+		}
+
+		const PaintCore::Vec2f p0 = m_view.image_to_screen(
+			PaintCore::Vec2f{static_cast<float>(x),
+			                 static_cast<float>(y)});
+		const PaintCore::Vec2f p1 = m_view.image_to_screen(
+			PaintCore::Vec2f{static_cast<float>(x + 1),
+			                 static_cast<float>(y + 1)});
+		draw_list->AddRectFilled(ImVec2(p0.x, p0.y), ImVec2(p1.x, p1.y),
+		                         fill);
+	}
+
+	if (preview.border)
+	{
+		const PaintCore::Vec2f p0 = m_view.image_to_screen(
+			PaintCore::Vec2f{
+				static_cast<float>(m_hover_image_pos.x + min_x),
+				static_cast<float>(m_hover_image_pos.y + min_y)});
+		const PaintCore::Vec2f p1 = m_view.image_to_screen(
+			PaintCore::Vec2f{
+				static_cast<float>(m_hover_image_pos.x + max_x + 1),
+				static_cast<float>(m_hover_image_pos.y + max_y + 1)});
+
+		// Fixed one-pixel border, independent of the zoom. It sits just
+		// outside the footprint so it never covers an erased pixel.
+		const ImU32 border = ImGui::GetColorU32(ImGuiCol_HeaderActive);
+		draw_list->AddRectFilled(ImVec2(p0.x - 1.0f, p0.y - 1.0f),
+		                         ImVec2(p1.x + 1.0f, p0.y), border);
+		draw_list->AddRectFilled(ImVec2(p0.x - 1.0f, p1.y),
+		                         ImVec2(p1.x + 1.0f, p1.y + 1.0f), border);
+		draw_list->AddRectFilled(ImVec2(p0.x - 1.0f, p0.y),
+		                         ImVec2(p0.x, p1.y), border);
+		draw_list->AddRectFilled(ImVec2(p1.x, p0.y),
+		                         ImVec2(p1.x + 1.0f, p1.y), border);
+	}
+}
+
+int CanvasArea::edit_handle_at(const ImVec2& mouse) const
+{
+	ToolBase* tool = m_session.active_tool();
+	if (!tool)
+	{
+		return -1;
+	}
+
+	ToolBase::EditOverlay overlay;
+	if (!tool->edit_overlay(overlay))
+	{
+		return -1;
+	}
+
+	constexpr float kHitRadius = 6.0f;
+	float best_distance = kHitRadius * kHitRadius;
+	int best_index = -1;
+
+	for (std::size_t i = 0; i < overlay.handles.size(); ++i)
+	{
+		const ToolBase::EditHandle& handle = overlay.handles[i];
+		if (!handle.draggable)
+		{
+			continue;
+		}
+
+		const PaintCore::Vec2f screen = m_view.image_to_screen(
+			PaintCore::Vec2f{static_cast<float>(handle.pos.x) + 0.5f,
+			                 static_cast<float>(handle.pos.y) + 0.5f});
+		const float dx = mouse.x - screen.x;
+		const float dy = mouse.y - screen.y;
+		const float distance = dx * dx + dy * dy;
+		if (distance <= best_distance)
+		{
+			best_distance = distance;
+			best_index = static_cast<int>(i);
+		}
+	}
+
+	return best_index;
+}
+
+void CanvasArea::draw_edit_overlay(ImDrawList* draw_list)
+{
+	if (!draw_list)
+	{
+		return;
+	}
+
+	ToolBase* tool = m_session.active_tool();
+	if (!tool)
+	{
+		return;
+	}
+
+	ToolBase::EditOverlay overlay;
+	if (!tool->edit_overlay(overlay))
+	{
+		return;
+	}
+
+	const ImU32 guide_color = ImGui::GetColorU32(ImGuiCol_TextDisabled, 0.85f);
+	for (const ToolBase::EditGuide& guide : overlay.guides)
+	{
+		const PaintCore::Vec2f from = m_view.image_to_screen(
+			PaintCore::Vec2f{static_cast<float>(guide.from.x) + 0.5f,
+			                 static_cast<float>(guide.from.y) + 0.5f});
+		const PaintCore::Vec2f to = m_view.image_to_screen(
+			PaintCore::Vec2f{static_cast<float>(guide.to.x) + 0.5f,
+			                 static_cast<float>(guide.to.y) + 0.5f});
+		draw_list->AddLine(ImVec2(from.x, from.y), ImVec2(to.x, to.y),
+		                   guide_color, 1.0f);
+	}
+
+	for (std::size_t i = 0; i < overlay.handles.size(); ++i)
+	{
+		const ToolBase::EditHandle& handle = overlay.handles[i];
+		const PaintCore::Vec2f center = m_view.image_to_screen(
+			PaintCore::Vec2f{static_cast<float>(handle.pos.x) + 0.5f,
+			                 static_cast<float>(handle.pos.y) + 0.5f});
+		const float half = handle.draggable ? 3.5f : 2.5f;
+		const ImVec2 min(std::floor(center.x - half),
+		                std::floor(center.y - half));
+		const ImVec2 max(std::floor(center.x + half),
+		                std::floor(center.y + half));
+
+		ImU32 fill = handle.draggable
+			? ImGui::GetColorU32(ImGuiCol_HeaderActive)
+			: ImGui::GetColorU32(ImGuiCol_Text);
+		if (static_cast<int>(i) == m_edit_handle)
+		{
+			fill = ImGui::GetColorU32(ImGuiCol_ButtonActive);
+		}
+
+		draw_list->AddRectFilled(min, max, fill);
+		draw_list->AddRect(min, max, IM_COL32(0, 0, 0, 200));
+	}
+}
+
 PaintSession& CanvasArea::session()
 {
 	return m_session;
@@ -536,6 +961,14 @@ PaintCore::Vec2 CanvasArea::visible_image_origin() const
 	// visible_image_rect returns an empty rect when nothing is visible; the
 	// default Vec2 (0,0) keeps paste usable in that edge case.
 	return PaintCore::Vec2{visible.x, visible.y};
+}
+
+bool CanvasArea::pointer_over_image(const ImVec2& mouse) const
+{
+	const PaintCore::Vec2 img = m_view.screen_to_image_pixel(
+		PaintCore::Vec2f{mouse.x, mouse.y});
+	return img.x >= 0 && img.y >= 0 &&
+	       img.x < m_session.getWidth() && img.y < m_session.getHeight();
 }
 
 bool CanvasArea::handle_floating_input(const PaintCore::Vec2& img_pos,
@@ -614,50 +1047,216 @@ void CanvasArea::handle_input(const ImVec2& mouse)
     const PaintCore::Vec2 img_pos = m_view.screen_to_image_pixel(
         PaintCore::Vec2f{mouse.x, mouse.y});
 
-    const bool mouse_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
-    const bool mouse_released = ImGui::IsMouseReleased(ImGuiMouseButton_Left);
-    const bool pressed = mouse_down && !m_mouse_was_down;
+    PaintCore::Modifiers modifiers;
+    const ImGuiIO& io = ImGui::GetIO();
+    modifiers.shift = io.KeyShift;
+    modifiers.ctrl = io.KeyCtrl;
+    modifiers.alt = io.KeyAlt;
+    m_session.set_modifiers(modifiers);
+
+    const bool left_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+    const bool right_down = ImGui::IsMouseDown(ImGuiMouseButton_Right);
+    const bool left_pressed = left_down && !m_left_was_down;
+    const bool left_released = !left_down && m_left_was_down;
+    const bool right_pressed = right_down && !m_right_was_down;
+    const bool right_released = !right_down && m_right_was_down;
+    const bool pressed = left_pressed;
+    const bool released = left_released;
     const bool item_hovered = ImGui::IsItemHovered();
     const ContentClip clip = current_content_clip();
+    m_hover_inside = false;
+
+    const auto update_buttons = [&]()
+    {
+        m_left_was_down = left_down;
+        m_right_was_down = right_down;
+    };
 
     // The floating region owns input while it exists: it can be dragged,
     // confirmed or cancelled before resize handles or tools see the mouse.
     if (m_session.has_floating_region())
     {
-        handle_floating_input(img_pos, pressed, mouse_released, item_hovered);
-        m_mouse_was_down = mouse_down;
+        handle_floating_input(img_pos, pressed, left_released, item_hovered);
+        update_buttons();
         return;
     }
 
     m_floating_dragging = false;
 
+    if (m_edit_handle >= 0 && !m_session.has_pending_edit())
+    {
+        m_edit_handle = -1;
+    }
+
+    // A pending tool edit is modal: its handles are dragged with the left
+    // button, any other left click commits the edit, and the right button
+    // cancels it. The handles can be outside the image but inside the child.
+    if (m_session.has_pending_edit())
+    {
+        if (left_down && right_down)
+        {
+            m_edit_handle = -1;
+            m_session.cancel_pending_edit();
+            update_buttons();
+            return;
+        }
+
+        if (m_edit_handle >= 0)
+        {
+            if (!left_down || right_pressed)
+            {
+                m_session.end_edit_handle();
+                m_edit_handle = -1;
+                if (right_pressed)
+                {
+                    m_session.cancel_pending_edit();
+                }
+            }
+            else
+            {
+                m_session.move_edit_handle(m_edit_handle, img_pos);
+                if (m_backend)
+                {
+                    m_backend->set_cursor(PaintCore::CursorType::Move);
+                }
+            }
+            update_buttons();
+            return;
+        }
+
+        if (!item_hovered)
+        {
+            update_buttons();
+            return;
+        }
+
+        if (left_pressed)
+        {
+            const int handle = edit_handle_at(mouse);
+            if (handle >= 0)
+            {
+                m_edit_handle = handle;
+                m_session.begin_edit_handle(handle);
+                if (m_backend)
+                {
+                    m_backend->set_cursor(PaintCore::CursorType::Move);
+                }
+            }
+            else
+            {
+                m_session.commit_pending_edit();
+            }
+            update_buttons();
+            return;
+        }
+
+        if (right_pressed)
+        {
+            m_session.cancel_pending_edit();
+            update_buttons();
+            return;
+        }
+
+        if (edit_handle_at(mouse) >= 0 && m_backend)
+        {
+            m_backend->set_cursor(PaintCore::CursorType::Move);
+        }
+        update_buttons();
+        return;
+    }
+
     // Resize handles take priority over the active tool.
     if (m_resize_gizmo.handle_input(m_session, m_backend, m_view, mouse,
-                                    pressed, mouse_released, item_hovered,
+                                    pressed, released, item_hovered,
                                     m_resize_fill, clip.min, clip.max))
     {
-        m_mouse_was_down = mouse_down;
+        update_buttons();
         return;
+    }
+
+    // Both buttons cancel the unconfirmed stroke. Suppress a new one until
+    // both are released, so releasing one does not immediately start another.
+    if (left_down && right_down)
+    {
+        if (m_stroke_button != 0 ||
+            (m_session.active_tool() && m_session.active_tool()->is_drawing()))
+        {
+            m_session.cancel_active_stroke();
+        }
+        m_stroke_button = 0;
+        m_suppress_stroke = true;
+        update_buttons();
+        return;
+    }
+
+    if (m_suppress_stroke)
+    {
+        if (!left_down && !right_down)
+        {
+            m_suppress_stroke = false;
+        }
+        update_buttons();
+        return;
+    }
+
+    ToolBase* tool = m_session.active_tool();
+
+    // Undo or a tool switch may have cancelled the stroke outside this router.
+    if (m_stroke_button != 0 && (!tool || !tool->is_drawing()))
+    {
+        m_stroke_button = 0;
     }
 
     const bool inside_image =
         img_pos.x >= 0 && img_pos.y >= 0 &&
         img_pos.x < m_session.getWidth() && img_pos.y < m_session.getHeight();
 
-    if (mouse_down && !m_mouse_was_down && item_hovered && inside_image)
+    m_hover_image_pos = img_pos;
+    m_hover_inside =
+        (item_hovered || ImGui::IsItemActive()) && inside_image;
+
+    int start_button = 0;
+    if (left_pressed)
     {
-        m_session.handle_mouse_press(img_pos, 1);
-        m_mouse_was_down = true;
+        start_button = ToolBase::kLeftButton;
     }
-    else if (mouse_released && m_session.active_tool() && m_session.active_tool()->is_drawing())
+    else if (right_pressed)
     {
-        m_session.handle_mouse_release(img_pos, 1);
-        m_mouse_was_down = false;
-    }
-    else if (ImGui::IsItemActive() && m_session.active_tool() && m_session.active_tool()->is_drawing())
-    {
-        m_session.handle_mouse_move(img_pos);
+        start_button = ToolBase::kRightButton;
     }
 
-    m_mouse_was_down = mouse_down;
+    if (m_stroke_button == 0 && start_button != 0 &&
+        item_hovered && inside_image && tool &&
+        tool->accepts_button(start_button))
+    {
+        m_session.handle_mouse_press(img_pos, start_button);
+        if (m_session.active_tool() && m_session.active_tool()->is_drawing())
+        {
+            m_stroke_button = start_button;
+        }
+    }
+    else if (m_stroke_button != 0)
+    {
+        const bool active_down =
+            (m_stroke_button == ToolBase::kLeftButton) ? left_down : right_down;
+        const bool active_released =
+            (m_stroke_button == ToolBase::kLeftButton) ? left_released : right_released;
+
+        if (active_released)
+        {
+            m_session.handle_mouse_release(img_pos, m_stroke_button);
+            m_stroke_button = 0;
+            if (left_down || right_down)
+            {
+                // The other button is still held: wait for a clean release.
+                m_suppress_stroke = true;
+            }
+        }
+        else if (active_down)
+        {
+            m_session.handle_mouse_move(img_pos);
+        }
+    }
+
+    update_buttons();
 }

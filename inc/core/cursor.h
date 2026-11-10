@@ -8,16 +8,17 @@
 
 namespace PaintCore
 {
-	// Cursor associated with a toolbar button. The backend maps these values
-	// to its own cursors; tools do not know about them.
+	// Cursor used by toolbar buttons. Several tools may share one type
+	// (for example the precision Crosshair); tools do not know the mapping.
 	enum class CursorType : std::uint8_t
 	{
 		Arrow,
 		Crosshair,
 		Pencil,
+		Brush,
+		Eraser,
+		Pick,
 		Fill,
-		Rect,
-		Circle,
 		ResizeEW,
 		ResizeNS,
 		ResizeNWSE,
@@ -35,6 +36,19 @@ namespace PaintCore
 		int hotspot_y = 0;
 		std::vector<Color> pixels;
 	};
+
+	// Fully transparent cursor used by the eraser: the preview square is the
+	// only pointer indicator over the image.
+	inline CursorImage make_invisible_cursor()
+	{
+		CursorImage image;
+		image.width = 1;
+		image.height = 1;
+		image.hotspot_x = 0;
+		image.hotspot_y = 0;
+		image.pixels.assign(1, Color{0, 0, 0, 0});
+		return image;
+	}
 }
 
 #endif

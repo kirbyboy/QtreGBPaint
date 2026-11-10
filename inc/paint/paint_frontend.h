@@ -13,29 +13,54 @@
 class PaintFrontend
 {
 	public:
+		enum class Theme
+		{
+			Dark,
+			Light,
+			Classic,
+		};
+
 		PaintFrontend(PaintBackend& backend);
 		void select_tool(const std::string& name);
+
+		// Applies one of ImGui's built-in color presets immediately. The
+		// built-in presets only change colors, not layout metrics.
+		void set_theme(Theme theme);
+		Theme theme() const { return m_theme; }
+
 		void render(); // Main render method
 
 	private:
-		enum class Gradient
+		enum class FileAction
 		{
-			Red,
-			Green,
-			Blue,
+			None,
+			New,
+			Open,
 		};
 
+		void apply_theme_style();
 		void renderMenuBar();
 		void renderToolbar();
 		void renderToolOptions();
 		void renderPalette();
 		void renderCanvas();
-		void regenerate_palette();
-		void apply_tool_colors();
+		void renderFileDialogs();
+
+		void request_new_document();
+		void request_open_document();
+		void request_save();
+		void request_save_as();
+		void perform_pending_file_action();
+		void open_open_dialog();
+		void open_save_as_dialog();
+		void save_to_path(const std::string& path, bool continue_pending);
+		void show_file_error(const std::string& message);
 
 	private:
 		PaintBackend& m_backend;
 		CanvasArea m_canvas_area;
+		Theme m_theme = Theme::Dark;
+		bool m_theme_applied = false;
 		int m_zoom = 1;
 		int m_last_canvas_zoom = 1;
 		bool m_show_grid = true;
@@ -43,15 +68,15 @@ class PaintFrontend
 		int m_canvas_size_width = 0;
 		int m_canvas_size_height = 0;
 
-		// Single palette used both by the panel and by the canvas. It always
-		// has room for 32 entries; m_palette_color_count is the number of
-		// visible/usable colors.
-		Palette m_palette{5};
-		int m_palette_color_count = 4;
-		Gradient m_gradient = Gradient::Red;
-		bool m_use_dmg_palette = true;
-		std::size_t m_foreground_index = 3;
-		std::size_t m_background_index = 0;
+		FileAction m_pending_file_action = FileAction::None;
+		bool m_open_unsaved_popup = false;
+		bool m_open_new_popup = false;
+		bool m_open_error_popup = false;
+		bool m_save_then_pending = false;
+		int m_new_width = 256;
+		int m_new_height = 256;
+		int m_new_bpp = 2;
+		std::string m_error_message;
 };
 
 #endif

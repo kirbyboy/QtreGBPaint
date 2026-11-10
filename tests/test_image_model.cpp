@@ -178,4 +178,80 @@ TEST_CASE("test_palette_dmg_and_grayscale")
 	CHECK_COLOR(eight_bit.getColor(0), 0, 0, 0, 0xFF);
 	CHECK_COLOR(eight_bit.getColor(255), 255, 255, 255, 0xFF);
 }
+
+TEST_CASE("test_palette_visual_sampling")
+{
+	CHECK_EQ(palette_usable_color_count(1), 2);
+	CHECK_EQ(palette_usable_color_count(2), 4);
+	CHECK_EQ(palette_usable_color_count(5), 32);
+	CHECK_EQ(palette_usable_color_count(6), 64);
+	CHECK_EQ(palette_usable_color_count(8), 255);
+	CHECK_EQ(palette_usable_color_count(0), 0);
+	CHECK_EQ(palette_usable_color_count(9), 0);
+
+	CHECK_EQ(palette_visual_color_count(2), 4);
+	CHECK_EQ(palette_visual_color_count(5), 32);
+	CHECK_EQ(palette_visual_color_count(6), 32);
+	CHECK_EQ(palette_visual_color_count(8), 32);
+
+	// Small palettes show every color.
+	CHECK_EQ(palette_visual_color_index(0, 2), 0);
+	CHECK_EQ(palette_visual_color_index(1, 2), 1);
+	CHECK_EQ(palette_visual_color_index(3, 2), 3);
+
+	// 64 colors are sampled 0, 2, 4, ..., 62, 63. The last swatch is the
+	// darkest usable color.
+	CHECK_EQ(palette_visual_color_index(0, 6), 0);
+	CHECK_EQ(palette_visual_color_index(1, 6), 2);
+	CHECK_EQ(palette_visual_color_index(30, 6), 60);
+	CHECK_EQ(palette_visual_color_index(31, 6), 63);
+
+	// 8bpp uses 255 usable colors, not 256; the last swatch is index 254.
+	CHECK_EQ(palette_visual_color_index(0, 8), 0);
+	CHECK_EQ(palette_visual_color_index(31, 8), 254);
+}
+
+TEST_CASE("test_generated_palettes_go_light_to_dark")
+{
+	const Palette dmg = make_palette(PaletteMode::Dmg, 2, false);
+	CHECK_EQ(dmg.size(), 4u);
+	const Palette reference = Palette::dmg();
+	for (int i = 0; i < 4; ++i)
+	{
+		CHECK_COLOR(dmg.getColor(static_cast<ColorIndex>(i)),
+		            reference.getColor(static_cast<ColorIndex>(i)).r,
+		            reference.getColor(static_cast<ColorIndex>(i)).g,
+		            reference.getColor(static_cast<ColorIndex>(i)).b,
+		            0xFF);
+	}
+
+	const Palette inverted = make_palette(PaletteMode::Dmg, 2, true);
+	for (int i = 0; i < 4; ++i)
+	{
+		CHECK_COLOR(inverted.getColor(static_cast<ColorIndex>(i)),
+		            reference.getColor(static_cast<ColorIndex>(3 - i)).r,
+		            reference.getColor(static_cast<ColorIndex>(3 - i)).g,
+		            reference.getColor(static_cast<ColorIndex>(3 - i)).b,
+		            0xFF);
+	}
+
+	const Palette gray = make_palette(PaletteMode::Grayscale, 2, false);
+	CHECK_COLOR(gray.getColor(0), 255, 255, 255, 0xFF);
+	CHECK_COLOR(gray.getColor(1), 170, 170, 170, 0xFF);
+	CHECK_COLOR(gray.getColor(2), 85, 85, 85, 0xFF);
+	CHECK_COLOR(gray.getColor(3), 0, 0, 0, 0xFF);
+
+	const Palette red = make_palette(PaletteMode::Red, 2, false);
+	CHECK_COLOR(red.getColor(0), 255, 255, 255, 0xFF);
+	CHECK_COLOR(red.getColor(3), 0, 0, 0, 0xFF);
+	CHECK(red.getColor(1).r > red.getColor(1).g);
+	CHECK(red.getColor(1).r > red.getColor(1).b);
+
+	const Palette many = make_palette(PaletteMode::Grayscale, 8, false);
+	CHECK_EQ(many.size(), 256u);
+	CHECK_COLOR(many.getColor(0), 255, 255, 255, 0xFF);
+	CHECK_COLOR(many.getColor(254), 0, 0, 0, 0xFF);
+	// Index 255 is reserved for transparency; it must still be a valid color.
+	CHECK_COLOR(many.getColor(255), 0, 0, 0, 0xFF);
+}
 }

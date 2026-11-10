@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "core/shape_constraint.h"
 #include "paint/paint_session.h"
 
 SelectionTool::SelectionTool()
@@ -10,17 +11,15 @@ SelectionTool::SelectionTool()
 		"mode", "Mode", static_cast<int>(Mode::Normal),
 		{
 			{static_cast<int>(Mode::Normal), "Normal", "N",
-			 "selection.normal"},
+			 "selection.normal", {}},
 			{static_cast<int>(Mode::Transparent), "Transparent", "T",
-			 "selection.transparent"},
+			 "selection.transparent", {}},
 		}));
 }
 
 void SelectionTool::on_mouse_press(PaintSession& canvas,
                                    const PaintCore::Vec2& pos, int button)
 {
-	(void)canvas;
-
 	if (button != 1 || m_dragging)
 	{
 		return;
@@ -28,19 +27,19 @@ void SelectionTool::on_mouse_press(PaintSession& canvas,
 
 	m_start = pos;
 	m_current = pos;
+	m_shift = canvas.modifiers().shift;
 	m_dragging = true;
 }
 
 void SelectionTool::on_mouse_move(PaintSession& canvas, const PaintCore::Vec2& pos)
 {
-	(void)canvas;
-
 	if (!m_dragging)
 	{
 		return;
 	}
 
 	m_current = pos;
+	m_shift = canvas.modifiers().shift;
 }
 
 void SelectionTool::on_mouse_release(PaintSession& canvas,
@@ -52,6 +51,7 @@ void SelectionTool::on_mouse_release(PaintSession& canvas,
 	}
 
 	m_current = pos;
+	m_shift = canvas.modifiers().shift;
 	m_dragging = false;
 
 	// The floating editor clips the rectangle and copies the pixels. The tool
@@ -77,10 +77,14 @@ void SelectionTool::set_colors(PaintCore::ColorIndex foreground,
 
 PaintCore::Rect SelectionTool::marquee_rect() const
 {
-	const int left = std::min(m_start.x, m_current.x);
-	const int top = std::min(m_start.y, m_current.y);
-	const int right = std::max(m_start.x, m_current.x);
-	const int bottom = std::max(m_start.y, m_current.y);
+	const PaintCore::Vec2 end = m_shift
+		? PaintCore::square_constrained_end(m_start, m_current)
+		: m_current;
+
+	const int left = std::min(m_start.x, end.x);
+	const int top = std::min(m_start.y, end.y);
+	const int right = std::max(m_start.x, end.x);
+	const int bottom = std::max(m_start.y, end.y);
 	return {left, top, right - left + 1, bottom - top + 1};
 }
 

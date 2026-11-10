@@ -331,11 +331,12 @@ void SDLRendererBackend::create_cursors()
 	create_tool_cursor(PaintCore::CursorType::Arrow, SDL_SYSTEM_CURSOR_ARROW);
 	create_tool_cursor(PaintCore::CursorType::Crosshair, SDL_SYSTEM_CURSOR_CROSSHAIR);
 	// Drawing tools fall back to the default system cursor until a valid .ipx
-	// replaces the slot. Crosshair remains available as an explicit type.
+	// replaces the slot. Crosshair is the shared precision cursor.
 	create_tool_cursor(PaintCore::CursorType::Pencil, SDL_SYSTEM_CURSOR_ARROW);
+	create_tool_cursor(PaintCore::CursorType::Brush, SDL_SYSTEM_CURSOR_CROSSHAIR);
+	create_tool_cursor(PaintCore::CursorType::Eraser, SDL_SYSTEM_CURSOR_ARROW);
+	create_tool_cursor(PaintCore::CursorType::Pick, SDL_SYSTEM_CURSOR_CROSSHAIR);
 	create_tool_cursor(PaintCore::CursorType::Fill, SDL_SYSTEM_CURSOR_ARROW);
-	create_tool_cursor(PaintCore::CursorType::Rect, SDL_SYSTEM_CURSOR_ARROW);
-	create_tool_cursor(PaintCore::CursorType::Circle, SDL_SYSTEM_CURSOR_ARROW);
 	create_tool_cursor(PaintCore::CursorType::ResizeEW, SDL_SYSTEM_CURSOR_SIZEWE);
 	create_tool_cursor(PaintCore::CursorType::ResizeNS, SDL_SYSTEM_CURSOR_SIZENS);
 	create_tool_cursor(PaintCore::CursorType::ResizeNWSE, SDL_SYSTEM_CURSOR_SIZENWSE);

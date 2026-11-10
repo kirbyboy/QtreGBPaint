@@ -39,6 +39,11 @@ int CanvasDocument::getHeight() const
 	return m_image_buffer.height();
 }
 
+int CanvasDocument::getBitsPerPixel() const
+{
+	return m_image_buffer.bitsPerPixel();
+}
+
 void CanvasDocument::render(ICanvasRenderer& renderer, const ViewTransform& view,
                             const Palette& palette) const
 {
@@ -95,15 +100,42 @@ void CanvasDocument::commit_draw_buffer(DrawBuffer& buffer)
 	buffer.reset();
 
 	std::vector<PaintCore::ColorIndex> after = m_image_buffer.read_region(rect);
-	push_pixel_patch(rect, std::move(before), std::move(after));
+	record_patch(rect, std::move(before), std::move(after));
 }
 
-bool CanvasDocument::push_pixel_patch(
+bool CanvasDocument::apply_pixel_patch(
+	const PaintCore::Rect& rect,
+	std::vector<PaintCore::ColorIndex> after)
+{
+	if (rect.empty() || rect.x < 0 || rect.y < 0 ||
+	    rect.right() > m_image_buffer.width() ||
+	    rect.bottom() > m_image_buffer.height() ||
+	    after.size() != static_cast<std::size_t>(rect.w) *
+	                    static_cast<std::size_t>(rect.h))
+	{
+		return false;
+	}
+
+	std::vector<PaintCore::ColorIndex> before =
+		m_image_buffer.read_region(rect);
+	if (before == after)
+	{
+		return false;
+	}
+
+	// Push before writing: if the history allocation fails, the image is
+	// still untouched and the caller can retry.
+	record_patch(rect, std::move(before), after);
+	m_image_buffer.write_region(rect, after.data());
+	return true;
+}
+
+bool CanvasDocument::record_patch(
 	const PaintCore::Rect& rect,
 	std::vector<PaintCore::ColorIndex> before,
 	std::vector<PaintCore::ColorIndex> after)
 {
-	if (before == after)
+	if (rect.empty() || before == after)
 	{
 		return false;
 	}
@@ -140,6 +172,18 @@ void CanvasDocument::clear_history()
 	m_history.clear();
 }
 
+std::uint64_t CanvasDocument::current_state_id() const
+{
+	return m_history.current_state_id();
+}
+
+void CanvasDocument::replace_image(ImageBuffer image)
+{
+	m_image_buffer = std::move(image);
+	m_image_buffer.mark_all_dirty();
+	m_history.clear();
+}
+
 bool CanvasDocument::resize(int new_width, int new_height,
                             PaintCore::ColorIndex fill)
 {
@@ -155,11 +199,10 @@ bool CanvasDocument::resize(int new_width, int new_height,
 
 	CanvasSnapshot before = make_canvas_snapshot(m_image_buffer);
 	m_image_buffer.resize(new_width, new_height, fill);
-	CanvasSnapshot after = make_canvas_snapshot(m_image_buffer);
 
 	UndoStep step;
 	step.before_canvas = std::move(before);
-	step.after_canvas = std::move(after);
+	step.canvas_resize = CanvasResize{new_width, new_height, fill};
 	m_history.push(std::move(step));
 	return true;
 }
@@ -179,7 +222,9 @@ const ImageBuffer& CanvasDocument::get_main_buffer() const
 	return m_image_buffer;
 }
 
-ImageBuffer& CanvasDocument::get_main_buffer()
+PaintCore::Rect CanvasDocument::take_dirty_rect()
 {
-	return m_image_buffer;
+	const PaintCore::Rect dirty = m_image_buffer.dirty_rect();
+	m_image_buffer.clear_dirty_rect();
+	return dirty;
 }

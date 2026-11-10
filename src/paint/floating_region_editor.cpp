@@ -27,21 +27,6 @@ PaintCore::Rect intersect(const PaintCore::Rect& a, const PaintCore::Rect& b)
 	}
 	return {x0, y0, x1 - x0, y1 - y0};
 }
-
-bool image_contains_color(const ImageBuffer& image, PaintCore::ColorIndex color)
-{
-	for (int y = 0; y < image.height(); ++y)
-	{
-		for (int x = 0; x < image.width(); ++x)
-		{
-			if (image.get_pixel(x, y) == color)
-			{
-				return true;
-			}
-		}
-	}
-	return false;
-}
 }
 
 FloatingRegionEditor::FloatingRegionEditor(CanvasDocument& document):
@@ -53,9 +38,8 @@ bool FloatingRegionEditor::begin_selection(const PaintCore::Rect& rect,
                                            PaintCore::ColorIndex hole_fill,
                                            bool transparent_background)
 {
-	ImageBuffer& image = m_document.get_main_buffer();
 	const PaintCore::Rect canvas_rect{
-		0, 0, image.width(), image.height()};
+		0, 0, m_document.getWidth(), m_document.getHeight()};
 	const PaintCore::Rect clipped = intersect(rect, canvas_rect);
 	if (clipped.empty())
 	{
@@ -67,18 +51,15 @@ bool FloatingRegionEditor::begin_selection(const PaintCore::Rect& rect,
 		commit_floating_region();
 	}
 
-	m_floating.content = image.sub_buffer(
-		clipped.x, clipped.y, clipped.w, clipped.h);
+	const ImageBuffer& image = m_document.get_main_buffer();
+	m_floating.set_content(image.sub_buffer(
+		clipped.x, clipped.y, clipped.w, clipped.h));
 	m_floating.rect = clipped;
 	m_floating.hole = clipped;
 	m_floating.hole_fill = hole_fill;
 	m_floating.active = true;
 	m_floating.transparent_background = transparent_background;
 	m_floating.transparent_color = hole_fill;
-	m_floating.modified =
-		transparent_background &&
-		image_contains_color(m_floating.content, hole_fill);
-	++m_floating.content_revision;
 	return true;
 }
 
@@ -97,17 +78,18 @@ bool FloatingRegionEditor::begin_paste(ImageBuffer content,
 
 	// The floating buffer always uses the canvas format. Pixels are copied by
 	// value, so a pasted image with a different bpp still works.
-	m_floating.content = ImageBuffer(
+	ImageBuffer content_copy(
 		content.width(), content.height(),
 		m_document.get_main_buffer().bitsPerPixel());
 	for (int y = 0; y < content.height(); ++y)
 	{
 		for (int x = 0; x < content.width(); ++x)
 		{
-			m_floating.content.set_pixel(
+			content_copy.set_pixel(
 				x, y, content.get_pixel(x, y));
 		}
 	}
+	m_floating.set_content(std::move(content_copy));
 
 	m_floating.rect = {pos.x, pos.y, content.width(), content.height()};
 	m_floating.hole.reset();
@@ -115,8 +97,6 @@ bool FloatingRegionEditor::begin_paste(ImageBuffer content,
 	m_floating.active = true;
 	m_floating.transparent_background = false;
 	m_floating.transparent_color = 0;
-	m_floating.modified = true;
-	++m_floating.content_revision;
 	return true;
 }
 
@@ -143,7 +123,6 @@ bool FloatingRegionEditor::move_floating_region(int dx, int dy)
 
 	m_floating.rect.x = new_x;
 	m_floating.rect.y = new_y;
-	m_floating.modified = true;
 	return true;
 }
 
@@ -165,14 +144,7 @@ bool FloatingRegionEditor::set_floating_transparency(
 
 	m_floating.transparent_background = transparent_background;
 	m_floating.transparent_color = color;
-
-	if (transparent_background &&
-	    image_contains_color(m_floating.content, color))
-	{
-		m_floating.modified = true;
-	}
-
-	++m_floating.content_revision;
+	m_floating.invalidate();
 	return true;
 }
 
@@ -183,14 +155,7 @@ bool FloatingRegionEditor::commit_floating_region()
 		return false;
 	}
 
-	// A fresh selection that has not moved or been edited is not a change.
-	if (!m_floating.modified)
-	{
-		cancel_floating_region();
-		return false;
-	}
-
-	ImageBuffer& image = m_document.get_main_buffer();
+	const ImageBuffer& image = m_document.get_main_buffer();
 	const PaintCore::Rect canvas_rect{
 		0, 0, image.width(), image.height()};
 	const PaintCore::Rect content_rect =
@@ -206,29 +171,39 @@ bool FloatingRegionEditor::commit_floating_region()
 		return false;
 	}
 
-	std::vector<PaintCore::ColorIndex> before =
-		image.read_region(bounds);
+	// Build the final pixels without touching the document. The commit is a
+	// single apply_pixel_patch, which also owns the before/after history.
+	std::vector<PaintCore::ColorIndex> after = image.read_region(bounds);
 
 	if (!hole_rect.empty())
 	{
-		std::vector<PaintCore::ColorIndex> fill(
-			static_cast<std::size_t>(hole_rect.w) *
-			static_cast<std::size_t>(hole_rect.h),
-			m_floating.hole_fill);
-		image.write_region(hole_rect, fill.data());
+		for (int y = hole_rect.y; y < hole_rect.bottom(); ++y)
+		{
+			const std::size_t row =
+				static_cast<std::size_t>(y - bounds.y) *
+				static_cast<std::size_t>(bounds.w);
+			for (int x = hole_rect.x; x < hole_rect.right(); ++x)
+			{
+				after[row + static_cast<std::size_t>(x - bounds.x)] =
+					m_floating.hole_fill;
+			}
+		}
 	}
 
 	if (!content_rect.empty())
 	{
 		const int offset_x = content_rect.x - m_floating.rect.x;
 		const int offset_y = content_rect.y - m_floating.rect.y;
+		const ImageBuffer& content = m_floating.content();
 		for (int y = 0; y < content_rect.h; ++y)
 		{
+			const std::size_t row =
+				static_cast<std::size_t>(content_rect.y + y - bounds.y) *
+				static_cast<std::size_t>(bounds.w);
 			for (int x = 0; x < content_rect.w; ++x)
 			{
 				const PaintCore::ColorIndex color =
-					m_floating.content.get_pixel(
-						offset_x + x, offset_y + y);
+					content.get_pixel(offset_x + x, offset_y + y);
 				const bool transparent =
 					color == PaintCore::TRANSPARENT_INDEX ||
 					(m_floating.transparent_background &&
@@ -237,18 +212,16 @@ bool FloatingRegionEditor::commit_floating_region()
 				{
 					continue;
 				}
-				image.set_pixel(
-					content_rect.x + x, content_rect.y + y, color);
+				after[row + static_cast<std::size_t>(
+					content_rect.x + x - bounds.x)] = color;
 			}
 		}
 	}
 
-	std::vector<PaintCore::ColorIndex> after =
-		image.read_region(bounds);
-
+	const bool changed =
+		m_document.apply_pixel_patch(bounds, std::move(after));
 	cancel_floating_region();
-	return m_document.push_pixel_patch(
-		bounds, std::move(before), std::move(after));
+	return changed;
 }
 
 void FloatingRegionEditor::cancel_floating_region()
@@ -267,15 +240,16 @@ bool FloatingRegionEditor::floating_region_contains(
 
 bool FloatingRegionEditor::copy_to_clipboard()
 {
-	if (!m_floating.active || m_floating.content.width() <= 0 ||
-	    m_floating.content.height() <= 0)
+	const ImageBuffer& content = m_floating.content();
+	if (!m_floating.active || content.width() <= 0 ||
+	    content.height() <= 0)
 	{
 		return false;
 	}
 
 	// Copying does not confirm or modify the floating region and keeps raw
 	// pixels; the transparency mask is applied later when drawing/pasting.
-	m_clipboard = m_floating.content;
+	m_clipboard = content;
 	return true;
 }
 
@@ -286,32 +260,41 @@ bool FloatingRegionEditor::cut_to_clipboard()
 		return false;
 	}
 
-	// For a selection, cut means "remove the selected pixels and leave the
-	// background". Paste regions have no hole, so cutting one just discards
+	remove_floating_region();
+	return true;
+}
+
+bool FloatingRegionEditor::delete_floating_region()
+{
+	if (!m_floating.active)
+	{
+		return false;
+	}
+
+	remove_floating_region();
+	return true;
+}
+
+void FloatingRegionEditor::remove_floating_region()
+{
+	// For a selection, delete means "remove the selected pixels and leave the
+	// background". Paste regions have no hole, so deleting one just discards
 	// the floating copy.
-	ImageBuffer& image = m_document.get_main_buffer();
+	const ImageBuffer& image = m_document.get_main_buffer();
 	const PaintCore::Rect canvas_rect{
 		0, 0, image.width(), image.height()};
 	const PaintCore::Rect hole_rect =
 		intersect(m_floating.hole, canvas_rect);
 	if (!hole_rect.empty())
 	{
-		std::vector<PaintCore::ColorIndex> before =
-			image.read_region(hole_rect);
 		std::vector<PaintCore::ColorIndex> fill(
 			static_cast<std::size_t>(hole_rect.w) *
 			static_cast<std::size_t>(hole_rect.h),
 			m_floating.hole_fill);
-		image.write_region(hole_rect, fill.data());
-
-		std::vector<PaintCore::ColorIndex> after =
-			image.read_region(hole_rect);
-		m_document.push_pixel_patch(
-			hole_rect, std::move(before), std::move(after));
+		m_document.apply_pixel_patch(hole_rect, std::move(fill));
 	}
 
 	cancel_floating_region();
-	return true;
 }
 
 bool FloatingRegionEditor::paste_from_clipboard(const PaintCore::Vec2& pos)
@@ -327,48 +310,52 @@ bool FloatingRegionEditor::paste_from_clipboard(const PaintCore::Vec2& pos)
 
 bool FloatingRegionEditor::invert_floating_region_colors()
 {
-	if (!m_floating.active || m_floating.content.width() <= 0 ||
-	    m_floating.content.height() <= 0)
+	const ImageBuffer& content = m_floating.content();
+	if (!m_floating.active || content.width() <= 0 ||
+	    content.height() <= 0)
 	{
 		return false;
 	}
 
 	// For 2bpp the four available indices are 0..3, so inversion is 3 - i.
 	// TRANSPARENT_INDEX stays transparent (paste content may contain it).
-	const int bpp = m_floating.content.bitsPerPixel();
+	const int bpp = content.bitsPerPixel();
 	const int max_index = std::min(
 		(1 << bpp) - 1,
 		static_cast<int>(PaintCore::TRANSPARENT_INDEX) - 1);
 
+	ImageBuffer inverted = content;
 	bool changed = false;
-	for (int y = 0; y < m_floating.content.height(); ++y)
+	for (int y = 0; y < inverted.height(); ++y)
 	{
-		for (int x = 0; x < m_floating.content.width(); ++x)
+		for (int x = 0; x < inverted.width(); ++x)
 		{
 			const PaintCore::ColorIndex index =
-				m_floating.content.get_pixel(x, y);
+				inverted.get_pixel(x, y);
 			if (index == PaintCore::TRANSPARENT_INDEX ||
 			    static_cast<int>(index) > max_index)
 			{
 				continue;
 			}
 
-			const PaintCore::ColorIndex inverted =
+			const PaintCore::ColorIndex new_index =
 				static_cast<PaintCore::ColorIndex>(max_index - index);
-			if (inverted == index)
+			if (new_index == index)
 			{
 				continue;
 			}
 
-			m_floating.content.set_pixel(x, y, inverted);
+			inverted.set_pixel(x, y, new_index);
 			changed = true;
 		}
 	}
 
-	if (changed)
+	if (!changed)
 	{
-		m_floating.modified = true;
-		++m_floating.content_revision;
+		return false;
 	}
-	return changed;
+
+	// Replace-only content keeps the view texture in sync.
+	m_floating.set_content(std::move(inverted));
+	return true;
 }

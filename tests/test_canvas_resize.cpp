@@ -20,7 +20,13 @@ namespace
 {
 void set_pixel(PaintSession& canvas, int x, int y, ColorIndex value)
 {
-	canvas.get_main_buffer().set_pixel(x, y, value);
+	// Seed pixels through the public edit path, then drop the history so the
+	// test only observes the resize step.
+	DrawBuffer buffer;
+	buffer.begin(x, y);
+	buffer.set_pixel(0, 0, value);
+	canvas.commit_draw_buffer(buffer);
+	canvas.clear_history();
 }
 
 void commit_pixel(PaintSession& canvas, int x, int y, ColorIndex value)
@@ -154,7 +160,7 @@ TEST_CASE("Resize steps coexist with pixel edits")
 	CHECK_EQ(canvas.get_main_buffer().get_pixel(3, 3), 5);
 }
 
-TEST_CASE("UndoHistory accepts and accounts for canvas snapshots")
+TEST_CASE("UndoHistory accepts and accounts for canvas resize steps")
 {
 	ImageBuffer image(2, 2, 2);
 	image.fill(0);
@@ -162,18 +168,60 @@ TEST_CASE("UndoHistory accepts and accounts for canvas snapshots")
 	UndoHistory history;
 	UndoStep step;
 	step.before_canvas = CanvasSnapshot{2, 2, 2, {0, 0, 0, 0}};
-	step.after_canvas = CanvasSnapshot{3, 3, 2, {1, 1, 1, 1, 1, 1, 1, 1, 1}};
+	step.canvas_resize = CanvasResize{3, 3, 1};
 	history.push(std::move(step));
 
 	REQUIRE(history.can_undo());
-	CHECK_EQ(history.bytes(), 13u * sizeof(ColorIndex));
+	// Only the before snapshot is stored; redo rebuilds the resized image.
+	CHECK_EQ(history.bytes(), 4u * sizeof(ColorIndex));
 
 	CHECK(history.undo(image));
 	CHECK_EQ(image.width(), 2);
 	CHECK_EQ(image.height(), 2);
+	CHECK_EQ(image.get_pixel(0, 0), 0);
 
 	CHECK(history.redo(image));
 	CHECK_EQ(image.width(), 3);
 	CHECK_EQ(image.height(), 3);
+	CHECK_EQ(image.get_pixel(0, 0), 0);
+	CHECK_EQ(image.get_pixel(2, 0), 1);
+	CHECK_EQ(image.get_pixel(0, 2), 1);
 	CHECK_EQ(image.get_pixel(2, 2), 1);
+}
+
+TEST_CASE("UndoHistory rejects malformed canvas resize steps")
+{
+	ImageBuffer image(2, 2, 2);
+
+	UndoHistory history;
+	UndoStep missing_target;
+	missing_target.before_canvas = CanvasSnapshot{2, 2, 2, {0, 0, 0, 0}};
+	history.push(std::move(missing_target));
+	CHECK_FALSE(history.can_undo());
+
+	UndoStep missing_snapshot;
+	missing_snapshot.canvas_resize = CanvasResize{3, 3, 1};
+	history.push(std::move(missing_snapshot));
+	CHECK_FALSE(history.can_undo());
+
+	UndoStep invalid_target;
+	invalid_target.before_canvas = CanvasSnapshot{2, 2, 2, {0, 0, 0, 0}};
+	invalid_target.canvas_resize = CanvasResize{0, 3, 1};
+	history.push(std::move(invalid_target));
+	CHECK_FALSE(history.can_undo());
+
+	UndoStep invalid_snapshot;
+	invalid_snapshot.before_canvas = CanvasSnapshot{2, 2, 2, {0, 0}};
+	invalid_snapshot.canvas_resize = CanvasResize{3, 3, 1};
+	history.push(std::move(invalid_snapshot));
+	CHECK_FALSE(history.can_undo());
+
+	UndoStep with_patches;
+	with_patches.before_canvas = CanvasSnapshot{2, 2, 2, {0, 0, 0, 0}};
+	with_patches.canvas_resize = CanvasResize{3, 3, 1};
+	with_patches.patches.push_back(PixelPatch{
+		PaintCore::Rect{0, 0, 1, 1}, {0}, {1}});
+	history.push(std::move(with_patches));
+	CHECK_FALSE(history.can_undo());
+	CHECK_EQ(history.bytes(), 0u);
 }

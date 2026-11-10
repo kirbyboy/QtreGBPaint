@@ -26,7 +26,11 @@ bool rect_eq(const Rect& a, const Rect& b)
 
 void set_pixel(PaintSession& canvas, int x, int y, ColorIndex value)
 {
-	canvas.get_main_buffer().set_pixel(x, y, value);
+	DrawBuffer buffer;
+	buffer.begin(x, y);
+	buffer.set_pixel(0, 0, value);
+	canvas.commit_draw_buffer(buffer);
+	canvas.clear_history();
 }
 
 void commit_pixel(PaintSession& canvas, int x, int y, ColorIndex value)
@@ -68,10 +72,10 @@ TEST_CASE("begin_selection copies pixels and records the source hole")
 	CHECK(rect_eq(region.rect, Rect{1, 1, 3, 3}));
 	CHECK(rect_eq(region.hole, Rect{1, 1, 3, 3}));
 	CHECK_EQ(region.hole_fill, 3);
-	CHECK_EQ(region.content.width(), 3);
-	CHECK_EQ(region.content.height(), 3);
-	CHECK_EQ(region.content.get_pixel(0, 0), 1);
-	CHECK_EQ(region.content.get_pixel(1, 1), 2);
+	CHECK_EQ(region.content().width(), 3);
+	CHECK_EQ(region.content().height(), 3);
+	CHECK_EQ(region.content().get_pixel(0, 0), 1);
+	CHECK_EQ(region.content().get_pixel(1, 1), 2);
 
 	// Copying is not a canvas edit until the region is committed.
 	CHECK_EQ(canvas.get_main_buffer().get_pixel(1, 1), 1);
@@ -354,19 +358,17 @@ TEST_CASE("transparent background mode stores raw pixels and a live mask")
 	set_pixel(canvas, 2, 1, 1);
 
 	REQUIRE(canvas.begin_selection(Rect{1, 1, 2, 1}, 0, true));
-	CHECK(canvas.floating_region().modified);
 	CHECK(canvas.floating_region().transparent_background);
 	CHECK_EQ(canvas.floating_region().transparent_color, 0);
-	CHECK_EQ(canvas.floating_region().content.get_pixel(0, 0), 0);
-	CHECK_EQ(canvas.floating_region().content.get_pixel(1, 0), 1);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(0, 0), 0);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(1, 0), 1);
 	CHECK_EQ(canvas.floating_region().hole_fill, 0);
 
 	canvas.cancel_floating_region();
 	REQUIRE(canvas.begin_selection(Rect{1, 1, 2, 1}, 0, false));
 	CHECK_FALSE(canvas.floating_region().transparent_background);
-	CHECK_FALSE(canvas.floating_region().modified);
-	CHECK_EQ(canvas.floating_region().content.get_pixel(0, 0), 0);
-	CHECK_EQ(canvas.floating_region().content.get_pixel(1, 0), 1);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(0, 0), 0);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(1, 0), 1);
 }
 
 TEST_CASE("transparent background selection preserves the destination")
@@ -390,21 +392,22 @@ TEST_CASE("transparent background selection preserves the destination")
 	CHECK(canvas.can_undo());
 }
 
-TEST_CASE("transparent mode without background pixels is not modified")
+TEST_CASE("transparent mode without background pixels commits as a no-op")
 {
 	PaintSession canvas(4, 4);
 	set_pixel(canvas, 1, 1, 1);
 
 	REQUIRE(canvas.begin_selection(Rect{1, 1, 1, 1}, 0, true));
-	CHECK_FALSE(canvas.floating_region().modified);
-	CHECK_EQ(canvas.floating_region().content.get_pixel(0, 0), 1);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(0, 0), 1);
+	CHECK_FALSE(canvas.commit_floating_region());
+	CHECK_FALSE(canvas.has_floating_region());
+	CHECK_FALSE(canvas.can_undo());
 }
 
 TEST_CASE("an all-transparent selection commits as a no-op")
 {
 	PaintSession canvas(4, 4);
 	REQUIRE(canvas.begin_selection(Rect{1, 1, 2, 2}, 0, true));
-	CHECK(canvas.floating_region().modified);
 
 	CHECK_FALSE(canvas.commit_floating_region());
 	CHECK_FALSE(canvas.has_floating_region());
@@ -428,12 +431,11 @@ TEST_CASE("SelectionTool passes transparent mode to PaintSession")
 	tool.on_mouse_release(canvas, PaintCore::Vec2{2, 1}, 1);
 
 	REQUIRE(canvas.has_floating_region());
-	CHECK(canvas.floating_region().modified);
 	CHECK(canvas.floating_region().transparent_background);
 	CHECK_EQ(canvas.floating_region().transparent_color, 0);
 	CHECK(rect_eq(canvas.floating_region().rect, Rect{1, 1, 2, 1}));
-	CHECK_EQ(canvas.floating_region().content.get_pixel(0, 0), 0);
-	CHECK_EQ(canvas.floating_region().content.get_pixel(1, 0), 1);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(0, 0), 0);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(1, 0), 1);
 }
 
 TEST_CASE("transparency can be toggled on an existing selection")
@@ -445,14 +447,12 @@ TEST_CASE("transparency can be toggled on an existing selection")
 
 	REQUIRE(canvas.begin_selection(Rect{1, 1, 2, 1}, 0, false));
 	CHECK_FALSE(canvas.floating_region().transparent_background);
-	CHECK_FALSE(canvas.floating_region().modified);
 
 	REQUIRE(canvas.set_floating_transparency(true, 0));
 	CHECK(canvas.floating_region().transparent_background);
 	CHECK_EQ(canvas.floating_region().transparent_color, 0);
-	CHECK(canvas.floating_region().modified);
 	// The content stays raw: only the live mask changed.
-	CHECK_EQ(canvas.floating_region().content.get_pixel(0, 0), 0);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(0, 0), 0);
 
 	CHECK_FALSE(canvas.set_floating_transparency(true, 0));
 	REQUIRE(canvas.move_floating_region(1, 1));
@@ -462,6 +462,49 @@ TEST_CASE("transparency can be toggled on an existing selection")
 	CHECK_EQ(canvas.get_main_buffer().get_pixel(2, 1), 0);
 	CHECK_EQ(canvas.get_main_buffer().get_pixel(2, 2), 3);
 	CHECK_EQ(canvas.get_main_buffer().get_pixel(3, 2), 1);
+}
+
+TEST_CASE("enabling a matching transparency mask commits as a pixel change")
+{
+	PaintSession canvas(4, 4);
+	set_pixel(canvas, 1, 1, 1);
+
+	REQUIRE(canvas.begin_selection(Rect{1, 1, 1, 1}, 0, false));
+	// can_undo() would be true because the floating region is cancellable;
+	// check the document history itself.
+	CHECK_FALSE(canvas.document().can_undo());
+
+	// The mask makes the content pixel transparent, so the hole fill wins.
+	REQUIRE(canvas.set_floating_transparency(true, 1));
+	REQUIRE(canvas.commit_floating_region());
+
+	CHECK_EQ(canvas.get_main_buffer().get_pixel(1, 1), 0);
+	CHECK(canvas.can_undo());
+	REQUIRE(canvas.undo());
+	CHECK_EQ(canvas.get_main_buffer().get_pixel(1, 1), 1);
+}
+
+TEST_CASE("floating content and mask changes bump the region revision")
+{
+	PaintSession canvas(4, 4);
+	set_pixel(canvas, 1, 1, 1);
+
+	REQUIRE(canvas.begin_selection(Rect{1, 1, 1, 1}, 0));
+	const std::uint64_t initial = canvas.floating_region().revision();
+
+	REQUIRE(canvas.invert_floating_region_colors());
+	CHECK(canvas.floating_region().revision() > initial);
+	const std::uint64_t after_invert =
+		canvas.floating_region().revision();
+
+	REQUIRE(canvas.set_floating_transparency(true, 0));
+	CHECK(canvas.floating_region().revision() > after_invert);
+	const std::uint64_t after_mask =
+		canvas.floating_region().revision();
+
+	// Repeating the same mask is a no-op and must not invalidate the texture.
+	CHECK_FALSE(canvas.set_floating_transparency(true, 0));
+	CHECK_EQ(canvas.floating_region().revision(), after_mask);
 }
 
 TEST_CASE("disabling transparency makes background pixels opaque again")
@@ -498,7 +541,7 @@ TEST_CASE("copy keeps raw pixels and paste uses the live transparency mask")
 
 	REQUIRE(canvas.paste_from_clipboard(PaintCore::Vec2{2, 2}));
 	CHECK_FALSE(canvas.floating_region().transparent_background);
-	CHECK_EQ(canvas.floating_region().content.get_pixel(0, 0), 0);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(0, 0), 0);
 
 	REQUIRE(canvas.set_floating_transparency(true, 0));
 	REQUIRE(canvas.commit_floating_region());
@@ -555,7 +598,6 @@ TEST_CASE("SelectionTool creates only the marquee and hands it to PaintSession")
 	CHECK(rect_eq(canvas.floating_region().rect, Rect{1, 1, 3, 2}));
 	CHECK(rect_eq(canvas.floating_region().hole, Rect{1, 1, 3, 2}));
 	CHECK_EQ(canvas.floating_region().hole_fill, 2);
-	CHECK_FALSE(canvas.floating_region().modified);
 }
 
 TEST_CASE("SelectionTool normalizes reverse drags and cancellations")
@@ -581,17 +623,20 @@ TEST_CASE("SelectionTool normalizes reverse drags and cancellations")
 	CHECK(rect_eq(canvas.floating_region().rect, Rect{2, 2, 3, 3}));
 }
 
-TEST_CASE("a selection that only moved is marked as modified")
+TEST_CASE("a selection that only moves creates history on commit")
 {
 	PaintSession canvas(5, 5);
+	set_pixel(canvas, 1, 1, 1);
+
 	REQUIRE(canvas.begin_selection(Rect{1, 1, 2, 2}, 0));
-	CHECK_FALSE(canvas.floating_region().modified);
-
 	CHECK_FALSE(canvas.move_floating_region(0, 0));
-	CHECK_FALSE(canvas.floating_region().modified);
+	CHECK_FALSE(canvas.commit_floating_region());
+	CHECK_FALSE(canvas.can_undo());
 
+	REQUIRE(canvas.begin_selection(Rect{1, 1, 2, 2}, 0));
 	REQUIRE(canvas.move_floating_region(1, 0));
-	CHECK(canvas.floating_region().modified);
+	REQUIRE(canvas.commit_floating_region());
+	CHECK(canvas.can_undo());
 }
 
 TEST_CASE("invert colors works without moving the selection and creates history")
@@ -603,14 +648,12 @@ TEST_CASE("invert colors works without moving the selection and creates history"
 	set_pixel(canvas, 2, 2, 3);
 
 	REQUIRE(canvas.begin_selection(Rect{1, 1, 2, 2}, 0));
-	CHECK_FALSE(canvas.floating_region().modified);
 
 	REQUIRE(canvas.invert_floating_region_colors());
-	CHECK(canvas.floating_region().modified);
-	CHECK_EQ(canvas.floating_region().content.get_pixel(0, 0), 3);
-	CHECK_EQ(canvas.floating_region().content.get_pixel(1, 0), 2);
-	CHECK_EQ(canvas.floating_region().content.get_pixel(0, 1), 1);
-	CHECK_EQ(canvas.floating_region().content.get_pixel(1, 1), 0);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(0, 0), 3);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(1, 0), 2);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(0, 1), 1);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(1, 1), 0);
 
 	REQUIRE(canvas.commit_floating_region());
 	CHECK_EQ(canvas.get_main_buffer().get_pixel(1, 1), 3);
@@ -633,9 +676,9 @@ TEST_CASE("invert colors skips transparent paste pixels")
 
 	REQUIRE(canvas.begin_paste(content, PaintCore::Vec2{1, 1}));
 	REQUIRE(canvas.invert_floating_region_colors());
-	CHECK_EQ(canvas.floating_region().content.get_pixel(0, 0), 2);
-	CHECK_EQ(canvas.floating_region().content.get_pixel(1, 1), 1);
-	CHECK_EQ(canvas.floating_region().content.get_pixel(1, 0),
+	CHECK_EQ(canvas.floating_region().content().get_pixel(0, 0), 2);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(1, 1), 1);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(1, 0),
 	         PaintCore::TRANSPARENT_INDEX);
 
 	REQUIRE(canvas.commit_floating_region());
@@ -664,6 +707,57 @@ TEST_CASE("copy keeps the floating region and stores its pixels")
 	CHECK_EQ(canvas.clipboard().get_pixel(1, 0), 2);
 	CHECK_EQ(canvas.get_main_buffer().get_pixel(1, 1), 1);
 	CHECK_EQ(canvas.get_main_buffer().get_pixel(2, 1), 2);
+}
+
+TEST_CASE("delete fills the original hole and discards moved content")
+{
+	PaintSession canvas(6, 6);
+	set_pixel(canvas, 1, 1, 2);
+	set_pixel(canvas, 2, 2, 3);
+
+	REQUIRE(canvas.begin_selection(Rect{1, 1, 2, 2}, 1));
+	REQUIRE(canvas.move_floating_region(2, 2));
+	CHECK(rect_eq(canvas.floating_region().rect, Rect{3, 3, 2, 2}));
+
+	REQUIRE(canvas.delete_floating_region());
+
+	CHECK_FALSE(canvas.has_floating_region());
+	CHECK_FALSE(canvas.has_clipboard());
+	// The original hole is filled with the saved background.
+	CHECK_EQ(canvas.get_main_buffer().get_pixel(1, 1), 1);
+	CHECK_EQ(canvas.get_main_buffer().get_pixel(1, 2), 1);
+	CHECK_EQ(canvas.get_main_buffer().get_pixel(2, 1), 1);
+	CHECK_EQ(canvas.get_main_buffer().get_pixel(2, 2), 1);
+	// The destination is untouched because the content was discarded.
+	CHECK_EQ(canvas.get_main_buffer().get_pixel(3, 3), 0);
+	CHECK_EQ(canvas.get_main_buffer().get_pixel(4, 4), 0);
+	CHECK(canvas.can_undo());
+
+	REQUIRE(canvas.undo());
+	CHECK_EQ(canvas.get_main_buffer().get_pixel(1, 1), 2);
+	CHECK_EQ(canvas.get_main_buffer().get_pixel(2, 2), 3);
+	REQUIRE(canvas.redo());
+	CHECK_EQ(canvas.get_main_buffer().get_pixel(1, 1), 1);
+}
+
+TEST_CASE("deleting a pasted floating region only discards it")
+{
+	PaintSession canvas(4, 4);
+	ImageBuffer content = make_content(2, 2, 1);
+
+	REQUIRE(canvas.begin_paste(content, PaintCore::Vec2{1, 1}));
+	REQUIRE(canvas.delete_floating_region());
+
+	CHECK_FALSE(canvas.has_floating_region());
+	CHECK_FALSE(canvas.has_clipboard());
+	CHECK_EQ(canvas.get_main_buffer().get_pixel(1, 1), 0);
+	CHECK_FALSE(canvas.can_undo());
+}
+
+TEST_CASE("delete without a floating region is rejected")
+{
+	PaintSession canvas(3, 3);
+	CHECK_FALSE(canvas.delete_floating_region());
 }
 
 TEST_CASE("cut fills the selection hole with background and can be undone")
@@ -717,11 +811,10 @@ TEST_CASE("paste from clipboard creates a floating region at the requested posit
 
 	REQUIRE(canvas.paste_from_clipboard(PaintCore::Vec2{2, 1}));
 	CHECK(canvas.has_floating_region());
-	CHECK(canvas.floating_region().modified);
 	CHECK(rect_eq(canvas.floating_region().rect, Rect{2, 1, 2, 2}));
 	CHECK(rect_eq(canvas.floating_region().hole, Rect{}));
-	CHECK_EQ(canvas.floating_region().content.get_pixel(0, 0), 1);
-	CHECK_EQ(canvas.floating_region().content.get_pixel(1, 1), 3);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(0, 0), 1);
+	CHECK_EQ(canvas.floating_region().content().get_pixel(1, 1), 3);
 
 	REQUIRE(canvas.commit_floating_region());
 	CHECK_EQ(canvas.get_main_buffer().get_pixel(2, 1), 1);
@@ -740,7 +833,11 @@ TEST_CASE("paste without clipboard is rejected")
 TEST_CASE("FloatingRegionEditor works directly on a CanvasDocument")
 {
 	CanvasDocument document(5, 5);
-	document.get_main_buffer().set_pixel(1, 1, 1);
+	DrawBuffer seed;
+	seed.begin(1, 1);
+	seed.set_pixel(0, 0, 1);
+	document.commit_draw_buffer(seed);
+	document.clear_history();
 
 	FloatingRegionEditor editor(document);
 	REQUIRE(editor.begin_selection(Rect{1, 1, 1, 1}, 0));
@@ -754,5 +851,22 @@ TEST_CASE("FloatingRegionEditor works directly on a CanvasDocument")
 	REQUIRE(document.undo());
 	CHECK_EQ(document.get_main_buffer().get_pixel(1, 1), 1);
 	CHECK_EQ(document.get_main_buffer().get_pixel(2, 1), 0);
+}
+
+TEST_CASE("SelectionTool constrains the marquee to a square with Shift")
+{
+	PaintSession canvas(8, 8);
+	SelectionTool tool;
+	canvas.set_tool(&tool);
+	PaintCore::Modifiers modifiers;
+	modifiers.shift = true;
+	canvas.set_modifiers(modifiers);
+
+	tool.on_mouse_press(canvas, PaintCore::Vec2{1, 1}, 1);
+	tool.on_mouse_move(canvas, PaintCore::Vec2{5, 3});
+	tool.on_mouse_release(canvas, PaintCore::Vec2{5, 3}, 1);
+
+	REQUIRE(canvas.has_floating_region());
+	CHECK(rect_eq(canvas.floating_region().rect, Rect{1, 1, 3, 3}));
 }
 

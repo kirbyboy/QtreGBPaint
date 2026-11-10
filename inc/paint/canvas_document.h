@@ -1,6 +1,7 @@
 #ifndef QTREGBPAINT_CANVAS_DOCUMENT_H
 #define QTREGBPAINT_CANVAS_DOCUMENT_H
 
+#include <cstdint>
 #include <vector>
 
 #include "core/color.h"
@@ -24,16 +25,23 @@ public:
     // Confirms a tool preview buffer and pushes one patch if pixels changed.
     void commit_draw_buffer(DrawBuffer& buffer);
 
-    // Pushes one pixel patch if before != after. Returns true if pushed.
-    bool push_pixel_patch(const PaintCore::Rect& rect,
-                          std::vector<PaintCore::ColorIndex> before,
-                          std::vector<PaintCore::ColorIndex> after);
+    // Replaces the pixels covered by `rect` with `after` as one history step.
+    // The rect must be fully inside the canvas and `after` must contain
+    // exactly rect.w * rect.h pixels. Returns true if the pixels changed
+    // (with or without an active history).
+    bool apply_pixel_patch(const PaintCore::Rect& rect,
+                           std::vector<PaintCore::ColorIndex> after);
 
     bool can_undo() const;
     bool can_redo() const;
     bool undo();
     bool redo();
     void clear_history();
+    std::uint64_t current_state_id() const;
+
+    // Replaces the whole image (New/Open) and clears the undo history. The
+    // caller is responsible for validating the new image.
+    void replace_image(ImageBuffer image);
 
     bool resize(int new_width, int new_height, PaintCore::ColorIndex fill);
 
@@ -42,9 +50,13 @@ public:
 
     int getWidth() const;
     int getHeight() const;
+    int getBitsPerPixel() const;
 
     const ImageBuffer& get_main_buffer() const;
-    ImageBuffer& get_main_buffer();
+
+    // Returns the accumulated dirty region and clears it. The view consumes
+    // it to update its texture.
+    PaintCore::Rect take_dirty_rect();
 
     // Image layer only; the tool preview belongs to PaintSession.
     void render(ICanvasRenderer& renderer, const PaintCore::ViewTransform& view,
@@ -53,6 +65,12 @@ public:
 private:
     ImageBuffer m_image_buffer;
     UndoHistory m_history;
+
+    // Builds and pushes a step if before != after. The caller guarantees that
+    // the rect and both vectors are well formed.
+    bool record_patch(const PaintCore::Rect& rect,
+                      std::vector<PaintCore::ColorIndex> before,
+                      std::vector<PaintCore::ColorIndex> after);
 
     void render_image_buffer(ICanvasRenderer& renderer,
                              const PaintCore::ViewTransform& view,

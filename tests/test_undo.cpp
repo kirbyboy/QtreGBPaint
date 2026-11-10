@@ -502,4 +502,138 @@ TEST_CASE("CanvasDocument owns image and history without PaintSession")
 	CHECK_EQ(document.get_main_buffer().get_pixel(1, 1), 0);
 	CHECK(document.can_redo());
 }
+
+TEST_CASE("apply_pixel_patch records one step and supports undo/redo")
+{
+	CanvasDocument document(4, 4);
+	const std::vector<ColorIndex> after{1, 2, 3, 4};
+
+	CHECK(document.apply_pixel_patch(Rect{1, 1, 2, 2}, after));
+	CHECK_EQ(document.get_main_buffer().get_pixel(1, 1), 1);
+	CHECK_EQ(document.get_main_buffer().get_pixel(2, 1), 2);
+	CHECK_EQ(document.get_main_buffer().get_pixel(1, 2), 3);
+	CHECK_EQ(document.get_main_buffer().get_pixel(2, 2), 4);
+	CHECK(document.can_undo());
+	CHECK_FALSE(document.can_redo());
+
+	CHECK(document.undo());
+	CHECK_EQ(document.get_main_buffer().get_pixel(1, 1), 0);
+	CHECK_EQ(document.get_main_buffer().get_pixel(2, 2), 0);
+	CHECK(document.can_redo());
+
+	CHECK(document.redo());
+	CHECK_EQ(document.get_main_buffer().get_pixel(1, 1), 1);
+	CHECK_EQ(document.get_main_buffer().get_pixel(2, 2), 4);
+}
+
+TEST_CASE("apply_pixel_patch rejects invalid input without touching pixels")
+{
+	CanvasDocument document(4, 4);
+
+	CHECK_FALSE(document.apply_pixel_patch(Rect{-1, 0, 1, 1}, {1}));
+	CHECK_FALSE(document.apply_pixel_patch(Rect{3, 3, 2, 2}, {1, 1, 1, 1}));
+	CHECK_FALSE(document.apply_pixel_patch(Rect{0, 0, 2, 2}, {1, 2, 3}));
+	CHECK_FALSE(document.can_undo());
+	CHECK_EQ(document.get_main_buffer().get_pixel(0, 0), 0);
+}
+
+TEST_CASE("apply_pixel_patch does not record a no-op")
+{
+	CanvasDocument document(4, 4);
+	const std::vector<ColorIndex> zeros(4, 0);
+
+	CHECK_FALSE(document.apply_pixel_patch(Rect{1, 1, 2, 2}, zeros));
+	CHECK_FALSE(document.can_undo());
+}
+
+TEST_CASE("apply_pixel_patch invalidates the redo branch")
+{
+	CanvasDocument document(4, 4);
+
+	REQUIRE(document.apply_pixel_patch(Rect{0, 0, 1, 1}, {1}));
+	REQUIRE(document.undo());
+	REQUIRE(document.can_redo());
+
+	REQUIRE(document.apply_pixel_patch(Rect{1, 1, 1, 1}, {2}));
+	CHECK_FALSE(document.can_redo());
+	CHECK_EQ(document.get_main_buffer().get_pixel(1, 1), 2);
+}
+
+TEST_CASE("apply_pixel_patch works with history disabled")
+{
+	CanvasDocument document(2, 2, HistoryLimits{0, 0});
+
+	CHECK(document.apply_pixel_patch(Rect{0, 0, 1, 1}, {2}));
+	CHECK_EQ(document.get_main_buffer().get_pixel(0, 0), 2);
+	CHECK_FALSE(document.can_undo());
+}
+
+TEST_CASE("take_dirty_rect returns the touched region and clears it")
+{
+	CanvasDocument document(4, 4);
+	document.take_dirty_rect(); // discard the initial full-image dirty rect
+
+	REQUIRE(document.apply_pixel_patch(Rect{1, 2, 2, 1}, {1, 3}));
+	const Rect dirty = document.take_dirty_rect();
+	CHECK(rect_eq(dirty, Rect{1, 2, 2, 1}));
+	CHECK(document.take_dirty_rect().empty());
+
+	REQUIRE(document.undo());
+	CHECK(rect_eq(document.take_dirty_rect(), Rect{1, 2, 2, 1}));
+}
+
+TEST_CASE("undo history state ids follow the current branch")
+{
+	UndoHistory history;
+	CHECK_EQ(history.current_state_id(), 0u);
+
+	history.push(single_pixel_step(0, 0, 0, 1));
+	const std::uint64_t first = history.current_state_id();
+	CHECK(first != 0u);
+
+	history.push(single_pixel_step(1, 1, 0, 2));
+	const std::uint64_t second = history.current_state_id();
+	CHECK(second != first);
+
+	ImageBuffer image(2, 2, 2);
+	REQUIRE(history.undo(image));
+	CHECK_EQ(history.current_state_id(), first);
+	REQUIRE(history.redo(image));
+	CHECK_EQ(history.current_state_id(), second);
+	REQUIRE(history.undo(image));
+	REQUIRE(history.undo(image));
+	CHECK_EQ(history.current_state_id(), 0u);
+
+	// A new edit after undo creates a fresh state, never reusing an old id.
+	history.push(single_pixel_step(0, 1, 0, 3));
+	const std::uint64_t branched = history.current_state_id();
+	CHECK(branched != first);
+	CHECK(branched != second);
+
+	history.clear();
+	CHECK_EQ(history.current_state_id(), 0u);
+	history.push(single_pixel_step(0, 0, 0, 1));
+	CHECK(history.current_state_id() != branched);
+}
+
+TEST_CASE("canvas document exposes its current state id")
+{
+	CanvasDocument document(2, 2);
+	CHECK_EQ(document.current_state_id(), 0u);
+
+	REQUIRE(document.apply_pixel_patch(Rect{0, 0, 1, 1}, {1}));
+	const std::uint64_t edited = document.current_state_id();
+	CHECK(edited != 0u);
+
+	REQUIRE(document.undo());
+	CHECK_EQ(document.current_state_id(), 0u);
+	REQUIRE(document.redo());
+	CHECK_EQ(document.current_state_id(), edited);
+
+	document.replace_image(ImageBuffer(3, 3, 2));
+	CHECK_EQ(document.getWidth(), 3);
+	CHECK_EQ(document.getHeight(), 3);
+	CHECK_EQ(document.current_state_id(), 0u);
+	CHECK_FALSE(document.can_undo());
+}
 } // namespace

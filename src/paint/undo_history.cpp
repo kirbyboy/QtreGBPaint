@@ -48,10 +48,6 @@ std::size_t UndoStep::bytes() const
 	{
 		total += before_canvas->bytes();
 	}
-	if (after_canvas)
-	{
-		total += after_canvas->bytes();
-	}
 	return total;
 }
 
@@ -76,8 +72,8 @@ void UndoHistory::set_limits(HistoryLimits limits)
 void UndoHistory::push(UndoStep step)
 {
 	const bool has_before_canvas = step.before_canvas.has_value();
-	const bool has_after_canvas = step.after_canvas.has_value();
-	if (has_before_canvas != has_after_canvas)
+	const bool has_canvas_resize = step.canvas_resize.has_value();
+	if (has_before_canvas != has_canvas_resize)
 	{
 		return;
 	}
@@ -86,7 +82,8 @@ void UndoHistory::push(UndoStep step)
 	{
 		if (!step.patches.empty() ||
 		    !snapshot_valid(*step.before_canvas) ||
-		    !snapshot_valid(*step.after_canvas))
+		    step.canvas_resize->width < 1 ||
+		    step.canvas_resize->height < 1)
 		{
 			return;
 		}
@@ -120,8 +117,10 @@ void UndoHistory::push(UndoStep step)
 	// Any new edit invalidates the redo branch.
 	clear_redo();
 
+	step.state_id = m_next_state_id++;
 	m_bytes += step.bytes();
 	m_undo.push_back(std::move(step));
+	m_current_state_id = m_undo.back().state_id;
 	trim();
 }
 
@@ -150,6 +149,7 @@ bool UndoHistory::undo(ImageBuffer& image)
 	}
 
 	m_redo.push_back(std::move(step));
+	m_current_state_id = m_undo.empty() ? 0 : m_undo.back().state_id;
 	return true;
 }
 
@@ -163,9 +163,13 @@ bool UndoHistory::redo(ImageBuffer& image)
 	UndoStep step = std::move(m_redo.back());
 	m_redo.pop_back();
 
-	if (step.after_canvas)
+	if (step.before_canvas)
 	{
-		restore_snapshot(image, *step.after_canvas);
+		// Undo restored the before state, so applying the same resize
+		// deterministically rebuilds the after state without storing it.
+		image.resize(step.canvas_resize->width, step.canvas_resize->height,
+		             step.canvas_resize->fill);
+		image.mark_all_dirty();
 	}
 	else
 	{
@@ -176,6 +180,7 @@ bool UndoHistory::redo(ImageBuffer& image)
 	}
 
 	m_undo.push_back(std::move(step));
+	m_current_state_id = m_undo.back().state_id;
 	return true;
 }
 
@@ -184,6 +189,9 @@ void UndoHistory::clear()
 	m_undo.clear();
 	m_redo.clear();
 	m_bytes = 0;
+	// m_next_state_id stays monotonic: an old saved id must never be reused
+	// after clearing the history.
+	m_current_state_id = 0;
 }
 
 void UndoHistory::clear_redo()

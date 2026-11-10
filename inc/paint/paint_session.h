@@ -2,9 +2,12 @@
 #define QTREGBPAINT_PAINT_SESSION_H
 
 #include "core/color.h"
+#include "core/modifiers.h"
 #include "core/vec2.h"
 #include "paint/canvas_document.h"
 #include "paint/floating_region_editor.h"
+
+#include <cstdint>
 
 class DrawBuffer;
 class ICanvasRenderer;
@@ -35,6 +38,23 @@ public:
 	void set_tool(ToolBase* tool);
 	ToolBase* active_tool() const;
 
+	// Uncommitted tool edit (e.g. a curve being shaped). It is exclusive with
+	// the floating selection and blocks redo until it is resolved.
+	bool has_pending_edit() const;
+	bool commit_pending_edit();
+	bool cancel_pending_edit();
+	void begin_edit_handle(int index);
+	void move_edit_handle(int index, const PaintCore::Vec2& pos);
+	void end_edit_handle();
+
+	// Keyboard modifiers for the current frame, set by the view. Tools read
+	// them while previewing a stroke; they are not stored in the history.
+	const PaintCore::Modifiers& modifiers() const { return m_modifiers; }
+	void set_modifiers(const PaintCore::Modifiers& modifiers)
+	{
+		m_modifiers = modifiers;
+	}
+
 	// Input already translated to image coordinates.
 	void handle_mouse_press(const PaintCore::Vec2& pos, int button);
 	void handle_mouse_move(const PaintCore::Vec2& pos);
@@ -46,6 +66,7 @@ public:
 	bool can_redo() const;
 	bool undo();
 	bool redo();
+	void cancel_active_stroke();
 	void clear_history();
 
 	bool resize(int new_width, int new_height, PaintCore::ColorIndex fill);
@@ -73,6 +94,7 @@ public:
 
 	bool copy_to_clipboard();
 	bool cut_to_clipboard();
+	bool delete_floating_region();
 	bool paste_from_clipboard(const PaintCore::Vec2& pos = {});
 	bool invert_floating_region_colors();
 	bool has_clipboard() const { return m_floating_editor.has_clipboard(); }
@@ -86,9 +108,17 @@ public:
 
 	int getWidth() const;
 	int getHeight() const;
+	int getBitsPerPixel() const;
+	std::uint64_t current_state_id() const;
+
+	// Replaces the whole document (New/Open): cancels transient editing state
+	// and clears the history.
+	void load_image(ImageBuffer image);
 
 	const ImageBuffer& get_main_buffer() const;
-	ImageBuffer& get_main_buffer();
+
+	// Forwards the document's dirty region to the single view.
+	PaintCore::Rect take_dirty_rect();
 
 	// Document image plus the active tool preview.
 	void render(ICanvasRenderer& renderer, const PaintCore::ViewTransform& view,
@@ -99,6 +129,7 @@ private:
 	CanvasDocument m_document;
 	FloatingRegionEditor m_floating_editor;
 	ToolBase* m_active_tool = nullptr; // non-owning: owned by PaintBackend
+	PaintCore::Modifiers m_modifiers{};
 };
 
 #endif

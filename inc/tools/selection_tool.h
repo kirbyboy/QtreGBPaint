@@ -36,6 +36,7 @@ class SelectionTool : public ToolBase
 		PaintCore::Vec2 m_current{};
 		PaintCore::ColorIndex m_background = 0;
 		bool m_dragging = false;
+		bool m_shift = false;
 };
 
 #endif
