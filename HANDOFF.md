@@ -47,6 +47,8 @@ Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
 - `README.md`: presentación en inglés con características, build, uso, licencia y capturas; las imágenes están en `docs/screenshots/`.
 - `packaging/`: `.desktop`, icono, MIME XML, metadata AppStream, script de AppImage y script del `.deb`.
 - `tests/`: tests headless con doctest y `tests/Makefile` autónomo.
+- `tests/smoke/`: smokes SDL/ImGui y `run.sh`; escriben binarios y capturas en `temp/`.
+- `.github/workflows/ci.yml`: CI que ejecuta `make deps`, `test-full` y todos los smokes bajo Xvfb.
 - `lib/`: dependencias locales (imgui, doctest). `lib/ImGuiFileDialog` contiene ImGuiFileDialog v0.6.8 y su Makefile; el directorio no se versiona y se rellena con `make deps`.
 - `build/`: binarios debug y release generados por Makefile.
 - `obj/`, `deps/`, `obj-release/`, `deps-release/`: objetos y dependencias generados.
@@ -62,7 +64,7 @@ Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
 - Matriz completa: `make -j"$(nproc)" test-full`, que ejecuta la suite normal
   más ASAN, UBSAN y ASAN+UBSAN. Las variantes usan directorios separados y
   comparten el jobserver.
-- Smokes: `./temp/run_smokes.sh circle buttons` compila en paralelo y ejecuta
+- Smokes: `./tests/smoke/run.sh circle buttons` compila en paralelo y ejecuta
   solo esos; sin argumentos ejecuta todos. `--list`, `--build-only`,
   `--no-build` y `-j N` están soportados. El script vive en `temp/` (ignorado
   por git).
@@ -164,16 +166,17 @@ Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
 
 Repositorio: <https://github.com/kirbyboy/QtreGBPaint>
 
-Rama `main`, HEAD `95b72ed` ("Added dependencies"). Ese commit incluye el
-trabajo de las sesiones 2026-11-10/11: título/cierre/atajos, barra de
+Rama `main`, HEAD `110aa1f` ("Release 0.9.1"). Ese commit incluye el trabajo
+de las sesiones 2026-11-10/11: título/cierre/atajos, barra de
 estado/cuentagotas, menús/atajos, zoom anclado, Select All, Flip/Rotate de
 selección y de imagen, tema Light/Both/icono Outline, botones de toolbar sin
 fondo, transparencia de paleta, configuración `.ini`/geometría de ventana,
 recientes pulsables con corrección de rutas corruptas, cambio de bpp en
 Properties, exportación BMP/PNG, formatos de almacenamiento `.idx`, apertura
 desde `%f`/CLI, MIME por magic, guardado atómico, preview por tiles, damero con
-textura, About con logo PNG, la licencia CC0 de todos los assets, el README y
-el bootstrap de dependencias (`make deps`). Último backup:
+textura, About con logo PNG, la licencia CC0 de todos los assets, el README,
+el bootstrap de dependencias (`make deps`), el empaquetado `.deb`/AppImage, el
+icono de ventana/class y la separación de `PaintFrontend`. Último backup:
 `tmp/backup/20261111_153859/`.
 
 - `IndexedImage` y formato `.idx` estricto; `ppm_image` eliminado.
@@ -185,19 +188,15 @@ el bootstrap de dependencias (`make deps`). Último backup:
 - Selección rectangular, región flotante y menú `Selection` con Copy, Cut,
   Paste e Invert Colors sobre `FloatingRegionEditor`/`PaintSession`.
 
-El empaquetado `.deb`/AppStream, el fallback de assets, el icono de
-ventana/class y la separación de `PaintFrontend`
-(`packaging/build_deb.sh`, `packaging/deb/`,
-`packaging/io.github.kirbyboy.QtreGBPaint.metainfo.xml`, `.desktop`, `Makefile`,
-`packaging/build_appimage.sh`, `src/main.cpp`, `src/core/ibackend.h`,
-`src/core/sdl_renderer_backend.*`, `src/paint/paint_frontend*.cpp` e
-`src/paint/paint_frontend_internal.h`) quedan **staged** pendientes del
-siguiente commit; README, AGENTS y HANDOFF se actualizan en el mismo bloque.
-Los artefactos ignorados son `compile_commands.json`, `deps*/`, `obj*/`,
-`build/`, `lib/`, `imgui.ini`, `tmp/` y `temp/`. Los assets `.idx`/`.ipx`, los
-tests y el código de rejilla/handles ya estaban versionados desde `7c0d30c`.
-`canvas.h`/`canvas.cpp` se renombraron a `canvas_document.h`/
-`canvas_document.cpp` con `git mv`.
+La release `v0.9.1` está publicada con el `.deb`, el AppImage y
+`SHA256SUMS-0.9.1`:
+<https://github.com/kirbyboy/QtreGBPaint/releases/tag/v0.9.1>. El bloque de CI
+(`.github/workflows/ci.yml`, `tests/smoke/`, `make smoke`, README, AGENTS y
+HANDOFF) queda **staged** pendiente del siguiente commit. Los artefactos
+ignorados son `compile_commands.json`, `deps*/`, `obj*/`, `build/`, `lib/`,
+`imgui.ini`, `tmp/` y `temp/`. Los assets `.idx`/`.ipx`, los tests y el código
+de rejilla/handles ya estaban versionados desde `7c0d30c`. `canvas.h`/`canvas.cpp`
+se renombraron a `canvas_document.h`/`canvas_document.cpp` con `git mv`.
 
 ## Pendiente inmediato
 
@@ -214,10 +213,11 @@ PaintSession”. El menú **File** (New/Open/Save/Save As) ya está implementado
 ImGuiFileDialog. El prompt al cerrar la ventana, los atajos `Ctrl+N/O/S` y el
 título con el nombre del archivo quedaron cerrados el 2026-11-10 (ver “Sesión
 2026-11-10 — Título de ventana, cierre y atajos”). Los modos binarios del
-`.idx`, el damero con textura, la licencia del icono (CC0 + marca) y el
-empaquetado `.deb`/AppStream ya están cerrados; quedan los pendientes de
-calidad del plan de cierre. Las herramientas **Line**, **Pencil**, **Brush**,
-**Eraser**, **Fill**, **Curve** y **Pick Color** ya están cerradas; Fill usa un scanline
+`.idx`, el damero con textura, la licencia del icono (CC0 + marca), el
+empaquetado `.deb`/AppStream, la separación de `PaintFrontend` y la CI ya están
+cerrados; solo quedan los estudios opcionales (portapapeles entre instancias y
+separación de overlays de `CanvasArea`). Las herramientas **Line**, **Pencil**,
+**Brush**, **Eraser**, **Fill**, **Curve** y **Pick Color** ya están cerradas; Fill usa un scanline
 flood fill por spans (`inc/core/fill.h`), Pick Color vuelve a la última tool de
 edición tras muestrear y Curve usa una Bézier cúbica con handles y edición
 pendiente (`inc/core/bezier.h`, `ToolBase::EditOverlay`). Line y Curve comparten
@@ -245,6 +245,7 @@ make          # debug
 make release  # release
 make test     # tests headless
 make run      # ejecutar debug
+make smoke    # smokes (requiere display)
 make deb      # paquete Debian 0.9.1
 make appimage # AppImage 0.9.1
 make release-assets # ambos + SHA256SUMS-0.9.1
@@ -2214,6 +2215,23 @@ colores reflejado en el canvas) y capturas
   `appstreamcli validate --no-net`, `desktop-file-validate`, `make test` y los
   42 smokes siguen en verde.
 
+## Sesión 2026-11-11 — CI y smokes versionados
+
+- **Smokes en el repo.** Los 42 `smoke_*.cpp` y el runner se movieron de
+  `temp/` (ignorado) a `tests/smoke/`. El runner sigue escribiendo binarios,
+  logs y capturas en `temp/`, y ahora acepta `SMOKE_RETRIES` para reintentar
+  fallos transitorios. `make smoke` ejecuta la suite completa.
+- **GitHub Actions.** Nuevo `.github/workflows/ci.yml`: en push a `main` y en
+  pull requests instala `g++`, SDL2, zlib, Xvfb y xauth, ejecuta `make deps`,
+  `make -j`, `make -j test-full` y `xvfb-run ... ./tests/smoke/run.sh` con
+  `SDL_VIDEODRIVER=x11`, `SDL_RENDER_DRIVER=software` y `SMOKE_RETRIES=2`.
+  Timeout de 45 minutos y cancelación de ejecuciones antiguas.
+- **Documentación.** README incluye el badge de CI y el comando de smokes;
+  `tests/smoke/README.md`, AGENTS y HANDOFF actualizados.
+- **Verificación local.** `make test-full` y los 42 smokes (con el runner ya
+  movido) pasan. La primera ejecución real de GitHub Actions queda pendiente de
+  push; si Xvfb revela alguna diferencia de entorno, se ajustará el workflow.
+
 ## Plan de cierre — 2026-11-10
 
 Orden acordado para las próximas sesiones:
@@ -2263,12 +2281,10 @@ Orden acordado para las próximas sesiones:
      `paint_frontend.cpp` (núcleo/render), `paint_frontend_menu.cpp`,
      `paint_frontend_dialogs.cpp`, `paint_frontend_file.cpp`,
      `paint_frontend_actions.cpp` y `paint_frontend_helpers.cpp`.
-   - [ ] Añadir CI (`test-full` + smokes); requiere un bootstrap versionado de
-     `lib/` porque esas dependencias no están en git. El bootstrap ya existe:
-     `make deps` / `scripts/bootstrap_deps.sh`, con imgui
-     v1.92.4-docking, ImGuiFileDialog v0.6.8 y doctest v2.4.12. Idea: script con
-     clones fijados a `imgui v1.92.4-docking`, `ImGuiFileDialog v0.6.8` y
-     `doctest v2.4.12`.
+   - [x] Añadir CI (`test-full` + smokes): `.github/workflows/ci.yml` instala
+     SDL2/zlib/Xvfb, ejecuta `make deps`, `make`, `make test-full` y todos los
+     smokes versionados en `tests/smoke/` bajo Xvfb, con `SMOKE_RETRIES=2`
+     para absorber fallos transitorios de foco/ratón.
    - Sin autosave/recovery por decisión explícita.
 
 ## Próximos pasos sugeridos

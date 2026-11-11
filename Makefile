@@ -102,6 +102,9 @@ release:
 run-release:
 	$(MAKE) BUILD_TYPE=release run
 
+smoke: $(TARGET_PATH)
+	$(ROOTDIR)/tests/smoke/run.sh
+
 appimage:
 	$(ROOTDIR)/packaging/build_appimage.sh
 
@@ -120,4 +123,4 @@ ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS)
 endif
 
-.PHONY: all clean test test-full test-asan test-ubsan test-sanitize run release run-release appimage deb release-assets deps
+.PHONY: all clean test test-full test-asan test-ubsan test-sanitize run release run-release smoke appimage deb release-assets deps

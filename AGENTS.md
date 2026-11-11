@@ -21,8 +21,10 @@ marca. Las licencias de terceros están en `THIRD_PARTY_NOTICES.md`.
   - `paint/`: app_config, theme, canvas_document, floating_region, floating_region_editor, paint_session, buffers, frontend, paleta, checkerboard, png_image, image_export.
   - `tools/`: herramientas (base, draw, freehand, line, curve, pencil, brush, eraser, fill, pick_color, selection, shape, square, circle).
 - `scripts/`: `bootstrap_deps.sh` y los Makefiles de las dependencias locales.
+- `.github/workflows/ci.yml`: CI de GitHub Actions (`make deps`, `test-full` y smokes bajo Xvfb).
 - `lib/`: dependencias locales (imgui, doctest, ImGuiFileDialog) - ignoradas por git.
 - `tests/`: tests headless con doctest y su propio `Makefile`.
+- `tests/smoke/`: smokes SDL/ImGui y su runner (requieren display; CI usa Xvfb).
 - `packaging/`: `.desktop`, icono, MIME XML (magic `IndexedImage`), metadata AppStream, script de AppImage y script del `.deb`.
 - `README.md`: presentación en inglés, características, build, uso, licencia y capturas; `docs/screenshots/` contiene las imágenes del README.
 - `LICENSE.txt`, `assets/LICENSE`/`.es.md`, `TRADEMARK.md`/`.es.md` y `THIRD_PARTY_NOTICES.md`/`.es.md`: licencia GPL-3.0-or-later, licencia CC0 de los assets, política de marca y avisos de terceros.
@@ -47,8 +49,9 @@ make test-asan          # tests con AddressSanitizer
 make test-ubsan         # tests con UndefinedBehaviorSanitizer
 make test-sanitize      # tests con ASAN + UBSAN
 make -C tests test-circle  # un solo binario (tests/build/test_circle)
-./temp/run_smokes.sh circle buttons  # smokes concretos
-./temp/run_smokes.sh    # todos los smokes (compilación paralela)
+make smoke              # todos los smokes (requiere display)
+./tests/smoke/run.sh circle buttons  # smokes concretos
+./tests/smoke/run.sh    # todos los smokes (compilación paralela)
 make clean              # limpia objetos, binarios y tests/build*
 ```
 

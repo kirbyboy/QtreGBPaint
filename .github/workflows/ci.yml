@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            g++ make git libsdl2-dev zlib1g-dev xvfb xauth
+
+      - name: Fetch pinned dependencies
+        run: make deps
+
+      - name: Build application
+        run: make -j"$(nproc)"
+
+      - name: Headless tests (normal + sanitizers)
+        run: make -j"$(nproc)" test-full
+
+      - name: UI smoke tests (Xvfb)
+        env:
+          SDL_VIDEODRIVER: x11
+          SDL_RENDER_DRIVER: software
+          SMOKE_RETRIES: "2"
+        run: xvfb-run -a -s "-screen 0 1024x768x24" ./tests/smoke/run.sh

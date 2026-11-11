@@ -1,5 +1,7 @@
 # QtreGBPaint
 
+[![CI](https://github.com/kirbyboy/QtreGBPaint/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kirbyboy/QtreGBPaint/actions/workflows/ci.yml)
+
 <img src="assets/QtreGBPaint.png" width="96" align="right" alt="QtreGBPaint logo">
 
 QtreGBPaint is a small pixel-art paint program in the spirit of classic
@@ -85,12 +87,20 @@ make -j"$(nproc)" test-full  # normal + ASAN + UBSAN + ASAN+UBSAN
 make -C tests test-circle    # a single test binary
 ```
 
-The SDL smoke tests live in `temp/` and are not part of the repository:
+The SDL smoke tests live in `tests/smoke/`:
 
 ```sh
-./temp/run_smokes.sh                # build and run every smoke test
-./temp/run_smokes.sh circle buttons # only the selected smokes
+./tests/smoke/run.sh                # build and run every smoke test
+./tests/smoke/run.sh circle buttons # only the selected smokes
 ```
+
+On a headless machine run them under Xvfb:
+
+```sh
+xvfb-run -a -s "-screen 0 1024x768x24" ./tests/smoke/run.sh
+```
+
+The runner writes binaries, logs and captures to `temp/` (ignored by git).
 
 The main Makefile also builds `lib/imgui/libimgui.a` and
 `lib/ImGuiFileDialog/libImGuiFileDialog.a` if they are missing. If `lib/` has
