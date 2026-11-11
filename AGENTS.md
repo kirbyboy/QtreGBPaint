@@ -20,9 +20,11 @@ marca. Las licencias de terceros están en `THIRD_PARTY_NOTICES.md`.
   - `core/`: backend, bezier, brush, color, ellipse, fill, line, modifiers, shape_constraint, utilidades, vec2, window_geometry.
   - `paint/`: app_config, theme, canvas_document, floating_region, floating_region_editor, paint_session, buffers, frontend, paleta, checkerboard, png_image, image_export.
   - `tools/`: herramientas (base, draw, freehand, line, curve, pencil, brush, eraser, fill, pick_color, selection, shape, square, circle).
+- `scripts/`: `bootstrap_deps.sh` y los Makefiles de las dependencias locales.
 - `lib/`: dependencias locales (imgui, doctest, ImGuiFileDialog) - ignoradas por git.
 - `tests/`: tests headless con doctest y su propio `Makefile`.
 - `packaging/`: `.desktop`, icono, MIME XML (magic `IndexedImage`) y script de AppImage.
+- `README.md`: presentación en inglés, características, build, uso, licencia y capturas; `docs/screenshots/` contiene las imágenes del README.
 - `LICENSE.txt`, `assets/LICENSE`/`.es.md`, `TRADEMARK.md`/`.es.md` y `THIRD_PARTY_NOTICES.md`/`.es.md`: licencia GPL-3.0-or-later, licencia CC0 de los assets, política de marca y avisos de terceros.
 - `build/`: binarios debug y release generados por Makefile.
 - `obj/`, `deps/`, `obj-release/`, `deps-release/`: objetos y dependencias generados.
@@ -31,6 +33,7 @@ marca. Las licencias de terceros están en `THIRD_PARTY_NOTICES.md`.
 ## Build
 
 ```sh
+make deps               # primera vez: descarga y compila lib/
 make                    # debug: build/QtreGBPaint
 make release            # release: build/QtreGBPaint-release
 make run                # ejecuta el binario debug
@@ -60,12 +63,12 @@ Durante el desarrollo basta con el test o el smoke afectado; la matriz completa
 (`test-full`) y todos los smokes se reservan para cerrar un bloque. Para un caso
 concreto de doctest: `tests/build/test_circle --test-case="*Shift*"`.
 
-Requisitos: g++, SDL2, zlib (`-lz`), make. Include paths configurados en Makefile.
-Las dependencias locales viven en `lib/` (no versionadas): imgui,
-doctest e ImGuiFileDialog v0.6.8; `lib/ImGuiFileDialog/stb/stb_image.h` se usa
-para decodificar PNG. El Makefile principal
-construye `lib/ImGuiFileDialog/libImGuiFileDialog.a` si falta; para un clon
-nuevo hay que descargar esa dependencia en `lib/ImGuiFileDialog/`.
+Requisitos: g++, SDL2, zlib (`-lz`), make y git. Include paths configurados en
+Makefile. `make deps` ejecuta `scripts/bootstrap_deps.sh`, que clona versiones
+fijas en `lib/` y construye `libimgui.a`/`libImGuiFileDialog.a`; las
+dependencias locales (imgui, doctest, ImGuiFileDialog) no se versionan.
+`lib/ImGuiFileDialog/stb/stb_image.h` se usa para decodificar PNG. Para un clon
+nuevo hay que ejecutar `make deps` antes de compilar.
 
 ## Convenciones
 

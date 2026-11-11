@@ -3,9 +3,10 @@
 
 # Assets visuales de QtreGBPaint
 
-Este archivo cubre los assets visuales del directorio `assets/` y la copia
-empaquetada `packaging/qtregbpaint.png` (conjuntamente, los «Assets»). El código
-del programa se rige por `LICENSE.txt` (GPL-3.0-or-later), no por este archivo.
+Este archivo cubre los assets visuales de los directorios `assets/` y
+`docs/screenshots/` y la copia empaquetada `packaging/qtregbpaint.png`
+(conjuntamente, los «Assets»). El código del programa se rige por
+`LICENSE.txt` (GPL-3.0-or-later), no por este archivo.
 
 ## Dedicatoria de copyright
 
@@ -21,6 +22,7 @@ La dedicatoria cubre, entre otros:
 
 - el icono y logotipo de la aplicación: `assets/QtreGBPaint.png` y su copia
   empaquetada `packaging/qtregbpaint.png`;
+- las capturas de `docs/screenshots/`;
 - los iconos de los botones del toolbar: `assets/*_button.idx`;
 - las hojas de opciones: `assets/rect_options.idx`,
   `assets/selection_options.idx` y `assets/fill_options.idx`;

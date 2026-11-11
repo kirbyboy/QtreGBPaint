@@ -7,8 +7,8 @@ tests/build-*/
 *.out
 obj/
 obj-release/
-deps/
-deps-release/
+/deps/
+/deps-release/
 compile_commands.json
 
 # Dependencias locales (se descargan aparte)

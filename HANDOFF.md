@@ -37,14 +37,15 @@ Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
 - `inc/core`: bezier, brush, color, cursor, backend, imgui manager, ellipse, fill, line, modifiers, shape_constraint, vec2, rect, view_transform, window_geometry, util.
 - `inc/paint`: app_config, theme, canvas_document, canvas_area, canvas_grid, canvas_renderer, canvas_resize_gizmo, canvas_tile_grid, checkerboard, png_image, cursor_asset, document_file, floating_region, floating_region_editor, paint_session, image_buffer, image_export, draw_buffer, indexed_image, palette, paint_backend, paint_frontend.
 - `inc/tools`: base_tool, draw_tool, freehand_tool, line_tool, curve_tool, pencil_tool, brush_tool, eraser_tool, fill_tool, pick_color_tool, selection_tool, shape_tool, square_tool, circle_tool, tool_option.
+- `scripts/`: `bootstrap_deps.sh` y los Makefiles de imgui/ImGuiFileDialog.
 - `src/`: implementaciones correspondientes.
 - `assets/`: iconos de toolbar `*_button.idx` (32×32, 3 bpp), cursores `.ipx`
   en `assets/cursors/` (todos creados por el proyecto), hojas de opciones
   `rect_options.idx`, `selection_options.idx` y `fill_options.idx`, icono final
   `QtreGBPaint.png` (256×256 RGBA) y las licencias `LICENSE`/`LICENSE.es.md`.
-- `data/`: archivos de prueba (`start.idx`, `stop.idx`).
+- `README.md`: presentación en inglés con características, build, uso, licencia y capturas; las imágenes están en `docs/screenshots/`.
 - `tests/`: tests headless con doctest y `tests/Makefile` autónomo.
-- `lib/`: dependencias locales (imgui, doctest). `lib/ImGuiFileDialog` contiene ImGuiFileDialog v0.6.8 y su Makefile; el directorio no se versiona en este repo.
+- `lib/`: dependencias locales (imgui, doctest). `lib/ImGuiFileDialog` contiene ImGuiFileDialog v0.6.8 y su Makefile; el directorio no se versiona y se rellena con `make deps`.
 - `build/`: binarios debug y release generados por Makefile.
 - `obj/`, `deps/`, `obj-release/`, `deps-release/`: objetos y dependencias generados.
 - `Makefile`: build debug/release; `make test` delega en `tests/Makefile`.
@@ -161,17 +162,16 @@ Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
 
 Repositorio: <https://github.com/kirbyboy/QtreGBPaint>
 
-Rama `main`, HEAD `6d84ee4` ("All tools programmed"). Sobre ese commit quedan
-los cambios de las sesiones 2026-11-10/11: título/cierre/atajos, barra de
+Rama `main`, HEAD `1051b2b` ("Finishing app and added licenses"). Ese commit
+incluye el trabajo de las sesiones 2026-11-10/11: título/cierre/atajos, barra de
 estado/cuentagotas, menús/atajos, zoom anclado, Select All, Flip/Rotate de
 selección y de imagen, tema Light/Both/icono Outline, botones de toolbar sin
 fondo, transparencia de paleta, configuración `.ini`/geometría de ventana,
 recientes pulsables con corrección de rutas corruptas, cambio de bpp en
 Properties, exportación BMP/PNG, formatos de almacenamiento `.idx`, apertura
-desde `%f`/CLI, MIME por magic, guardado atómico y preview por tiles. Todos los
-archivos relevantes están **staged**; el único pendiente es el commit. Último
-backup:
-`tmp/backup/20261111_153859/`.
+desde `%f`/CLI, MIME por magic, guardado atómico, preview por tiles, damero con
+textura, About con logo PNG y la licencia CC0 de todos los assets. Último
+backup: `tmp/backup/20261111_153859/`.
 
 - `IndexedImage` y formato `.idx` estricto; `ppm_image` eliminado.
 - Tests headless con doctest en `tests/` y su propio `Makefile`.
@@ -182,13 +182,13 @@ backup:
 - Selección rectangular, región flotante y menú `Selection` con Copy, Cut,
   Paste e Invert Colors sobre `FloatingRegionEditor`/`PaintSession`.
 
-Todos los archivos relevantes (fuentes, tests, assets, `packaging/`, `data/`,
-documentación y licencias) están **staged** sobre `6d84ee4`; no queda ningún
-cambio sin stagear. Los artefactos ignorados son `compile_commands.json`,
-`deps*/`, `obj*/`, `build/`, `lib/`, `imgui.ini`, `tmp/` y `temp/`. Los assets
+El `README.md`, las capturas de `docs/screenshots/`, la ampliación de
+`assets/LICENSE` a las capturas y el bootstrap de dependencias (`scripts/`,
+`Makefile`, `packaging/build_appimage.sh`, documentación) quedan **staged**
+pendientes del siguiente commit. Los artefactos ignorados son `compile_commands.json`, `deps*/`,
+`obj*/`, `build/`, `lib/`, `imgui.ini`, `tmp/` y `temp/`. Los assets
 `.idx`/`.ipx`, los tests y el código de rejilla/handles ya estaban versionados
-desde `7c0d30c`; los cambios de estas sesiones quedan modificados sobre ese
-commit. `canvas.h`/`canvas.cpp` se renombraron a
+desde `7c0d30c`. `canvas.h`/`canvas.cpp` se renombraron a
 `canvas_document.h`/`canvas_document.cpp` con `git mv`.
 
 ## Pendiente inmediato
@@ -232,6 +232,7 @@ selección.
 Comandos habituales:
 
 ```sh
+make deps     # primera vez: descarga y compila lib/
 make          # debug
 make release  # release
 make test     # tests headless
@@ -2027,8 +2028,8 @@ colores reflejado en el canvas) y capturas
   salir de la zona visible. Si crear la textura falla, se cae al preview por
   píxeles de `PaintSession::render_preview()`.
 - **Limpieza.** Eliminados `ICanvasRenderer::draw_rect()`/`draw_line()` (sin
-  llamadas). `AGENTS.md`/`HANDOFF.md`, fuentes, tests, `packaging/`, `data/`,
-  el icono final y los documentos de licencia/marca quedan staged.
+  llamadas). `AGENTS.md`/`HANDOFF.md`, fuentes, tests, `packaging/`,
+  `docs/screenshots/` y los documentos de licencia/marca quedan staged.
 - **Verificación.** Sin cambios en tests: 269 casos y 9780 aserciones;
   `test-full` 1076/39120; los 40 smokes siguen pasando. Builds debug y release
   OK.
@@ -2090,6 +2091,41 @@ colores reflejado en el canvas) y capturas
   en verde, incluido `temp/smoke_about.cpp`, que abre el modal, comprueba que
   la textura se cargó (256×256) y captura `temp/smoke_about.ppm`.
 
+## Sesión 2026-11-11 — README, capturas y limpieza de data
+
+- **README.** Nuevo `README.md` en inglés con descripción, características,
+  build, tests, uso, alcance, estructura, licencia y créditos. Capturas en
+  `docs/screenshots/main.png` (ventana principal con un Game Boy dibujado) y
+  `about.png` (modal About). `assets/LICENSE` amplía su alcance a
+  `docs/screenshots/`.
+- **Limpieza.** Eliminado `data/` (no contenía nada útil); `HANDOFF.md` ya no
+  lo menciona.
+
+## Sesión 2026-11-11 — Bootstrap de dependencias
+
+- **Problema.** `lib/` está ignorado por git, así que un clon nuevo no tenía
+  ImGui, ImGuiFileDialog ni doctest y no podía compilar sin descargarlos a mano.
+- **Script.** Nuevos `scripts/bootstrap_deps.sh` y `scripts/deps/`:
+  `make deps` clona ImGui `v1.92.4-docking`, ImGuiFileDialog `v0.6.8` y doctest
+  `v2.4.12` en `lib/`, copia los Makefiles del proyecto y construye
+  `libimgui.a` y `libImGuiFileDialog.a`. Es idempotente: si las fuentes y las
+  librerías existen, no descarga ni recompila nada.
+- **ImGui docking.** El proyecto usa `ImGuiConfigFlags_DockingEnable`, así que
+  el bootstrap debe usar el tag de la rama docking, no el tag normal. El
+  Makefile de ImGui que se copia compila solo los backends que usa la
+  aplicación (SDL2 y SDL_Renderer2), sin OpenGL3.
+- **Makefile.** `make deps` ejecuta el script. El target principal construye
+  `lib/imgui/libimgui.a` si falta (antes solo se construía
+  `libImGuiFileDialog.a`) y muestra “Run 'make deps' first” si `lib/` está
+  vacío. `packaging/build_appimage.sh` ejecuta `make deps` antes del release.
+  `.gitignore` ancla `/deps/` y `/deps-release/` para que `scripts/deps/` sí se
+  versione.
+- **Documentación.** README, AGENTS y HANDOFF explican el flujo
+  `make deps` → `make`; `make deps` queda en los comandos habituales.
+- **Verificación.** `make deps` es idempotente con el `lib/` actual. En una
+  copia limpia sin `lib/`: `make deps`, `make` y `make -C tests test-circle`
+  pasan; el binario se enlaza con los dos `.a` generados.
+
 ## Plan de cierre — 2026-11-10
 
 Orden acordado para las próximas sesiones:
@@ -2111,10 +2147,11 @@ Orden acordado para las próximas sesiones:
    - [x] Escritura atómica para el archivo destino `.idx` (`.tmp` + `rename`),
      conservando el original si falla la escritura.
    - Exportaciones BMP/PNG no atómicas por decisión explícita.
-3. **Documentación**: mantener `HANDOFF.md` al día (esta entrada es el plan).
+3. **Documentación**: mantener `HANDOFF.md` al día (esta entrada es el plan) y
+   `README.md` en inglés con características, build, uso, licencia y capturas.
 4. **Repositorio**
    - [x] `AGENTS.md` y `HANDOFF.md` marcados para el repositorio; el resto de
-     fuentes, tests, `packaging/` y `data/` también.
+     fuentes, tests, `packaging/` y documentación también.
    - [x] Ignorar `deps/`, `deps-release/`, `obj/`, `lib/`,
      `compile_commands.json`, `tmp/` y artefactos de build.
    - [x] Icono final `assets/QtreGBPaint.png` y copia en
@@ -2131,8 +2168,10 @@ Orden acordado para las próximas sesiones:
      textura, se conserva el dibujo por celdas.
    - [ ] Separar `PaintFrontend` (menús, diálogos y exportación) en archivos.
    - [ ] Añadir CI (`test-full` + smokes); requiere un bootstrap versionado de
-     `lib/` porque esas dependencias no están en git. Idea: script con clones
-     fijados a `imgui v1.92.4`, `ImGuiFileDialog v0.6.8` y
+     `lib/` porque esas dependencias no están en git. El bootstrap ya existe:
+     `make deps` / `scripts/bootstrap_deps.sh`, con imgui
+     v1.92.4-docking, ImGuiFileDialog v0.6.8 y doctest v2.4.12. Idea: script con
+     clones fijados a `imgui v1.92.4-docking`, `ImGuiFileDialog v0.6.8` y
      `doctest v2.4.12`.
    - Sin autosave/recovery por decisión explícita.
 

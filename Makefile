@@ -26,6 +26,7 @@ DEPDIR := $(ROOTDIR)/deps
 endif
 
 TARGET_PATH := $(BUILDDIR)/$(TARGET)
+IMGUI_LIB := $(ROOTDIR)/lib/imgui/libimgui.a
 IMGUIFILE_DIALOG_LIB := $(ROOTDIR)/lib/ImGuiFileDialog/libImGuiFileDialog.a
 
 SRCS := $(shell find $(SRCDIR) -name '*.cpp')
@@ -41,7 +42,7 @@ CXXFLAGS += $(OPTFLAGS) \
 	$(shell sdl2-config --cflags)
 LDLIBS += \
 	$(IMGUIFILE_DIALOG_LIB) \
-	$(ROOTDIR)/lib/imgui/libimgui.a \
+	$(IMGUI_LIB) \
 	$(shell sdl2-config --libs) -lz -pthread
 
 all: $(TARGET_PATH)
@@ -51,11 +52,27 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.cpp | $(OBJDIR) $(DEPDIR)
 	@mkdir -p $(dir $(DEPDIR)/$*)
 	$(CXX) $(CXXFLAGS) -MMD -MP -MF $(DEPDIR)/$*.d -c $< -o $@
 
-$(TARGET_PATH): $(OBJS) $(IMGUIFILE_DIALOG_LIB) | $(BUILDDIR)
+$(TARGET_PATH): $(OBJS) $(IMGUI_LIB) $(IMGUIFILE_DIALOG_LIB) | $(BUILDDIR)
 	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
+$(IMGUI_LIB):
+	@if [ ! -f "$(ROOTDIR)/lib/imgui/Makefile" ]; then \
+		echo "Missing local dependencies in lib/."; \
+		echo "Run 'make deps' first."; \
+		exit 1; \
+	fi
+	$(MAKE) -C $(ROOTDIR)/lib/imgui
+
 $(IMGUIFILE_DIALOG_LIB):
+	@if [ ! -f "$(ROOTDIR)/lib/ImGuiFileDialog/Makefile" ]; then \
+		echo "Missing local dependencies in lib/."; \
+		echo "Run 'make deps' first."; \
+		exit 1; \
+	fi
 	$(MAKE) -C $(ROOTDIR)/lib/ImGuiFileDialog
+
+deps:
+	$(ROOTDIR)/scripts/bootstrap_deps.sh
 
 $(OBJDIR) $(BUILDDIR) $(DEPDIR):
 	mkdir -p $@
@@ -97,4 +114,4 @@ ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS)
 endif
 
-.PHONY: all clean test test-full test-asan test-ubsan test-sanitize run release run-release appimage
+.PHONY: all clean test test-full test-asan test-ubsan test-sanitize run release run-release appimage deps

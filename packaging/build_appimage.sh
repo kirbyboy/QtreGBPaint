@@ -34,6 +34,8 @@ download_tool "$APPIMAGETOOL" \
     "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
 
 mkdir -p "$ROOT_DIR/build"
+# Populate the ignored lib/ directory on a fresh checkout.
+make -C "$ROOT_DIR" deps
 make -C "$ROOT_DIR" release
 
 rm -rf "$APPDIR"
