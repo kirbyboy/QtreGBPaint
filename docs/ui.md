@@ -94,7 +94,8 @@ foreground/background.
   modal está abierto.
 - `end_modal()` cierra y restaura el padding.
 - `is_modal_open(title, stable_id)` consulta el estado.
-- `dialog_button(label)` pinta un botón de 80 px.
+- `dialog_button(label)` pinta un botón de 80 px mínimo; el ancho crece si
+  el texto traducido no cabe.
 
 El identificador estable va después de `###` en el nombre visible
 (`"File Error###file_error"`). Así el título se puede traducir sin cambiar el
@@ -112,8 +113,8 @@ ID de ImGui.
   las guías usan `guide()`. El damero y los guiones de contraste son fijos.
 - **Estado**: separadores a 16 px; la miniatura de color usa `border()` y un
   gap de 4 px.
-- **Diálogos**: padding de 16 px, botones de 80 px, OK/Cancel o
-  Save/Discard/Cancel. No anidar modales.
+- **Diálogos**: padding de 16 px, botones de 80 px mínimo (crecen con el
+  texto traducido), OK/Cancel o Save/Discard/Cancel. No anidar modales.
 
 ## Temas
 
@@ -128,7 +129,9 @@ el fallback; `lang/<locale>.po` contiene las traducciones (por ahora `es.po`).
 `main` llama a `i18n::set_language_directory(<assets>/../lang)` y
 `Settings > Language` cambia entre System default/English/Español en caliente;
 `AppConfig::language` persiste `system`/`en`/`es`. El `.deb` y el AppImage
-instalan `lang/` junto a los assets.
+instalan `lang/` junto a los assets. El pseudo-locale `en_XA` es solo para
+tests: envuelve cada texto en `[!! ... !!]` y acentúa las vocales; no se ofrece
+en el menú ni se persiste en `AppConfig`.
 
 Reglas:
 
@@ -139,16 +142,37 @@ Reglas:
   `ImGui::Text("%s", ...)`, `TextUnformatted` o `snprintf` para los textos con
   placeholders.
 - No se concatenan fragmentos traducidos; se traduce la frase completa.
-- El file dialog de ImGuiFileDialog sigue en inglés porque sus textos son
-  macros de compilación.
-- Los detalles técnicos de error que devuelve el backend (`std::string& error`)
-  siguen en inglés; el título y el mensaje genérico sí se traducen. Traducirlos
-  del todo requiere códigos de error estructurados.
+- `make i18n-check` valida claves literales, duplicados, `msgstr` vacíos y
+  placeholders. No comprueba claves dinámicas (tools, opciones) ni entradas
+  huérfanas.
+- Los errores que llegan al modal `File Error` usan un código estable de
+  `FileError` (`inc/paint/file_error.h`). El diálogo muestra el resumen
+  traducido de `file_error_text()` y, debajo y en texto atenuado, el detalle
+  técnico del backend (`std::string& error`), que se mantiene en inglés. Las
+  claves de `.po` son solo los resúmenes; no se traducen detalles técnicos.
+
+## ImGuiFileDialog vendorizado
+
+`third_party/ImGuiFileDialog` es una copia de **ImGuiFileDialog v0.6.8**
+(commit `ee77f190861193a995435c388682f1512f6fd29a`), **MIT** y **no código
+nuestro**. Se versiona para que la copia completa sea visible y editable; la
+versión queda fija hasta que el proyecto decida actualizarla.
+
+La copia añade `FileDialogStrings` y `FileDialog::SetStrings/GetStrings` para
+que sus textos internos cambien en caliente. `src/paint/file_dialog_i18n.cpp`
+llena esa tabla desde `i18n::tr()`; `tests/smoke/smoke_file_dialog_i18n.cpp`
+valida el cambio con el diálogo abierto. El título y los filtros que pasa la app
+se fijan al abrir el diálogo (el diálogo es modal, así que el menú de idioma no
+está accesible mientras está abierto). Los detalles y el proceso de
+actualización están en `third_party/ImGuiFileDialog/LOCAL_CHANGES.md`; conserva
+`LICENSE`, `VERSION.txt` y el aviso MIT en `THIRD_PARTY_NOTICES.md`.
 
 ## UI kit
 
-Pendiente: una ventana o smoke de desarrollo que muestre todos los widgets en
-sus estados `default`/`hover`/`pressed`/`disabled`/`selected`, en los tres
-temas y con un pseudo-locale para detectar desbordamientos. Mientras tanto,
-`tests/smoke/smoke_i18n.cpp` guarda capturas en inglés y español para revisar
-el layout con textos traducidos.
+`tests/smoke/smoke_ui_kit.cpp` es el UI kit de desarrollo. Renderiza toolbar,
+opciones, paleta, diálogo, estados y roles en Light/Dark/Classic y en
+English/Español/`en_XA`, y guarda
+`temp/smoke_ui_kit_<tema>_<locale>.ppm`. No se incluye en el binario de la
+aplicación. El pseudo-locale sirve para detectar textos que se salen de su
+caja; los estados `hover`/`pressed`/`selected`/`disabled` también se muestran
+como chips aunque el ratón no esté encima.

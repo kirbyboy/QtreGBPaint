@@ -18,13 +18,14 @@ marca. Las licencias de terceros están en `THIRD_PARTY_NOTICES.md`.
 
 - `src/` y `inc/`: código C++17.
   - `core/`: backend, bezier, brush, color, ellipse, fill, line, modifiers, shape_constraint, utilidades, vec2, window_geometry.
-  - `paint/`: app_config, theme, i18n, ui_tokens, ui_roles, ui_widgets, canvas_document, floating_region, floating_region_editor, paint_session, buffers, frontend, paleta, checkerboard, png_image, image_export.
+  - `paint/`: app_config, theme, i18n, file_error, file_dialog_i18n, ui_tokens, ui_roles, ui_widgets, canvas_document, floating_region, floating_region_editor, paint_session, buffers, frontend, paleta, checkerboard, png_image, image_export.
   - `tools/`: herramientas (base, draw, freehand, line, curve, pencil, brush, eraser, fill, pick_color, selection, shape, square, circle).
-- `scripts/`: `bootstrap_deps.sh` y los Makefiles de las dependencias locales.
+- `scripts/`: `bootstrap_deps.sh`, `i18n_check.py` y el Makefile de imgui.
 - `lang/`: traducciones `.po` (por ahora `es.po`) y `README.md` con las reglas.
 - `docs/ui.md`: sistema de diseño mínimo (tokens, roles, widgets y reglas).
 - `.github/workflows/ci.yml`: CI de GitHub Actions (`make deps`, `test-full` y smokes bajo Xvfb).
-- `lib/`: dependencias locales (imgui, doctest, ImGuiFileDialog) - ignoradas por git.
+- `lib/`: dependencias generadas/descargadas (imgui, doctest), ignoradas por git.
+- `third_party/ImGuiFileDialog/`: copia vendorizada de ImGuiFileDialog v0.6.8 (MIT), con cambios locales para traducir sus textos en caliente; ver `LOCAL_CHANGES.md`.
 - `tests/`: tests headless con doctest y su propio `Makefile`.
 - `tests/smoke/`: smokes SDL/ImGui y su runner (requieren display; CI usa Xvfb).
 - `packaging/`: `.desktop`, icono, MIME XML (magic `IndexedImage`), metadata AppStream, script de AppImage y script del `.deb`.
@@ -37,7 +38,7 @@ marca. Las licencias de terceros están en `THIRD_PARTY_NOTICES.md`.
 ## Build
 
 ```sh
-make deps               # primera vez: descarga y compila lib/
+make deps               # primera vez: prepara lib/ y compila third_party/ImGuiFileDialog
 make                    # debug: build/QtreGBPaint
 make release            # release: build/QtreGBPaint-release
 make run                # ejecuta el binario debug
@@ -50,6 +51,7 @@ make -j"$(nproc)" test-full  # normal + ASAN + UBSAN + sanitize
 make test-asan          # tests con AddressSanitizer
 make test-ubsan         # tests con UndefinedBehaviorSanitizer
 make test-sanitize      # tests con ASAN + UBSAN
+make i18n-check         # valida lang/es.po contra i18n::tr
 make -C tests test-circle  # un solo binario (tests/build/test_circle)
 make smoke              # todos los smokes (requiere display)
 ./tests/smoke/run.sh circle buttons  # smokes concretos
@@ -67,15 +69,18 @@ make -C tests test-sanitize
 ```
 
 Durante el desarrollo basta con el test o el smoke afectado; la matriz completa
-(`test-full`) y todos los smokes se reservan para cerrar un bloque. Para un caso
-concreto de doctest: `tests/build/test_circle --test-case="*Shift*"`.
+(`test-full`) y todos los smokes se reservan para cerrar un bloque. Al tocar
+textos de UI, ejecutar también `make i18n-check`. Para un caso concreto de
+doctest: `tests/build/test_circle --test-case="*Shift*"`.
 
-Requisitos: g++, SDL2, zlib (`-lz`), make y git. Include paths configurados en
-Makefile. `make deps` ejecuta `scripts/bootstrap_deps.sh`, que clona versiones
-fijas en `lib/` y construye `libimgui.a`/`libImGuiFileDialog.a`; las
-dependencias locales (imgui, doctest, ImGuiFileDialog) no se versionan.
-`lib/ImGuiFileDialog/stb/stb_image.h` se usa para decodificar PNG. Para un clon
-nuevo hay que ejecutar `make deps` antes de compilar.
+Requisitos: g++, SDL2, zlib (`-lz`), make, git y Python 3 (solo para
+`make i18n-check`). Include paths configurados en
+Makefile. `make deps` ejecuta `scripts/bootstrap_deps.sh`, que clona las
+versiones fijas de ImGui y doctest en `lib/` y compila la copia vendorizada de
+ImGuiFileDialog desde `third_party/ImGuiFileDialog`. `third_party` sí se
+versiona; `lib/` no. `third_party/ImGuiFileDialog/stb/stb_image.h` se usa para
+decodificar PNG. Para un clon nuevo hay que ejecutar `make deps` antes de
+compilar.
 
 ## Convenciones
 
@@ -464,16 +469,28 @@ La UI sigue un sistema de diseño mínimo documentado en `docs/ui.md`: tokens
 `PaintUi::tool_button`, `option_cell` y `swatch_frame` centralizan los estados
 de toolbar, opciones y paleta. Los modales usan `PaintUi::open_modal`/
 `begin_modal` con padding de 16 px y un `###stable_id` que no cambia al
-traducir el título; `dialog_button` fija el ancho de 80 px.
+traducir el título; `dialog_button` usa 80 px como mínimo y crece con el texto.
 La UI está traducida al español con `i18n` (`inc/paint/i18n.h`): el inglés es
 la clave y el fallback, y `lang/es.po` contiene las traducciones. `main` fija
 `<assets>/../lang` como directorio; `Settings > Language` ofrece System
 default/English/Español y `AppConfig::language` persiste `system`/`en`/`es`.
 El cambio es inmediato (ImGui se redibuja cada frame); los nombres internos de
-tools y los `stable_id` de modales se quedan en inglés. ImGuiFileDialog sigue
-en inglés porque sus textos son macros de compilación; los detalles técnicos
-de error del backend también, aunque el título y el mensaje genérico se
-traducen.
+tools y los `stable_id` de modales se quedan en inglés. ImGuiFileDialog está
+vendorizado en `third_party/ImGuiFileDialog` (v0.6.8, commit
+`ee77f190861193a995435c388682f1512f6fd29a`, MIT) con la extensión local
+`FileDialogStrings`: sus textos internos también cambian en caliente. Los
+cambios están en `LOCAL_CHANGES.md` y el código no es nuestro. El título y los
+filtros que pasa la app se fijan al abrir el diálogo, pero el diálogo es modal
+y el menú de idioma no es accesible mientras está abierto. Los errores que
+llegan a `File Error` usan códigos estables (`FileError`,
+`inc/paint/file_error.h`): el diálogo muestra un resumen traducido y, debajo y
+atenuado, el detalle técnico del backend (`std::string& error`), que se
+mantiene en inglés. `make i18n-check` valida claves literales, duplicados y
+placeholders. El pseudo-locale de test `en_XA` (sin `.po`, generado en runtime)
+y `tests/smoke/smoke_ui_kit.cpp` permiten revisar estados y detectar
+desbordamientos en Light/Dark/Classic y English/Español/`en_XA`;
+`tests/smoke/smoke_file_dialog_i18n.cpp` valida el cambio de idioma con el
+diálogo de archivos abierto.
 El paquete Debian `0.9.1` se genera con `make deb` (`packaging/build_deb.sh`):
 instala el binario en `/usr/bin`, los assets en `/usr/share/qtregbpaint/assets`,
 las traducciones en `/usr/share/qtregbpaint/lang`, el `.desktop`, el icono, el
@@ -485,8 +502,8 @@ busca los assets junto al ejecutable, en `../assets`, en
 de ventana se sube con `SDL_SetWindowIcon` (64×64; X11 rechaza iconos mayores)
 y el class/app_id es `io.github.kirbyboy.QtreGBPaint`, que coincide con el
 `.desktop` y su `StartupWMClass`. La CI de GitHub Actions
-(`.github/workflows/ci.yml`) ejecuta `make deps`, `make`, `test-full` y los 43
-smokes bajo Xvfb; la primera ejecución terminó en verde.
-Tests actuales: 272 casos y 9792 aserciones (normal); `test-full` suma
-1088 casos y 39168 aserciones. Smokes: 43 en verde. Revisar `HANDOFF.md` y
+(`.github/workflows/ci.yml`) ejecuta `make deps`, `make i18n-check`, `make`,
+`test-full` y los 45 smokes bajo Xvfb; la primera ejecución terminó en verde.
+Tests actuales: 276 casos y 9833 aserciones (normal); `test-full` suma
+1104 casos y 39332 aserciones. Smokes: 45 en verde. Revisar `HANDOFF.md` y
 `git diff` antes de tocar estos archivos.

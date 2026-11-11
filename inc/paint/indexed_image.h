@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "core/color.h"
+#include "paint/file_error.h"
 
 // Storage encodings for the .idx file format. The image model is always one
 // byte per pixel; these modes only change how the payload is written/read.
@@ -73,6 +74,7 @@ public:
 
     bool isValid() const { return m_valid; }
     const std::string& error() const { return m_error; }
+    FileError errorCode() const { return m_error_code; }
 
     int width() const { return m_width; }
     int height() const { return m_height; }
@@ -93,6 +95,7 @@ private:
     std::vector<PaintCore::ColorIndex> m_data;
     bool m_valid = false;
     std::string m_error;
+    FileError m_error_code = FileError::None;
 };
 
 // Writes an IndexedImage with the requested encoding without constructing an
@@ -100,12 +103,13 @@ private:
 bool save_indexed_image(const std::string& path, int width, int height,
                         int bits_per_pixel,
                         const std::vector<PaintCore::ColorIndex>& data,
-                        IndexedFormat format, std::string& error);
+                        IndexedFormat format, std::string& error,
+                        FileError* error_code = nullptr);
 
 // Backwards-compatible helper: writes Index mode.
 bool save_indexed_image(const std::string& path, int width, int height,
                         int bits_per_pixel,
                         const std::vector<PaintCore::ColorIndex>& data,
-                        std::string& error);
+                        std::string& error, FileError* error_code = nullptr);
 
 #endif

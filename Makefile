@@ -27,7 +27,7 @@ endif
 
 TARGET_PATH := $(BUILDDIR)/$(TARGET)
 IMGUI_LIB := $(ROOTDIR)/lib/imgui/libimgui.a
-IMGUIFILE_DIALOG_LIB := $(ROOTDIR)/lib/ImGuiFileDialog/libImGuiFileDialog.a
+IMGUIFILE_DIALOG_LIB := $(ROOTDIR)/third_party/ImGuiFileDialog/libImGuiFileDialog.a
 
 SRCS := $(shell find $(SRCDIR) -name '*.cpp')
 OBJS := $(SRCS:$(SRCDIR)/%.cpp=$(OBJDIR)/%.o)
@@ -38,7 +38,7 @@ CXXFLAGS += $(OPTFLAGS) \
 	-I$(INCDIR) \
 	-I$(ROOTDIR)/lib/imgui/src \
 	-I$(ROOTDIR)/lib/imgui/src/backends \
-	-I$(ROOTDIR)/lib/ImGuiFileDialog \
+	-I$(ROOTDIR)/third_party/ImGuiFileDialog \
 	$(shell sdl2-config --cflags)
 LDLIBS += \
 	$(IMGUIFILE_DIALOG_LIB) \
@@ -64,18 +64,20 @@ $(IMGUI_LIB):
 	$(MAKE) -C $(ROOTDIR)/lib/imgui
 
 $(IMGUIFILE_DIALOG_LIB):
-	@if [ ! -f "$(ROOTDIR)/lib/ImGuiFileDialog/Makefile" ]; then \
-		echo "Missing local dependencies in lib/."; \
-		echo "Run 'make deps' first."; \
+	@if [ ! -f "$(ROOTDIR)/third_party/ImGuiFileDialog/Makefile" ]; then \
+		echo "Missing vendored ImGuiFileDialog in third_party/."; \
 		exit 1; \
 	fi
-	$(MAKE) -C $(ROOTDIR)/lib/ImGuiFileDialog
+	$(MAKE) -C $(ROOTDIR)/third_party/ImGuiFileDialog
 
 deps:
 	$(ROOTDIR)/scripts/bootstrap_deps.sh
 
 $(OBJDIR) $(BUILDDIR) $(DEPDIR):
 	mkdir -p $@
+
+i18n-check:
+	python3 $(ROOTDIR)/scripts/i18n_check.py
 
 test:
 	$(MAKE) -C tests
@@ -117,10 +119,11 @@ release-assets:
 clean:
 	$(RM) -r $(ROOTDIR)/obj $(ROOTDIR)/obj-release \
 		$(ROOTDIR)/deps $(ROOTDIR)/deps-release $(BUILDDIR)
+	-$(MAKE) -C $(ROOTDIR)/third_party/ImGuiFileDialog clean
 	$(MAKE) -C tests clean
 
 ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS)
 endif
 
-.PHONY: all clean test test-full test-asan test-ubsan test-sanitize run release run-release smoke appimage deb release-assets deps
+.PHONY: all clean i18n-check test test-full test-asan test-ubsan test-sanitize run release run-release smoke appimage deb release-assets deps

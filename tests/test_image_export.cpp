@@ -261,6 +261,35 @@ TEST_CASE("PNG export writes an indexed image with palette transparency")
 	CHECK_EQ(raw[5], 3u);
 }
 
+TEST_CASE("Image export exposes stable error categories")
+{
+	TempDir dir;
+	ImageBuffer image(2, 2, 2);
+	image.fill(0);
+	const Palette palette = Palette::grayscale(2);
+	std::string error;
+	FileError code = FileError::None;
+
+	CHECK_FALSE(export_bmp("", image, palette, error, &code));
+	CHECK_EQ(code, FileError::NoPath);
+
+	const Palette wrong_size = Palette::grayscale(1);
+	CHECK_FALSE(export_bmp(dir.file("bad.bmp"), image, wrong_size, error,
+	                       &code));
+	CHECK_EQ(code, FileError::InvalidPalette);
+
+	CHECK_FALSE(export_png(dir.file("bad.png"), image, wrong_size, error,
+	                       &code));
+	CHECK_EQ(code, FileError::InvalidPalette);
+
+	ImageBuffer out_of_range(1, 1, 1);
+	out_of_range.set_pixel(0, 0, 2);
+	const Palette one_bpp = Palette::grayscale(1);
+	CHECK_FALSE(export_bmp(dir.file("bad2.bmp"), out_of_range, one_bpp,
+	                       error, &code));
+	CHECK_EQ(code, FileError::InvalidPalette);
+}
+
 TEST_CASE("Image export rejects invalid input")
 {
 	TempDir dir;

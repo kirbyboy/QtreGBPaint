@@ -48,6 +48,7 @@ Requirements:
 - zlib
 - GNU Make
 - Git (only to fetch the local dependencies on the first build)
+- Python 3 (only for `make i18n-check`)
 
 Local dependencies live in `lib/` and are not versioned. Fetch the pinned
 versions once with:
@@ -56,16 +57,17 @@ versions once with:
 make deps
 ```
 
-The bootstrap script clones Dear ImGui v1.92.4 (docking branch),
-ImGuiFileDialog v0.6.8 and doctest v2.4.12 into `lib/`, then builds
-`libimgui.a` and `libImGuiFileDialog.a`. It is idempotent: if the sources and
-libraries are already present, it reuses them. After that, no network access is
-needed.
+The bootstrap script clones Dear ImGui v1.92.4 (docking branch) and doctest
+v2.4.12 into `lib/`, then builds the vendored ImGuiFileDialog from
+`third_party/ImGuiFileDialog`. It is idempotent: if the sources and libraries
+are already present, it reuses them. After that, no network access is needed.
 
 - [Dear ImGui](https://github.com/ocornut/imgui) v1.92.4-docking (the project
   uses `ImGuiConfigFlags_DockingEnable`)
-- [ImGuiFileDialog](https://github.com/aiekick/ImGuiFileDialog) v0.6.8 (it also
-  vendors the `stb_image` header used to decode PNG files)
+- [ImGuiFileDialog](https://github.com/aiekick/ImGuiFileDialog) v0.6.8,
+  vendored in `third_party/ImGuiFileDialog` (MIT) with local runtime-language
+  changes; see `LOCAL_CHANGES.md`. It also vendors the `stb_image` header used
+  to decode PNG files.
 - [doctest](https://github.com/doctest/doctest) v2.4.12 for the test suite
 
 Build and run:
@@ -76,6 +78,7 @@ make                 # debug: build/QtreGBPaint
 make run             # build and run the debug binary
 make release         # release: build/QtreGBPaint-release
 make run-release     # build and run the release binary
+make i18n-check      # validate lang/es.po against i18n::tr()
 make deb             # Debian package in build/
 make appimage        # AppImage in build/
 ```
@@ -103,9 +106,9 @@ xvfb-run -a -s "-screen 0 1024x768x24" ./tests/smoke/run.sh
 
 The runner writes binaries, logs and captures to `temp/` (ignored by git).
 
-The main Makefile also builds `lib/imgui/libimgui.a` and
-`lib/ImGuiFileDialog/libImGuiFileDialog.a` if they are missing. If `lib/` has
-not been populated yet, run `make deps` first.
+The main Makefile also builds `lib/imgui/libimgui.a` if it is missing, and
+`third_party/ImGuiFileDialog/libImGuiFileDialog.a` from the vendored copy. If
+`lib/` has not been populated yet, run `make deps` first.
 
 ## Install from a release
 

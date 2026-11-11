@@ -8,6 +8,7 @@
 #include "core/color.h"
 #include "paint/canvas_area.h"
 #include "paint/checkerboard.h"
+#include "paint/file_error.h"
 #include "paint/image_export.h"
 #include "paint/indexed_image.h"
 #include "paint/palette.h"
@@ -109,7 +110,7 @@ class PaintFrontend
 		void perform_pending_file_action();
 		void open_open_dialog();
 		void open_save_as_dialog();
-		void show_file_error(const std::string& message);
+		void show_file_error(FileError code, const std::string& message);
 
 	private:
 		PaintBackend& m_backend;
@@ -158,6 +159,7 @@ class PaintFrontend
 		int m_new_height = 256;
 		int m_new_bpp = 2;
 		std::string m_error_message;
+		FileError m_error_code = FileError::None;
 };
 
 #endif

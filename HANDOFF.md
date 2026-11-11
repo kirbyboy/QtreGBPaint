@@ -36,9 +36,9 @@ Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
 ## Estructura principal
 
 - `inc/core`: bezier, brush, color, cursor, backend, imgui manager, ellipse, fill, line, modifiers, shape_constraint, vec2, rect, view_transform, window_geometry, util.
-- `inc/paint`: app_config, theme, i18n, ui_tokens, ui_roles, ui_widgets, canvas_document, canvas_area, canvas_grid, canvas_renderer, canvas_resize_gizmo, canvas_tile_grid, checkerboard, png_image, cursor_asset, document_file, floating_region, floating_region_editor, paint_session, image_buffer, image_export, draw_buffer, indexed_image, palette, paint_backend, paint_frontend.
+- `inc/paint`: app_config, theme, i18n, file_error, file_dialog_i18n, ui_tokens, ui_roles, ui_widgets, canvas_document, canvas_area, canvas_grid, canvas_renderer, canvas_resize_gizmo, canvas_tile_grid, checkerboard, png_image, cursor_asset, document_file, floating_region, floating_region_editor, paint_session, image_buffer, image_export, draw_buffer, indexed_image, palette, paint_backend, paint_frontend.
 - `inc/tools`: base_tool, draw_tool, freehand_tool, line_tool, curve_tool, pencil_tool, brush_tool, eraser_tool, fill_tool, pick_color_tool, selection_tool, shape_tool, square_tool, circle_tool, tool_option.
-- `scripts/`: `bootstrap_deps.sh` y los Makefiles de imgui/ImGuiFileDialog.
+- `scripts/`: `bootstrap_deps.sh`, `i18n_check.py` y el Makefile de imgui.
 - `src/`: implementaciones correspondientes.
 - `assets/`: iconos de toolbar `*_button.idx` (32×32, 3 bpp), cursores `.ipx`
   en `assets/cursors/` (todos creados por el proyecto), hojas de opciones
@@ -50,12 +50,18 @@ Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
 - `packaging/`: `.desktop`, icono, MIME XML, metadata AppStream, script de AppImage y script del `.deb`.
 - `tests/`: tests headless con doctest y `tests/Makefile` autónomo.
 - `tests/smoke/`: smokes SDL/ImGui y `run.sh`; escriben binarios y capturas en `temp/`.
-- `.github/workflows/ci.yml`: CI que ejecuta `make deps`, `test-full` y todos los smokes bajo Xvfb.
-- `lib/`: dependencias locales (imgui, doctest). `lib/ImGuiFileDialog` contiene ImGuiFileDialog v0.6.8 y su Makefile; el directorio no se versiona y se rellena con `make deps`.
+- `.github/workflows/ci.yml`: CI que ejecuta `make deps`, `make i18n-check`, `test-full` y todos los smokes bajo Xvfb.
+- `lib/`: dependencias generadas/descargadas (imgui, doctest); no se versiona y se rellena con `make deps`.
+- `third_party/ImGuiFileDialog/`: copia vendorizada de ImGuiFileDialog v0.6.8 (commit `ee77f190...`, MIT) con cambios locales para traducir sus textos en caliente; ver `LOCAL_CHANGES.md`. `third_party` sí se versiona.
 - `build/`: binarios debug y release generados por Makefile.
 - `obj/`, `deps/`, `obj-release/`, `deps-release/`: objetos y dependencias generados.
 - `Makefile`: build debug/release; `make test` delega en `tests/Makefile`.
 - `LICENSE.txt`, `assets/LICENSE`/`.es.md`, `TRADEMARK.md`/`.es.md`, `THIRD_PARTY_NOTICES.md`/`.es.md`: licencia GPL-3.0-or-later, licencia CC0 de los assets, política de marca y avisos de terceros.
+
+> Nota: las referencias históricas de este handoff a `lib/ImGuiFileDialog`
+> corresponden a sesiones anteriores al 2026-11-11. La copia actual, modificada
+> y versionada, vive en `third_party/ImGuiFileDialog`; `lib/` solo contiene
+> imgui y doctest.
 
 ## Flujo de pruebas
 
@@ -69,6 +75,8 @@ Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
 - Smokes: `./tests/smoke/run.sh circle buttons` compila en paralelo y ejecuta
   solo esos; sin argumentos ejecuta todos. `--list`, `--build-only`,
   `--no-build` y `-j N` están soportados. El script vive en `tests/smoke/`.
+- Catálogo i18n: `make i18n-check` valida `lang/es.po` contra los
+  `i18n::tr("...")` literales del código. La CI lo ejecuta antes de compilar.
 - Durante el desarrollo usar el test/smoke afectado; reservar la matriz completa
   y todos los smokes para cerrar un bloque.
 
@@ -90,12 +98,36 @@ Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
   Language` cambia entre System default/English/Español y
   `AppConfig::language` persiste `system`/`en`/`es`. El cambio es inmediato y
   no requiere reiniciar. Los IDs internos y los `stable_id` no se traducen.
-- **Pruebas.** `tests/test_i18n.cpp` cubre catálogo, fallback y detección de
-  `LANGUAGE`; `tests/smoke/smoke_i18n.cpp` valida el cambio en caliente y los
-  IDs estables, y guarda `temp/smoke_i18n_es.ppm`/`_en.ppm`.
-- **Pendiente.** UI kit de desarrollo con todos los estados y temas, un
-  pseudo-locale para desbordamientos, y traducción de los textos internos de
-  ImGuiFileDialog (hoy son macros de compilación y siguen en inglés).
+- **Pruebas.** `tests/test_i18n.cpp` cubre catálogo, fallback, pseudo-locale y
+  detección de `LANGUAGE`; `tests/smoke/smoke_i18n.cpp` valida el cambio en
+  caliente y los IDs estables, y guarda `temp/smoke_i18n_es.ppm`/`_en.ppm`.
+- **UI kit.** `tests/smoke/smoke_ui_kit.cpp` renderiza toolbar, opciones,
+  paleta, diálogo, estados y roles en Light/Dark/Classic y en
+  English/Español/`en_XA`; guarda las 9 capturas
+  `temp/smoke_ui_kit_<tema>_<locale>.ppm`. `en_XA` es un pseudo-locale de test
+  sin `.po`: envuelve el texto en `[!! ... !!]` y acentúa las vocales para
+  detectar desbordamientos. No aparece en `Settings > Language`.
+- **Chequeo.** `make i18n-check` (`scripts/i18n_check.py`) valida claves
+  literales, `msgid` duplicados, `msgstr` vacíos y placeholders; la CI lo
+  ejecuta. No comprueba claves dinámicas ni entradas huérfanas.
+- **ImGuiFileDialog vendorizado.** `third_party/ImGuiFileDialog` es la copia
+  v0.6.8 (commit `ee77f190...`, MIT), no código nuestro. La extensión
+  `FileDialogStrings` y `FileDialog::SetStrings/GetStrings` permite cambiar sus
+  textos en caliente; `src/paint/file_dialog_i18n.cpp` los rellena desde
+  `i18n::tr()`. El título y los filtros que pasa la app se fijan al abrir el
+  diálogo; el diálogo es modal, así que el menú de idioma no es accesible
+  mientras está abierto. `tests/smoke/smoke_file_dialog_i18n.cpp` lo valida con
+  capturas en español e inglés. Los cambios locales están en
+  `third_party/ImGuiFileDialog/LOCAL_CHANGES.md`; `LICENSE`, versión y commit se
+  conservan.
+- **Errores con código.** `inc/paint/file_error.h` define `FileError` con
+  categorías estables. `IndexedImage` guarda el código (`errorCode()`);
+  `save_indexed_image`, `export_*` y las operaciones de archivo de
+  `PaintBackend` aceptan un `FileError*` opcional al final, así que los
+  llamadores antiguos siguen compilando. `PaintFrontend::show_file_error(FileError,
+  const std::string&)` guarda el código y el detalle; el modal `File Error`
+  muestra el resumen traducido de `file_error_text()` y el detalle técnico en
+  inglés y atenuado. Las claves de `lang/es.po` son solo los resúmenes.
 
 ## Conceptos clave
 
@@ -267,7 +299,7 @@ selección.
 Comandos habituales:
 
 ```sh
-make deps     # primera vez: descarga y compila lib/
+make deps     # primera vez: prepara lib/ y compila third_party/ImGuiFileDialog
 make          # debug
 make release  # release
 make test     # tests headless
@@ -2258,6 +2290,34 @@ colores reflejado en el canvas) y capturas
 - **Verificación.** `make test-full` y los 42 smokes (con el runner ya movido)
   pasan. La primera ejecución real de GitHub Actions terminó en verde en
   `feed82e`; el badge del README queda activo.
+
+## Sesión 2026-11-11 — ImGuiFileDialog traducido y errores con código
+
+- **Diálogo vendorizado.** `third_party/ImGuiFileDialog` (v0.6.8, commit
+  `ee77f190...`, MIT, no código nuestro) incorpora la extensión local
+  `FileDialogStrings` y `FileDialog::SetStrings/GetStrings`;
+  `src/paint/file_dialog_i18n.cpp` rellena sus textos desde `i18n::tr()` y el
+  cambio de idioma se aplica en caliente. Los cambios locales están en
+  `LOCAL_CHANGES.md`; el smoke `smoke_file_dialog_i18n` lo valida con capturas
+  en español e inglés. Commit local `08b9ff2` (sin push al escribir esto).
+- **Errores.** `inc/paint/file_error.h` define `FileError` (`NoPath`,
+  `InvalidDimensions`, `InvalidBitsPerPixel`, `InvalidImageData`,
+  `InvalidPalette`, `OpenFailed`, `ReadFailed`, `InvalidHeader`,
+  `UnsupportedFormat`, `InvalidPixel`, `TruncatedData`, `ExtraData`,
+  `WriteFailed`, `TooLarge`, `CompressionFailed`, `Unknown`). `IndexedImage`
+  expone `errorCode()` y `save_indexed_image`/`export_*`/`PaintBackend`
+  aceptan un `FileError*` opcional al final de las APIs existentes. El modal
+  `File Error` muestra el resumen traducido de `file_error_text()`
+  (`paint_frontend_helpers.cpp`) y el detalle técnico en inglés y atenuado.
+  `AppConfig`, `CursorAsset` y `PngImage` mantienen sus errores sin traducir
+  porque solo van a `stderr`/logs.
+- **Tests y verificación.** Casos nuevos en `test_indexed_image` (18/159),
+  `test_image_export` (4/86) y `test_file_session` (15/265) para los códigos.
+  `make test`: 276 casos y 9833 aserciones; `make test-full`: 1104 casos y
+  39332 aserciones, sin ASAN/UBSAN. `make i18n-check` en verde (167 claves /
+  212 traducciones). Build debug y release, `make deb`
+  (`build/qtregbpaint_0.9.1_amd64.deb`) y los 45 smokes con
+  `SMOKE_RETRIES=5` en verde.
 
 ## Plan de cierre — 2026-11-10
 

@@ -55,6 +55,8 @@ install -Dm644 "$ROOT_DIR/packaging/io.github.kirbyboy.QtreGBPaint.metainfo.xml"
 install -Dm644 "$ROOT_DIR/README.md" "$DOC_DIR/README.md"
 install -Dm644 "$ROOT_DIR/LICENSE.txt" "$DOC_DIR/LICENSE.txt"
 install -Dm644 "$ROOT_DIR/assets/LICENSE" "$DOC_DIR/assets-LICENSE.txt"
+install -Dm644 "$ROOT_DIR/third_party/ImGuiFileDialog/LICENSE" \
+	"$DOC_DIR/ImGuiFileDialog-LICENSE.txt"
 install -Dm644 "$ROOT_DIR/THIRD_PARTY_NOTICES.md" \
 	"$DOC_DIR/THIRD_PARTY_NOTICES.md"
 install -Dm644 "$ROOT_DIR/TRADEMARK.md" "$DOC_DIR/TRADEMARK.md"

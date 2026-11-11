@@ -347,11 +347,12 @@ void PaintFrontend::renderFileDialogs()
 		if (ImGuiFileDialog::Instance()->IsOk())
 		{
 			std::string error;
+			FileError error_code = FileError::None;
 			const std::string path =
 				ImGuiFileDialog::Instance()->GetFilePathName();
-			if (!m_backend.open_document(path, error))
+			if (!m_backend.open_document(path, error, &error_code))
 			{
-				show_file_error(error);
+				show_file_error(error_code, error);
 			}
 			else
 			{
@@ -525,15 +526,16 @@ void PaintFrontend::renderFileDialogs()
 		if (PaintUi::dialog_button(i18n::tr("Create")))
 		{
 			std::string error;
+			FileError error_code = FileError::None;
 			if (m_backend.new_document(m_new_width, m_new_height,
-			                           m_new_bpp, error))
+			                           m_new_bpp, error, &error_code))
 			{
 				ImGui::CloseCurrentPopup();
 			}
 			else
 			{
 				ImGui::CloseCurrentPopup();
-				show_file_error(error);
+				show_file_error(error_code, error);
 			}
 		}
 		ImGui::SameLine();
@@ -566,7 +568,8 @@ void PaintFrontend::renderFileDialogs()
 			else
 			{
 				std::string error;
-				if (m_backend.save_document(error))
+				FileError error_code = FileError::None;
+				if (m_backend.save_document(error, &error_code))
 				{
 					perform_pending_file_action();
 				}
@@ -574,7 +577,7 @@ void PaintFrontend::renderFileDialogs()
 				{
 					m_pending_file_action = FileAction::None;
 					m_pending_open_path.clear();
-					show_file_error(error);
+					show_file_error(error_code, error);
 				}
 			}
 		}
@@ -596,7 +599,22 @@ void PaintFrontend::renderFileDialogs()
 
 	if (PaintUi::begin_modal("File Error", "file_error"))
 	{
-		ImGui::TextWrapped("%s", m_error_message.c_str());
+		const char* summary = file_error_text(m_error_code);
+		if (summary && *summary)
+		{
+			ImGui::TextUnformatted(summary);
+		}
+		if (!m_error_message.empty())
+		{
+			if (summary && *summary)
+			{
+				ImGui::Spacing();
+			}
+			ImGui::PushStyleColor(
+				ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+			ImGui::TextWrapped("%s", m_error_message.c_str());
+			ImGui::PopStyleColor();
+		}
 		ImGui::Separator();
 		if (PaintUi::dialog_button(i18n::tr("OK")))
 		{

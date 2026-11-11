@@ -190,16 +190,22 @@ bool unpack_indices(const std::vector<std::uint8_t>& packed,
 
 bool validate_pixels(int width, int height, int bits_per_pixel,
                      const std::vector<PaintCore::ColorIndex>& data,
-                     std::string& error)
+                     std::string& error, FileError* error_code = nullptr)
 {
+	if (error_code)
+	{
+		*error_code = FileError::None;
+	}
 	if (width <= 0 || height <= 0)
 	{
 		error = "Image dimensions must be positive";
+		if (error_code) *error_code = FileError::InvalidDimensions;
 		return false;
 	}
 	if (bits_per_pixel < 1 || bits_per_pixel > 8)
 	{
 		error = "Bits per pixel must be in the range 1..8";
+		if (error_code) *error_code = FileError::InvalidBitsPerPixel;
 		return false;
 	}
 	const std::size_t expected =
@@ -207,6 +213,7 @@ bool validate_pixels(int width, int height, int bits_per_pixel,
 	if (data.size() != expected)
 	{
 		error = "Pixel count does not match width*height";
+		if (error_code) *error_code = FileError::InvalidImageData;
 		return false;
 	}
 	const unsigned max_value = 1u << bits_per_pixel;
@@ -215,6 +222,7 @@ bool validate_pixels(int width, int height, int bits_per_pixel,
 		if (value >= max_value)
 		{
 			error = "An index is outside the range allowed by bpp";
+			if (error_code) *error_code = FileError::InvalidPixel;
 			return false;
 		}
 	}
@@ -335,17 +343,18 @@ IndexedImage::IndexedImage(int width, int height, int bitsPerPixel,
 
 IndexedImage IndexedImage::loadFromFile(const std::string& path)
 {
-	auto fail = [](const std::string& message)
+	auto fail = [](FileError code, const std::string& message)
 	{
 		IndexedImage image;
 		image.m_error = message;
+		image.m_error_code = code;
 		return image;
 	};
 
 	std::ifstream file(path, std::ios::binary);
 	if (!file)
 	{
-		return fail("Could not open the file");
+		return fail(FileError::OpenFailed, "Could not open the file");
 	}
 
 	std::string contents((std::istreambuf_iterator<char>(file)),
@@ -375,14 +384,14 @@ IndexedImage IndexedImage::loadFromFile(const std::string& path)
 	std::string header;
 	if (!next_line(header))
 	{
-		return fail("Empty file");
+		return fail(FileError::TruncatedData, "Empty file");
 	}
 
 	std::istringstream header_stream(header);
 	std::string magic;
 	if (!(header_stream >> magic) || magic != "IndexedImage")
 	{
-		return fail("Invalid header: expected 'IndexedImage'");
+		return fail(FileError::InvalidHeader, "Invalid header: expected 'IndexedImage'");
 	}
 
 	IndexedFormat format = IndexedFormat::Index;
@@ -391,58 +400,58 @@ IndexedImage IndexedImage::loadFromFile(const std::string& path)
 	{
 		if (!parse_format(mode, format))
 		{
-			return fail("Invalid mode: " + mode);
+			return fail(FileError::UnsupportedFormat, "Invalid mode: " + mode);
 		}
 	}
 	std::string extra;
 	if (header_stream >> extra)
 	{
-		return fail("Invalid header: extra tokens");
+		return fail(FileError::InvalidHeader, "Invalid header: extra tokens");
 	}
 
 	std::string dimensions_line;
 	if (!next_line(dimensions_line))
 	{
-		return fail("Incomplete header: width or height is missing");
+		return fail(FileError::TruncatedData, "Incomplete header: width or height is missing");
 	}
 	std::istringstream dimensions_stream(dimensions_line);
 	std::string width_token;
 	std::string height_token;
 	if (!(dimensions_stream >> width_token >> height_token))
 	{
-		return fail("Incomplete header: width or height is missing");
+		return fail(FileError::TruncatedData, "Incomplete header: width or height is missing");
 	}
 	if (dimensions_stream >> extra)
 	{
-		return fail("Invalid header: extra tokens");
+		return fail(FileError::InvalidHeader, "Invalid header: extra tokens");
 	}
 
 	int width = 0;
 	int height = 0;
 	if (!parse_int(width_token, width) || width <= 0)
 	{
-		return fail("Invalid width");
+		return fail(FileError::InvalidDimensions, "Invalid width");
 	}
 	if (!parse_int(height_token, height) || height <= 0)
 	{
-		return fail("Invalid height");
+		return fail(FileError::InvalidDimensions, "Invalid height");
 	}
 
 	std::string bpp_line;
 	if (!next_line(bpp_line))
 	{
-		return fail("Incomplete header: bpp is missing");
+		return fail(FileError::TruncatedData, "Incomplete header: bpp is missing");
 	}
 	std::istringstream bpp_stream(bpp_line);
 	std::string bpp_token;
 	if (!(bpp_stream >> bpp_token) || (bpp_stream >> extra))
 	{
-		return fail("Invalid bpp");
+		return fail(FileError::InvalidBitsPerPixel, "Invalid bpp");
 	}
 	int bpp = 0;
 	if (!parse_int(bpp_token, bpp) || bpp < 1 || bpp > 8)
 	{
-		return fail("Invalid bpp: must be in the range 1..8");
+		return fail(FileError::InvalidBitsPerPixel, "Invalid bpp: must be in the range 1..8");
 	}
 
 	const std::size_t expected =
@@ -461,20 +470,20 @@ IndexedImage IndexedImage::loadFromFile(const std::string& path)
 			int value = 0;
 			if (!parse_int(token, value))
 			{
-				return fail("Invalid pixel value: " + token);
+				return fail(FileError::InvalidPixel, "Invalid pixel value: " + token);
 			}
 			if (count >= expected)
 			{
-				return fail("Extra data: expected " + std::to_string(expected) +
+				return fail(FileError::ExtraData, "Extra data: expected " + std::to_string(expected) +
 				            " values");
 			}
 			if (value < 0 || value > 255)
 			{
-				return fail("Pixel value out of range (0..255)");
+				return fail(FileError::InvalidPixel, "Pixel value out of range (0..255)");
 			}
 			if (static_cast<unsigned>(value) >= max_value)
 			{
-				return fail("Pixel value out of range for the given bpp");
+				return fail(FileError::InvalidPixel, "Pixel value out of range for the given bpp");
 			}
 
 			data.push_back(static_cast<PaintCore::ColorIndex>(value));
@@ -483,7 +492,7 @@ IndexedImage IndexedImage::loadFromFile(const std::string& path)
 
 		if (count < expected)
 		{
-			return fail("Insufficient data: expected " +
+			return fail(FileError::TruncatedData, "Insufficient data: expected " +
 			            std::to_string(expected) + " values but read " +
 			            std::to_string(count));
 		}
@@ -493,7 +502,7 @@ IndexedImage IndexedImage::loadFromFile(const std::string& path)
 		const std::size_t payload_size = contents.size() - position;
 		if (payload_size != expected)
 		{
-			return fail("Binary payload size does not match width*height");
+			return fail(FileError::TruncatedData, "Binary payload size does not match width*height");
 		}
 		data.reserve(expected);
 		for (std::size_t index = 0; index < expected; ++index)
@@ -502,7 +511,7 @@ IndexedImage IndexedImage::loadFromFile(const std::string& path)
 				contents[position + index]);
 			if (value >= max_value)
 			{
-				return fail("Pixel value out of range for the given bpp");
+				return fail(FileError::InvalidPixel, "Pixel value out of range for the given bpp");
 			}
 			data.push_back(static_cast<PaintCore::ColorIndex>(value));
 		}
@@ -517,14 +526,14 @@ IndexedImage IndexedImage::loadFromFile(const std::string& path)
 			const std::size_t payload_size = contents.size() - position;
 			if (payload_size != packed_size)
 			{
-				return fail("BinaryPacked payload size does not match the packed rows");
+				return fail(FileError::TruncatedData, "BinaryPacked payload size does not match the packed rows");
 			}
 			const std::vector<std::uint8_t> packed(
 				contents.begin() + static_cast<std::ptrdiff_t>(position),
 				contents.end());
 			if (!unpack_indices(packed, width, height, bpp, data))
 			{
-				return fail("Could not unpack the pixel data");
+				return fail(FileError::InvalidImageData, "Could not unpack the pixel data");
 			}
 		}
 		else
@@ -536,12 +545,12 @@ IndexedImage IndexedImage::loadFromFile(const std::string& path)
 				std::string line;
 				if (!next_line(line))
 				{
-					return fail("Insufficient Packed rows");
+					return fail(FileError::TruncatedData, "Insufficient Packed rows");
 				}
 				const std::string compact = compact_whitespace(line);
 				if (compact.size() != row_bytes * 2u)
 				{
-					return fail("Invalid Packed row length");
+					return fail(FileError::InvalidImageData, "Invalid Packed row length");
 				}
 				for (std::size_t byte = 0; byte < row_bytes; ++byte)
 				{
@@ -549,7 +558,7 @@ IndexedImage IndexedImage::loadFromFile(const std::string& path)
 					const int low = hex_value(compact[byte * 2 + 1]);
 					if (high < 0 || low < 0)
 					{
-						return fail("Invalid hexadecimal digit in Packed data");
+						return fail(FileError::InvalidPixel, "Invalid hexadecimal digit in Packed data");
 					}
 					packed.push_back(static_cast<std::uint8_t>((high << 4) | low));
 				}
@@ -557,11 +566,11 @@ IndexedImage IndexedImage::loadFromFile(const std::string& path)
 			if (contents.substr(position).find_first_not_of(" \t\r\n") !=
 			    std::string::npos)
 			{
-				return fail("Extra data after Packed rows");
+				return fail(FileError::ExtraData, "Extra data after Packed rows");
 			}
 			if (!unpack_indices(packed, width, height, bpp, data))
 			{
-				return fail("Could not unpack the pixel data");
+				return fail(FileError::InvalidImageData, "Could not unpack the pixel data");
 			}
 		}
 	}
@@ -574,32 +583,39 @@ IndexedImage IndexedImage::loadFromFile(const std::string& path)
 	}
 	catch (const std::invalid_argument& error)
 	{
-		return fail(error.what());
+		return fail(FileError::InvalidImageData, error.what());
 	}
 }
 
 bool save_indexed_image(const std::string& path, int width, int height,
                         int bits_per_pixel,
                         const std::vector<PaintCore::ColorIndex>& data,
-                        std::string& error)
+                        std::string& error, FileError* error_code)
 {
 	return save_indexed_image(path, width, height, bits_per_pixel, data,
-	                          IndexedFormat::Index, error);
+	                          IndexedFormat::Index, error, error_code);
 }
 
 bool save_indexed_image(const std::string& path, int width, int height,
                         int bits_per_pixel,
                         const std::vector<PaintCore::ColorIndex>& data,
-                        IndexedFormat format, std::string& error)
+                        IndexedFormat format, std::string& error,
+                        FileError* error_code)
 {
 	error.clear();
+	if (error_code)
+	{
+		*error_code = FileError::None;
+	}
 
 	if (path.empty())
 	{
 		error = "No file path";
+		if (error_code) *error_code = FileError::NoPath;
 		return false;
 	}
-	if (!validate_pixels(width, height, bits_per_pixel, data, error))
+	if (!validate_pixels(width, height, bits_per_pixel, data, error,
+	                     error_code))
 	{
 		return false;
 	}
@@ -610,17 +626,19 @@ bool save_indexed_image(const std::string& path, int width, int height,
 	if (!file)
 	{
 		error = "Could not open the file for writing";
+		if (error_code) *error_code = FileError::WriteFailed;
 		return false;
 	}
 
 	const std::filesystem::path target(path);
 	const std::filesystem::path temporary(path + ".tmp");
-	auto fail_and_remove = [&](const std::string& message)
+	auto fail_and_remove = [&](FileError code, const std::string& message)
 	{
 		file.close();
 		std::error_code remove_error;
 		std::filesystem::remove(temporary, remove_error);
 		error = message;
+		if (error_code) *error_code = code;
 		return false;
 	};
 
@@ -653,7 +671,8 @@ bool save_indexed_image(const std::string& path, int width, int height,
 			std::vector<std::uint8_t> packed;
 			if (!pack_indices(data, width, height, bits_per_pixel, packed))
 			{
-				return fail_and_remove("Could not pack the pixel data");
+				return fail_and_remove(FileError::InvalidImageData,
+				                       "Could not pack the pixel data");
 			}
 			const std::size_t row_bytes = indexed_image_row_bytes(
 				width, bits_per_pixel);
@@ -679,7 +698,8 @@ bool save_indexed_image(const std::string& path, int width, int height,
 			std::vector<std::uint8_t> packed;
 			if (!pack_indices(data, width, height, bits_per_pixel, packed))
 			{
-				return fail_and_remove("Could not pack the pixel data");
+				return fail_and_remove(FileError::InvalidImageData,
+				                       "Could not pack the pixel data");
 			}
 			file.write(reinterpret_cast<const char*>(packed.data()),
 			           static_cast<std::streamsize>(packed.size()));
@@ -689,12 +709,14 @@ bool save_indexed_image(const std::string& path, int width, int height,
 
 	if (!file.good())
 	{
-		return fail_and_remove("Failed to write the file");
+		return fail_and_remove(FileError::WriteFailed,
+		                       "Failed to write the file");
 	}
 	file.flush();
 	if (!file.good())
 	{
-		return fail_and_remove("Failed to flush the file");
+		return fail_and_remove(FileError::WriteFailed,
+		                       "Failed to flush the file");
 	}
 	file.close();
 
@@ -705,6 +727,7 @@ bool save_indexed_image(const std::string& path, int width, int height,
 		std::error_code remove_error;
 		std::filesystem::remove(temporary, remove_error);
 		error = "Could not replace the target file";
+		if (error_code) *error_code = FileError::WriteFailed;
 		return false;
 	}
 	return true;

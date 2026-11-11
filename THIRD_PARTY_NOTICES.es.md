@@ -93,10 +93,15 @@ Se usa para la interfaz de usuario.
 
 ### ImGuiFileDialog
 
-ImGuiFileDialog v0.6.8
+ImGuiFileDialog v0.6.8 (commit `ee77f190861193a995435c388682f1512f6fd29a`)
 Copyright (c) 2018-2025 Stephane Cuillerdier (aka Aiekick)
+<https://github.com/aiekick/ImGuiFileDialog>
 
 Se usa para los diálogos de apertura y guardado de archivos.
+
+La copia de `third_party/ImGuiFileDialog` está vendorizada y modificada
+localmente para traducir sus textos en runtime. No es código de QtreGBPaint;
+ver `third_party/ImGuiFileDialog/LOCAL_CHANGES.md` y el texto MIT anterior.
 
 ### dirent
 

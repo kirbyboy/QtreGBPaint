@@ -459,3 +459,189 @@ msgstr "Ancho 4 px"
 
 msgid "Width 5 px"
 msgstr "Ancho 5 px"
+
+msgid "UI Kit"
+msgstr "Kit de UI"
+
+msgid "design tokens, roles and widgets"
+msgstr "tokens, roles y widgets"
+
+msgid "Toolbar"
+msgstr "Barra de herramientas"
+
+msgid "Options"
+msgstr "Opciones"
+
+msgid "Dialog"
+msgstr "Diálogo"
+
+msgid "States"
+msgstr "Estados"
+
+msgid "Text"
+msgstr "Texto"
+
+msgid "Default"
+msgstr "Predeterminado"
+
+msgid "Hover"
+msgstr "Resaltado"
+
+msgid "Pressed"
+msgstr "Pulsado"
+
+msgid "Selected"
+msgstr "Seleccionado"
+
+msgid "Accent"
+msgstr "Acento"
+
+msgid "Disabled"
+msgstr "Deshabilitado"
+
+msgid "Roles"
+msgstr "Roles"
+
+msgid "Muted"
+msgstr "Atenuado"
+
+msgid "Opaque and transparent swatches"
+msgstr "Swatches opacos y transparentes"
+
+msgid "Active / inactive / text fallback / disabled"
+msgstr "Activo / inactivo / texto de reserva / deshabilitado"
+
+msgid "Long text"
+msgstr "Texto largo"
+
+msgid "Devices"
+msgstr "Dispositivos"
+
+msgid "Search :"
+msgstr "Buscar:"
+
+msgid "[Dir]"
+msgstr "[Carpeta]"
+
+msgid "[Link]"
+msgstr "[Enlace]"
+
+msgid "[File]"
+msgstr "[Archivo]"
+
+msgid "File Name:"
+msgstr "Nombre de archivo:"
+
+msgid "Directory Path:"
+msgstr "Ruta de carpeta:"
+
+msgid "Reset search"
+msgstr "Borrar búsqueda"
+
+msgid "Edit path\nYou can also right click on path buttons"
+msgstr "Editar ruta\nTambién puedes hacer clic derecho en los botones de ruta"
+
+msgid "Reset to current directory"
+msgstr "Volver a la carpeta actual"
+
+msgid "Create Directory"
+msgstr "Crear carpeta"
+
+msgid "File name"
+msgstr "Nombre"
+
+msgid "Type"
+msgstr "Tipo"
+
+msgid "Date"
+msgstr "Fecha"
+
+msgid "o"
+msgstr "B"
+
+msgid "Ko"
+msgstr "KiB"
+
+msgid "Mo"
+msgstr "MiB"
+
+msgid "Go"
+msgstr "GiB"
+
+msgid "The selected file already exists!"
+msgstr "El archivo seleccionado ya existe."
+
+msgid "Are you sure you want to overwrite it?"
+msgstr "¿Seguro que quieres sobrescribirlo?"
+
+msgid "Confirm"
+msgstr "Confirmar"
+
+msgid "Thumbnails"
+msgstr "Miniaturas"
+
+msgid "File List"
+msgstr "Lista de archivos"
+
+msgid "Thumbnails List"
+msgstr "Lista de miniaturas"
+
+msgid "Thumbnails Grid"
+msgstr "Cuadrícula de miniaturas"
+
+msgid "Places"
+msgstr "Lugares"
+
+msgid "Bookmarks"
+msgstr "Marcadores"
+
+msgid "ok"
+msgstr "Aceptar"
+
+msgid "No file path selected."
+msgstr "No se ha seleccionado ningún archivo."
+
+msgid "The image dimensions are not valid."
+msgstr "Las dimensiones de la imagen no son válidas."
+
+msgid "The bits per pixel value is not valid."
+msgstr "El valor de bits por píxel no es válido."
+
+msgid "The image data is not valid."
+msgstr "Los datos de la imagen no son válidos."
+
+msgid "The palette is not valid for this image."
+msgstr "La paleta no es válida para esta imagen."
+
+msgid "Could not open the file."
+msgstr "No se pudo abrir el archivo."
+
+msgid "Could not read the file."
+msgstr "No se pudo leer el archivo."
+
+msgid "The file is not a valid .idx image."
+msgstr "El archivo no es una imagen .idx válida."
+
+msgid "The file uses an unsupported format."
+msgstr "El archivo usa un formato no compatible."
+
+msgid "The file contains a pixel outside the palette."
+msgstr "El archivo contiene un píxel fuera de la paleta."
+
+msgid "The file is incomplete."
+msgstr "El archivo está incompleto."
+
+msgid "The file contains unexpected extra data."
+msgstr "El archivo contiene datos extra inesperados."
+
+msgid "Could not write the file."
+msgstr "No se pudo escribir el archivo."
+
+msgid "The image is too large for the selected format."
+msgstr "La imagen es demasiado grande para el formato seleccionado."
+
+msgid "Could not compress the export data."
+msgstr "No se pudieron comprimir los datos de exportación."
+
+msgid "The operation failed."
+msgstr "La operación falló."

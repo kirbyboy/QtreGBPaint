@@ -91,10 +91,15 @@ Used for the user interface.
 
 ### ImGuiFileDialog
 
-ImGuiFileDialog v0.6.8
+ImGuiFileDialog v0.6.8 (commit `ee77f190861193a995435c388682f1512f6fd29a`)
 Copyright (c) 2018-2025 Stephane Cuillerdier (aka Aiekick)
+<https://github.com/aiekick/ImGuiFileDialog>
 
 Used for the file open and save dialogs.
+
+The copy in `third_party/ImGuiFileDialog` is vendored and locally modified for
+runtime UI translations. It is not QtreGBPaint code; see
+`third_party/ImGuiFileDialog/LOCAL_CHANGES.md` and the MIT text above.
 
 ### dirent
 

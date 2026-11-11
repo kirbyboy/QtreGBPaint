@@ -329,23 +329,31 @@ bool PaintBackend::is_modified() const
 	       (m_activeTool && m_activeTool->is_drawing());
 }
 
-bool PaintBackend::new_document(int width, int height, std::string& error)
+bool PaintBackend::new_document(int width, int height, std::string& error,
+                                FileError* error_code)
 {
-	return new_document(width, height, m_session.getBitsPerPixel(), error);
+	return new_document(width, height, m_session.getBitsPerPixel(), error,
+	                    error_code);
 }
 
 bool PaintBackend::new_document(int width, int height, int bits_per_pixel,
-                                std::string& error)
+                                std::string& error, FileError* error_code)
 {
 	error.clear();
+	if (error_code)
+	{
+		*error_code = FileError::None;
+	}
 	if (width < 1 || height < 1)
 	{
 		error = "Width and height must be positive";
+		if (error_code) *error_code = FileError::InvalidDimensions;
 		return false;
 	}
 	if (bits_per_pixel < 1 || bits_per_pixel > 8)
 	{
 		error = "Bits per pixel must be in the range 1..8";
+		if (error_code) *error_code = FileError::InvalidBitsPerPixel;
 		return false;
 	}
 
@@ -363,6 +371,7 @@ bool PaintBackend::new_document(int width, int height, int bits_per_pixel,
 	catch (const std::exception& exception)
 	{
 		error = exception.what();
+		if (error_code) *error_code = FileError::Unknown;
 		return false;
 	}
 
@@ -375,12 +384,18 @@ bool PaintBackend::new_document(int width, int height, int bits_per_pixel,
 	return true;
 }
 
-bool PaintBackend::open_document(const std::string& path, std::string& error)
+bool PaintBackend::open_document(const std::string& path, std::string& error,
+                                 FileError* error_code)
 {
 	error.clear();
+	if (error_code)
+	{
+		*error_code = FileError::None;
+	}
 	if (path.empty())
 	{
 		error = "No file path";
+		if (error_code) *error_code = FileError::NoPath;
 		return false;
 	}
 
@@ -388,6 +403,12 @@ bool PaintBackend::open_document(const std::string& path, std::string& error)
 	if (!loaded.isValid())
 	{
 		error = loaded.error().empty() ? "Could not load the file" : loaded.error();
+		if (error_code)
+		{
+			*error_code = loaded.errorCode() == FileError::None
+				? FileError::Unknown
+				: loaded.errorCode();
+		}
 		return false;
 	}
 
@@ -402,6 +423,7 @@ bool PaintBackend::open_document(const std::string& path, std::string& error)
 	catch (const std::exception& exception)
 	{
 		error = exception.what();
+		if (error_code) *error_code = FileError::Unknown;
 		return false;
 	}
 
@@ -417,30 +439,38 @@ bool PaintBackend::open_document(const std::string& path, std::string& error)
 	return true;
 }
 
-bool PaintBackend::save_document(std::string& error)
+bool PaintBackend::save_document(std::string& error, FileError* error_code)
 {
 	if (!m_file.has_path())
 	{
 		error = "No file path";
+		if (error_code) *error_code = FileError::NoPath;
 		return false;
 	}
-	return save_document_as(m_file.path(), error);
+	return save_document_as(m_file.path(), error, error_code);
 }
 
 bool PaintBackend::save_document_as(const std::string& path,
-                                    std::string& error)
+                                    std::string& error,
+                                    FileError* error_code)
 {
-	return save_document_as(path, m_file_format, error);
+	return save_document_as(path, m_file_format, error, error_code);
 }
 
 bool PaintBackend::save_document_as(const std::string& path,
                                     IndexedFormat format,
-                                    std::string& error)
+                                    std::string& error,
+                                    FileError* error_code)
 {
 	error.clear();
+	if (error_code)
+	{
+		*error_code = FileError::None;
+	}
 	if (path.empty())
 	{
 		error = "No file path";
+		if (error_code) *error_code = FileError::NoPath;
 		return false;
 	}
 
@@ -461,7 +491,8 @@ bool PaintBackend::save_document_as(const std::string& path,
 
 	const ImageBuffer& image = m_session.get_main_buffer();
 	if (!save_indexed_image(path, image.width(), image.height(),
-	                        image.bitsPerPixel(), image.data(), format, error))
+	                        image.bitsPerPixel(), image.data(), format, error,
+	                        error_code))
 	{
 		return false;
 	}
@@ -474,12 +505,18 @@ bool PaintBackend::save_document_as(const std::string& path,
 
 bool PaintBackend::export_image(const std::string& path,
                                 ImageExportFormat format,
-                                std::string& error)
+                                std::string& error,
+                                FileError* error_code)
 {
 	error.clear();
+	if (error_code)
+	{
+		*error_code = FileError::None;
+	}
 	if (path.empty())
 	{
 		error = "No file path";
+		if (error_code) *error_code = FileError::NoPath;
 		return false;
 	}
 
@@ -499,7 +536,7 @@ bool PaintBackend::export_image(const std::string& path,
 	}
 
 	return ::export_image(path, format, m_session.get_main_buffer(),
-	                      m_palette, error);
+	                      m_palette, error, error_code);
 }
 
 void PaintBackend::set_recent_files(const std::vector<std::string>& files)

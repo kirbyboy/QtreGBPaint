@@ -5,8 +5,9 @@
 #
 # Versions are pinned to the same ones used by the project:
 #   Dear ImGui       v1.92.4-docking
-#   ImGuiFileDialog  v0.6.8
 #   doctest          v2.4.12
+# ImGuiFileDialog v0.6.8 is vendored in third_party/ImGuiFileDialog (MIT) and
+# is built from there; it is not downloaded by this script.
 
 set -euo pipefail
 
@@ -74,19 +75,15 @@ fetch_imgui()
 	make -C "$dir"
 }
 
-fetch_imgui_file_dialog()
+build_imgui_file_dialog()
 {
-	local dir="$LIB_DIR/ImGuiFileDialog"
+	local dir="$ROOT_DIR/third_party/ImGuiFileDialog"
 
 	if [ ! -f "$dir/ImGuiFileDialog.cpp" ]; then
-		echo "Fetching ImGuiFileDialog v0.6.8..."
-		clone_tag https://github.com/aiekick/ImGuiFileDialog.git v0.6.8 \
-			"$TMP_DIR/ImGuiFileDialog"
-		mkdir -p "$dir"
-		cp -R "$TMP_DIR/ImGuiFileDialog/." "$dir/"
+		echo "error: missing vendored ImGuiFileDialog in $dir" >&2
+		exit 1
 	fi
 
-	cp "$ROOT_DIR/scripts/deps/ImGuiFileDialog.Makefile" "$dir/Makefile"
 	make -C "$dir"
 }
 
@@ -106,6 +103,6 @@ fetch_doctest()
 
 echo "Dependencies directory: $LIB_DIR"
 fetch_imgui
-fetch_imgui_file_dialog
+build_imgui_file_dialog
 fetch_doctest
 echo "Dependencies ready. Run 'make' to build QtreGBPaint."

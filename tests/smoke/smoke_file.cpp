@@ -143,7 +143,7 @@ int run()
 		}
 		else if (frame == 8)
 		{
-			h.frontend.show_file_error("test error");
+			h.frontend.show_file_error(FileError::Unknown, "test error");
 		}
 		else if (frame == 10)
 		{

@@ -215,6 +215,51 @@ TEST_CASE("IndexedImage rejects malformed headers and payloads")
 	CHECK(!extra_token.error().empty());
 }
 
+TEST_CASE("IndexedImage exposes stable error categories")
+{
+	CHECK_EQ(load("").errorCode(), FileError::TruncatedData);
+	CHECK_EQ(load("P2\n2 2\n2\n0 1 2 3\n").errorCode(),
+	         FileError::InvalidHeader);
+	CHECK_EQ(load("IndexedImage Unknown\n2 2\n2\n0 1 2 3\n").errorCode(),
+	         FileError::UnsupportedFormat);
+	CHECK_EQ(load("IndexedImage\n0 2\n2\n0 1 2 3\n").errorCode(),
+	         FileError::InvalidDimensions);
+	CHECK_EQ(load("IndexedImage\n2 2\n0\n0 1 2 3\n").errorCode(),
+	         FileError::InvalidBitsPerPixel);
+	CHECK_EQ(load("IndexedImage\n2 2\n2\n0 1 2 4\n").errorCode(),
+	         FileError::InvalidPixel);
+	CHECK_EQ(load("IndexedImage\n2 2\n2\n0 1\n").errorCode(),
+	         FileError::TruncatedData);
+	CHECK_EQ(load("IndexedImage\n2 2\n2\n0 1 2 3\n9\n").errorCode(),
+	         FileError::ExtraData);
+}
+
+TEST_CASE("save_indexed_image exposes stable error categories")
+{
+	std::string error;
+	FileError code = FileError::None;
+	const std::vector<ColorIndex> pixels = {0, 1, 2, 3};
+
+	CHECK_FALSE(save_indexed_image("", 2, 2, 2, pixels, error, &code));
+	CHECK_EQ(code, FileError::NoPath);
+
+	CHECK_FALSE(save_indexed_image("/tmp/qtre_invalid.idx", 0, 2, 2,
+	                               pixels, error, &code));
+	CHECK_EQ(code, FileError::InvalidDimensions);
+
+	CHECK_FALSE(save_indexed_image("/tmp/qtre_invalid.idx", 2, 2, 9,
+	                               pixels, error, &code));
+	CHECK_EQ(code, FileError::InvalidBitsPerPixel);
+
+	CHECK_FALSE(save_indexed_image("/tmp/qtre_invalid.idx", 2, 2, 2,
+	                               {0, 1, 2}, error, &code));
+	CHECK_EQ(code, FileError::InvalidImageData);
+
+	CHECK_FALSE(save_indexed_image("/tmp/qtre_invalid.idx", 2, 2, 2,
+	                               {0, 1, 2, 4}, error, &code));
+	CHECK_EQ(code, FileError::InvalidPixel);
+}
+
 TEST_CASE("IndexedImage rejects invalid dimensions and bpp")
 {
 	const IndexedImage zero_width = load("IndexedImage\n0 2\n2\n0 1 2 3\n");

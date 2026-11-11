@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <string>
 
+#include "paint/file_error.h"
 #include "paint/indexed_image.h"
 
 // Helpers shared by the PaintFrontend translation units. They are internal to
@@ -17,6 +18,7 @@ std::string recent_file_name(const std::string& path);
 bool accessible_directory(const std::filesystem::path& path);
 std::string format_byte_size(std::size_t bytes);
 const char* indexed_format_description(IndexedFormat format);
+const char* file_error_text(FileError error);
 } // namespace PaintFrontendInternal
 
 #endif

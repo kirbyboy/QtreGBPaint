@@ -56,6 +56,48 @@ std::string format_byte_size(std::size_t bytes)
 	return buffer;
 }
 
+const char* file_error_text(FileError error)
+{
+	switch (error)
+	{
+		case FileError::None:
+			return "";
+		case FileError::NoPath:
+			return i18n::tr("No file path selected.");
+		case FileError::InvalidDimensions:
+			return i18n::tr("The image dimensions are not valid.");
+		case FileError::InvalidBitsPerPixel:
+			return i18n::tr("The bits per pixel value is not valid.");
+		case FileError::InvalidImageData:
+			return i18n::tr("The image data is not valid.");
+		case FileError::InvalidPalette:
+			return i18n::tr("The palette is not valid for this image.");
+		case FileError::OpenFailed:
+			return i18n::tr("Could not open the file.");
+		case FileError::ReadFailed:
+			return i18n::tr("Could not read the file.");
+		case FileError::InvalidHeader:
+			return i18n::tr("The file is not a valid .idx image.");
+		case FileError::UnsupportedFormat:
+			return i18n::tr("The file uses an unsupported format.");
+		case FileError::InvalidPixel:
+			return i18n::tr("The file contains a pixel outside the palette.");
+		case FileError::TruncatedData:
+			return i18n::tr("The file is incomplete.");
+		case FileError::ExtraData:
+			return i18n::tr("The file contains unexpected extra data.");
+		case FileError::WriteFailed:
+			return i18n::tr("Could not write the file.");
+		case FileError::TooLarge:
+			return i18n::tr("The image is too large for the selected format.");
+		case FileError::CompressionFailed:
+			return i18n::tr("Could not compress the export data.");
+		case FileError::Unknown:
+			return i18n::tr("The operation failed.");
+	}
+	return i18n::tr("The operation failed.");
+}
+
 const char* indexed_format_description(IndexedFormat format)
 {
 	switch (format)

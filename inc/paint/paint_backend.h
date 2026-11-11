@@ -9,6 +9,7 @@
 
 #include "core/ibackend.h"
 #include "paint/document_file.h"
+#include "paint/file_error.h"
 #include "paint/image_export.h"
 #include "paint/palette.h"
 #include "paint/indexed_image.h"
@@ -88,20 +89,23 @@ public:
     IndexedFormat file_format() const { return m_file_format; }
     std::string file_display_name() const { return m_file.display_name(); }
     bool is_modified() const;
-    bool new_document(int width, int height, std::string& error);
+    bool new_document(int width, int height, std::string& error,
+                      FileError* error_code = nullptr);
     bool new_document(int width, int height, int bits_per_pixel,
-                      std::string& error);
-    bool open_document(const std::string& path, std::string& error);
-    bool save_document(std::string& error);
-    bool save_document_as(const std::string& path, std::string& error);
+                      std::string& error, FileError* error_code = nullptr);
+    bool open_document(const std::string& path, std::string& error,
+                       FileError* error_code = nullptr);
+    bool save_document(std::string& error, FileError* error_code = nullptr);
+    bool save_document_as(const std::string& path, std::string& error,
+                          FileError* error_code = nullptr);
     bool save_document_as(const std::string& path, IndexedFormat format,
-                          std::string& error);
+                          std::string& error, FileError* error_code = nullptr);
 
     // Writes a copy in the requested image format. Exporting never updates the
     // .idx savepoint or the recent-files list, but it does commit an active
     // floating region/pending edit so the exported copy matches the canvas.
     bool export_image(const std::string& path, ImageExportFormat format,
-                      std::string& error);
+                      std::string& error, FileError* error_code = nullptr);
 
     // Most recently opened/saved files, newest first, capped at 10. The menu
     // uses it to build the recent-files section; AppConfig persists it.

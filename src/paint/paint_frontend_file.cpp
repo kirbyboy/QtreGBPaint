@@ -108,11 +108,12 @@ void PaintFrontend::request_open_path(std::string path)
 void PaintFrontend::open_recent_path(std::string path)
 {
 	std::string error;
-	if (!m_backend.open_document(path, error))
+	FileError error_code = FileError::None;
+	if (!m_backend.open_document(path, error, &error_code))
 	{
 		// Opening a recent entry is a single-shot action: report the error and
 		// leave the current document untouched.
-		show_file_error(error);
+		show_file_error(error_code, error);
 		return;
 	}
 	remember_file_directory(path);
@@ -174,9 +175,10 @@ void PaintFrontend::export_to_path(const std::string& path,
                                    ImageExportFormat format)
 {
 	std::string error;
-	if (!m_backend.export_image(path, format, error))
+	FileError error_code = FileError::None;
+	if (!m_backend.export_image(path, format, error, &error_code))
 	{
-		show_file_error(error);
+		show_file_error(error_code, error);
 		return;
 	}
 	remember_file_directory(path);
@@ -293,12 +295,13 @@ void PaintFrontend::save_to_path(const std::string& path, bool continue_pending,
                                  IndexedFormat format)
 {
 	std::string error;
-	if (!m_backend.save_document_as(path, format, error))
+	FileError error_code = FileError::None;
+	if (!m_backend.save_document_as(path, format, error, &error_code))
 	{
 		m_save_then_pending = false;
 		m_pending_file_action = FileAction::None;
 		m_pending_open_path.clear();
-		show_file_error(error);
+		show_file_error(error_code, error);
 		return;
 	}
 
@@ -310,8 +313,13 @@ void PaintFrontend::save_to_path(const std::string& path, bool continue_pending,
 	}
 }
 
-void PaintFrontend::show_file_error(const std::string& message)
+void PaintFrontend::show_file_error(FileError code, const std::string& message)
 {
-	m_error_message = message.empty() ? i18n::tr("Unknown error") : message;
+	m_error_code = code;
+	m_error_message = message;
+	if (m_error_message.empty() && code == FileError::None)
+	{
+		m_error_message = i18n::tr("Unknown error");
+	}
 	m_open_error_popup = true;
 }

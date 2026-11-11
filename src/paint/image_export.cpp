@@ -76,55 +76,70 @@ void append_chunk(std::vector<std::uint8_t>& output, const char type[4],
 	append_u32_be(output, static_cast<std::uint32_t>(crc));
 }
 
+bool fail_export(std::string& error, FileError* error_code, FileError code,
+                 const std::string& message)
+{
+	error = message;
+	if (error_code)
+	{
+		*error_code = code;
+	}
+	return false;
+}
+
 bool validate_export(const ImageBuffer& image, const Palette& palette,
-                     std::string& error)
+                     std::string& error, FileError* error_code)
 {
 	error.clear();
+	if (error_code)
+	{
+		*error_code = FileError::None;
+	}
 	if (image.width() <= 0 || image.height() <= 0)
 	{
-		error = "Image dimensions must be positive";
-		return false;
+		return fail_export(error, error_code, FileError::InvalidDimensions,
+		                   "Image dimensions must be positive");
 	}
 	if (image.bitsPerPixel() < 1 || image.bitsPerPixel() > 8)
 	{
-		error = "Bits per pixel must be in the range 1..8";
-		return false;
+		return fail_export(error, error_code, FileError::InvalidBitsPerPixel,
+		                   "Bits per pixel must be in the range 1..8");
 	}
 	const std::size_t expected_palette_size =
 		static_cast<std::size_t>(1u << image.bitsPerPixel());
 	if (palette.size() != expected_palette_size)
 	{
-		error = "Palette size does not match the image bpp";
-		return false;
+		return fail_export(error, error_code, FileError::InvalidPalette,
+		                   "Palette size does not match the image bpp");
 	}
 	const std::size_t expected_pixels =
 		static_cast<std::size_t>(image.width()) *
 		static_cast<std::size_t>(image.height());
 	if (image.data().size() != expected_pixels)
 	{
-		error = "Pixel count does not match width*height";
-		return false;
+		return fail_export(error, error_code, FileError::InvalidImageData,
+		                   "Pixel count does not match width*height");
 	}
 	for (PaintCore::ColorIndex index : image.data())
 	{
 		if (index >= palette.size())
 		{
-			error = "An index is outside the palette";
-			return false;
+			return fail_export(error, error_code, FileError::InvalidPalette,
+			                   "An index is outside the palette");
 		}
 	}
 	return true;
 }
 
 bool write_file(const std::string& path, const std::vector<std::uint8_t>& bytes,
-                std::string& error)
+                std::string& error, FileError* error_code)
 {
 	std::ofstream output(path, std::ios::out | std::ios::binary |
 	                              std::ios::trunc);
 	if (!output)
 	{
-		error = "Could not open the file for writing";
-		return false;
+		return fail_export(error, error_code, FileError::WriteFailed,
+		                   "Could not open the file for writing");
 	}
 	if (!bytes.empty())
 	{
@@ -133,22 +148,27 @@ bool write_file(const std::string& path, const std::vector<std::uint8_t>& bytes,
 	}
 	if (!output.good())
 	{
-		error = "Failed to write the file";
-		return false;
+		return fail_export(error, error_code, FileError::WriteFailed,
+		                   "Failed to write the file");
 	}
 	return true;
 }
 }
 
 bool export_bmp(const std::string& path, const ImageBuffer& image,
-                const Palette& palette, std::string& error)
+                const Palette& palette, std::string& error,
+                FileError* error_code)
 {
+	if (error_code)
+	{
+		*error_code = FileError::None;
+	}
 	if (path.empty())
 	{
-		error = "No file path";
-		return false;
+		return fail_export(error, error_code, FileError::NoPath,
+		                   "No file path");
 	}
-	if (!validate_export(image, palette, error))
+	if (!validate_export(image, palette, error, error_code))
 	{
 		return false;
 	}
@@ -161,16 +181,16 @@ bool export_bmp(const std::string& path, const ImageBuffer& image,
 	if (file_size > std::numeric_limits<std::uint32_t>::max() ||
 	    pixel_bytes > std::numeric_limits<std::uint32_t>::max())
 	{
-		error = "Image is too large for a BMP file";
-		return false;
+		return fail_export(error, error_code, FileError::TooLarge,
+		                   "Image is too large for a BMP file");
 	}
 
 	std::ofstream output(path, std::ios::out | std::ios::binary |
 	                              std::ios::trunc);
 	if (!output)
 	{
-		error = "Could not open the file for writing";
-		return false;
+		return fail_export(error, error_code, FileError::WriteFailed,
+		                   "Could not open the file for writing");
 	}
 
 	// BITMAPFILEHEADER
@@ -194,8 +214,8 @@ bool export_bmp(const std::string& path, const ImageBuffer& image,
 	write_u32(output, 0);
 	if (!output.good())
 	{
-		error = "Failed to write the file";
-		return false;
+		return fail_export(error, error_code, FileError::WriteFailed,
+		                   "Failed to write the file");
 	}
 
 	const std::vector<PaintCore::ColorIndex>& data = image.data();
@@ -217,8 +237,8 @@ bool export_bmp(const std::string& path, const ImageBuffer& image,
 		             static_cast<std::streamsize>(row.size()));
 		if (!output.good())
 		{
-			error = "Failed to write the file";
-			return false;
+			return fail_export(error, error_code, FileError::WriteFailed,
+			                   "Failed to write the file");
 		}
 	}
 
@@ -226,29 +246,34 @@ bool export_bmp(const std::string& path, const ImageBuffer& image,
 }
 
 bool export_png(const std::string& path, const ImageBuffer& image,
-                const Palette& palette, std::string& error)
+                const Palette& palette, std::string& error,
+                FileError* error_code)
 {
+	if (error_code)
+	{
+		*error_code = FileError::None;
+	}
 	if (path.empty())
 	{
-		error = "No file path";
-		return false;
+		return fail_export(error, error_code, FileError::NoPath,
+		                   "No file path");
 	}
-	if (!validate_export(image, palette, error))
+	if (!validate_export(image, palette, error, error_code))
 	{
 		return false;
 	}
 	if (palette.size() > 256)
 	{
-		error = "PNG palettes cannot contain more than 256 colors";
-		return false;
+		return fail_export(error, error_code, FileError::InvalidPalette,
+		                   "PNG palettes cannot contain more than 256 colors");
 	}
 
 	const std::size_t row_size = static_cast<std::size_t>(image.width()) + 1u;
 	if (static_cast<std::size_t>(image.height()) >
 	    std::numeric_limits<std::size_t>::max() / row_size)
 	{
-		error = "Image is too large for a PNG file";
-		return false;
+		return fail_export(error, error_code, FileError::TooLarge,
+		                   "Image is too large for a PNG file");
 	}
 
 	std::vector<std::uint8_t> raw;
@@ -270,8 +295,8 @@ bool export_png(const std::string& path, const ImageBuffer& image,
 		static_cast<uLong>(raw.size()), Z_DEFAULT_COMPRESSION);
 	if (result != Z_OK)
 	{
-		error = "Could not compress the PNG data";
-		return false;
+		return fail_export(error, error_code, FileError::CompressionFailed,
+		                   "Could not compress the PNG data");
 	}
 	compressed.resize(compressed_size);
 
@@ -326,20 +351,24 @@ bool export_png(const std::string& path, const ImageBuffer& image,
 	append_chunk(png, "IDAT", compressed.data(), compressed.size());
 	append_chunk(png, "IEND", nullptr, 0);
 
-	return write_file(path, png, error);
+	return write_file(path, png, error, error_code);
 }
 
 bool export_image(const std::string& path, ImageExportFormat format,
                   const ImageBuffer& image, const Palette& palette,
-                  std::string& error)
+                  std::string& error, FileError* error_code)
 {
+	if (error_code)
+	{
+		*error_code = FileError::None;
+	}
 	switch (format)
 	{
 		case ImageExportFormat::Bmp:
-			return export_bmp(path, image, palette, error);
+			return export_bmp(path, image, palette, error, error_code);
 		case ImageExportFormat::Png:
-			return export_png(path, image, palette, error);
+			return export_png(path, image, palette, error, error_code);
 	}
-	error = "Unknown export format";
-	return false;
+	return fail_export(error, error_code, FileError::UnsupportedFormat,
+	                   "Unknown export format");
 }

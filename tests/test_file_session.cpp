@@ -545,21 +545,32 @@ TEST_CASE("file operations reject invalid input without touching the document")
 
 	REQUIRE(backend.new_document(2, 2, error));
 	const std::string before = dir.file("not_written.idx");
+	FileError code = FileError::None;
 
-	CHECK_FALSE(backend.save_document(error));
+	CHECK_FALSE(backend.save_document(error, &code));
 	CHECK_FALSE(error.empty());
+	CHECK_EQ(code, FileError::NoPath);
 
-	CHECK_FALSE(backend.open_document(dir.file("missing.idx"), error));
+	CHECK_FALSE(backend.open_document(dir.file("missing.idx"), error, &code));
 	CHECK_FALSE(error.empty());
+	CHECK_EQ(code, FileError::OpenFailed);
 	CHECK_EQ(backend.session().getWidth(), 2);
 	CHECK_FALSE(backend.is_modified());
 
-	CHECK_FALSE(backend.new_document(0, 4, error));
+	CHECK_FALSE(backend.new_document(0, 4, error, &code));
 	CHECK_FALSE(error.empty());
+	CHECK_EQ(code, FileError::InvalidDimensions);
 	CHECK_EQ(backend.session().getWidth(), 2);
 
-	CHECK_FALSE(backend.save_document_as(dir.file("missing_dir/file.idx"), error));
+	CHECK_FALSE(backend.new_document(2, 2, 9, error, &code));
 	CHECK_FALSE(error.empty());
+	CHECK_EQ(code, FileError::InvalidBitsPerPixel);
+	CHECK_EQ(backend.session().getWidth(), 2);
+
+	CHECK_FALSE(backend.save_document_as(dir.file("missing_dir/file.idx"), error,
+	                                     &code));
+	CHECK_FALSE(error.empty());
+	CHECK_EQ(code, FileError::WriteFailed);
 	CHECK_FALSE(backend.has_file_path());
 	CHECK_FALSE(std::filesystem::exists(before));
 }
