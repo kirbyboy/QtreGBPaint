@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "paint/canvas_document.h"
+#include "paint/image_transform.h"
 
 using namespace PaintCore;
 
@@ -205,9 +206,8 @@ bool FloatingRegionEditor::commit_floating_region()
 				const PaintCore::ColorIndex color =
 					content.get_pixel(offset_x + x, offset_y + y);
 				const bool transparent =
-					color == PaintCore::TRANSPARENT_INDEX ||
-					(m_floating.transparent_background &&
-					 color == m_floating.transparent_color);
+					m_floating.transparent_background &&
+					color == m_floating.transparent_color;
 				if (transparent)
 				{
 					continue;
@@ -308,6 +308,48 @@ bool FloatingRegionEditor::paste_from_clipboard(const PaintCore::Vec2& pos)
 	return begin_paste(m_clipboard, pos);
 }
 
+bool FloatingRegionEditor::transform_floating_region(
+	PaintCore::ImageTransform transform)
+{
+	const ImageBuffer& content = m_floating.content();
+	if (!m_floating.active || content.width() <= 0 ||
+	    content.height() <= 0)
+	{
+		return false;
+	}
+
+	ImageBuffer transformed = PaintCore::transform_image(content, transform);
+	const bool swap_axes = PaintCore::image_transform_swaps_axes(transform);
+	if (swap_axes)
+	{
+		const int new_width = transformed.width();
+		const int new_height = transformed.height();
+
+		// Keep the rotated region centered on the old one. Rect coordinates
+		// are integers, so odd/even size mixes may shift by half a pixel.
+		int new_x = m_floating.rect.x +
+			(m_floating.rect.w - new_width) / 2;
+		int new_y = m_floating.rect.y +
+			(m_floating.rect.h - new_height) / 2;
+
+		// As with moving, keep at least one pixel of the region on canvas.
+		new_x = std::clamp(new_x, -(new_width - 1),
+		                   m_document.getWidth() - 1);
+		new_y = std::clamp(new_y, -(new_height - 1),
+		                   m_document.getHeight() - 1);
+
+		m_floating.rect.x = new_x;
+		m_floating.rect.y = new_y;
+		m_floating.rect.w = new_width;
+		m_floating.rect.h = new_height;
+	}
+
+	// Replace-only content keeps the view texture in sync; the selection is
+	// still active and is neither committed nor cancelled here.
+	m_floating.set_content(std::move(transformed));
+	return true;
+}
+
 bool FloatingRegionEditor::invert_floating_region_colors()
 {
 	const ImageBuffer& content = m_floating.content();
@@ -318,11 +360,10 @@ bool FloatingRegionEditor::invert_floating_region_colors()
 	}
 
 	// For 2bpp the four available indices are 0..3, so inversion is 3 - i.
-	// TRANSPARENT_INDEX stays transparent (paste content may contain it).
+	// Every palette index is a regular value now; transparency is a palette
+	// property, not a pixel sentinel.
 	const int bpp = content.bitsPerPixel();
-	const int max_index = std::min(
-		(1 << bpp) - 1,
-		static_cast<int>(PaintCore::TRANSPARENT_INDEX) - 1);
+	const int max_index = (1 << bpp) - 1;
 
 	ImageBuffer inverted = content;
 	bool changed = false;
@@ -332,8 +373,7 @@ bool FloatingRegionEditor::invert_floating_region_colors()
 		{
 			const PaintCore::ColorIndex index =
 				inverted.get_pixel(x, y);
-			if (index == PaintCore::TRANSPARENT_INDEX ||
-			    static_cast<int>(index) > max_index)
+			if (static_cast<int>(index) > max_index)
 			{
 				continue;
 			}

@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "paint/image_buffer.h"
+#include "paint/image_transform.h"
 
 namespace
 {
@@ -48,6 +49,11 @@ std::size_t UndoStep::bytes() const
 	{
 		total += before_canvas->bytes();
 	}
+	if (canvas_bits_per_pixel)
+	{
+		total += canvas_bits_per_pixel->mapping.size() *
+		         sizeof(PaintCore::ColorIndex);
+	}
 	return total;
 }
 
@@ -73,17 +79,61 @@ void UndoHistory::push(UndoStep step)
 {
 	const bool has_before_canvas = step.before_canvas.has_value();
 	const bool has_canvas_resize = step.canvas_resize.has_value();
-	if (has_before_canvas != has_canvas_resize)
-	{
-		return;
-	}
+	const bool has_canvas_bits_per_pixel =
+		step.canvas_bits_per_pixel.has_value();
+	const bool has_canvas_transform = step.canvas_transform.has_value();
 
-	if (has_before_canvas)
+	if (has_before_canvas || has_canvas_resize || has_canvas_bits_per_pixel)
+	{
+		if (!has_before_canvas || has_canvas_transform ||
+		    !step.patches.empty() || !snapshot_valid(*step.before_canvas))
+		{
+			return;
+		}
+
+		// Exactly one deterministic rebuild operation may accompany the before
+		// snapshot.
+		if (has_canvas_resize == has_canvas_bits_per_pixel)
+		{
+			return;
+		}
+
+		if (has_canvas_resize &&
+		    (step.canvas_resize->width < 1 ||
+		     step.canvas_resize->height < 1))
+		{
+			return;
+		}
+
+		if (has_canvas_bits_per_pixel)
+		{
+			const CanvasBitsPerPixel& change = *step.canvas_bits_per_pixel;
+			if (change.bits_per_pixel < 1 || change.bits_per_pixel > 8 ||
+			    change.bits_per_pixel ==
+				    step.before_canvas->bits_per_pixel)
+			{
+				return;
+			}
+			const std::size_t expected = static_cast<std::size_t>(
+				1u << step.before_canvas->bits_per_pixel);
+			if (change.mapping.size() != expected)
+			{
+				return;
+			}
+			const int new_count = 1 << change.bits_per_pixel;
+			for (PaintCore::ColorIndex value : change.mapping)
+			{
+				if (static_cast<int>(value) >= new_count)
+				{
+					return;
+				}
+			}
+		}
+	}
+	else if (has_canvas_transform)
 	{
 		if (!step.patches.empty() ||
-		    !snapshot_valid(*step.before_canvas) ||
-		    step.canvas_resize->width < 1 ||
-		    step.canvas_resize->height < 1)
+		    !PaintCore::is_valid_image_transform(*step.canvas_transform))
 		{
 			return;
 		}
@@ -138,6 +188,13 @@ bool UndoHistory::undo(ImageBuffer& image)
 	{
 		restore_snapshot(image, *step.before_canvas);
 	}
+	else if (step.canvas_transform)
+	{
+		image = PaintCore::transform_image(
+			image,
+			PaintCore::inverse_image_transform(*step.canvas_transform));
+		image.mark_all_dirty();
+	}
 	else
 	{
 		// If patches overlap, restoring in reverse order leaves the image in
@@ -165,10 +222,26 @@ bool UndoHistory::redo(ImageBuffer& image)
 
 	if (step.before_canvas)
 	{
-		// Undo restored the before state, so applying the same resize
-		// deterministically rebuilds the after state without storing it.
-		image.resize(step.canvas_resize->width, step.canvas_resize->height,
-		             step.canvas_resize->fill);
+		if (step.canvas_resize)
+		{
+			// Undo restored the before state, so applying the same resize
+			// deterministically rebuilds the after state.
+			image.resize(step.canvas_resize->width,
+			             step.canvas_resize->height,
+			             step.canvas_resize->fill);
+		}
+		else if (step.canvas_bits_per_pixel)
+		{
+			restore_snapshot(image, *step.before_canvas);
+			image.remap_bits_per_pixel(
+				step.canvas_bits_per_pixel->bits_per_pixel,
+				step.canvas_bits_per_pixel->mapping);
+		}
+		image.mark_all_dirty();
+	}
+	else if (step.canvas_transform)
+	{
+		image = PaintCore::transform_image(image, *step.canvas_transform);
 		image.mark_all_dirty();
 	}
 	else

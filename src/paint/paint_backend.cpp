@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <exception>
+#include <limits>
 #include <utility>
 
 #include "paint/cursor_asset.h"
@@ -133,6 +134,29 @@ void PaintBackend::set_background_index(PaintCore::ColorIndex index)
 	apply_tool_colors();
 }
 
+bool PaintBackend::set_transparent_color(PaintCore::ColorIndex index)
+{
+	const int bpp = palette_bits_per_pixel();
+	if (index >= palette_usable_count() ||
+	    !is_visual_palette_index(index, bpp))
+	{
+		return false;
+	}
+
+	m_palette.set_transparent_index(index);
+	return true;
+}
+
+bool PaintBackend::set_transparent_foreground()
+{
+	return set_transparent_color(m_foreground_index);
+}
+
+void PaintBackend::clear_transparent_color()
+{
+	m_palette.set_transparent_index(std::nullopt);
+}
+
 bool PaintBackend::can_undo() const
 {
 	return m_session.can_undo();
@@ -145,17 +169,119 @@ bool PaintBackend::can_redo() const
 
 bool PaintBackend::undo()
 {
-	return m_session.undo();
+	const int bits_per_pixel = m_session.getBitsPerPixel();
+	const bool changed = m_session.undo();
+	if (changed && m_session.getBitsPerPixel() != bits_per_pixel)
+	{
+		refresh_palette_for_document_bpp();
+	}
+	return changed;
 }
 
 bool PaintBackend::redo()
 {
-	return m_session.redo();
+	const int bits_per_pixel = m_session.getBitsPerPixel();
+	const bool changed = m_session.redo();
+	if (changed && m_session.getBitsPerPixel() != bits_per_pixel)
+	{
+		refresh_palette_for_document_bpp();
+	}
+	return changed;
 }
 
 bool PaintBackend::resize_canvas(int width, int height)
 {
 	return m_session.resize(width, height, m_background_index);
+}
+
+bool PaintBackend::change_bits_per_pixel(int bits_per_pixel)
+{
+	if (bits_per_pixel < 1 || bits_per_pixel > 8)
+	{
+		return false;
+	}
+
+	const int old_bits_per_pixel = palette_bits_per_pixel();
+	if (bits_per_pixel == old_bits_per_pixel)
+	{
+		return false;
+	}
+
+	Palette new_palette = make_palette(
+		m_palette_mode, bits_per_pixel, m_palette_inverted);
+	const std::optional<PaintCore::ColorIndex> old_transparent =
+		m_palette.transparent_index();
+	const bool preserve_transparency =
+		old_transparent.has_value() &&
+		is_visual_palette_index(*old_transparent, bits_per_pixel);
+	if (preserve_transparency)
+	{
+		new_palette.set_transparent_index(old_transparent);
+	}
+
+	const int old_count = 1 << old_bits_per_pixel;
+	const int new_count = 1 << bits_per_pixel;
+	std::vector<PaintCore::ColorIndex> mapping(
+		static_cast<std::size_t>(old_count), 0);
+
+	for (int old_index = 0; old_index < old_count; ++old_index)
+	{
+		if (preserve_transparency && old_transparent.has_value() &&
+		    old_index == static_cast<int>(*old_transparent))
+		{
+			mapping[old_index] = *old_transparent;
+			continue;
+		}
+
+		// Use the stored color even for the old transparent entry; the new
+		// palette may not be able to preserve that index.
+		const PaintCore::Color old_color = m_palette.getStoredColor(
+			static_cast<PaintCore::ColorIndex>(old_index));
+		int best_index = 0;
+		int best_distance = std::numeric_limits<int>::max();
+		for (int new_index = 0; new_index < new_count; ++new_index)
+		{
+			// Never map regular pixels onto the preserved transparent entry:
+			// that would silently turn them transparent.
+			if (preserve_transparency &&
+			    new_index == static_cast<int>(*old_transparent))
+			{
+				continue;
+			}
+			const PaintCore::Color new_color =
+				new_palette.getStoredColor(
+					static_cast<PaintCore::ColorIndex>(new_index));
+			const int dr = static_cast<int>(old_color.r) - new_color.r;
+			const int dg = static_cast<int>(old_color.g) - new_color.g;
+			const int db = static_cast<int>(old_color.b) - new_color.b;
+			const int distance = dr * dr + dg * dg + db * db;
+			if (distance < best_distance)
+			{
+				best_distance = distance;
+				best_index = new_index;
+			}
+		}
+		mapping[old_index] = static_cast<PaintCore::ColorIndex>(best_index);
+	}
+
+	if (!m_session.change_bits_per_pixel(bits_per_pixel, mapping))
+	{
+		return false;
+	}
+
+	m_palette = std::move(new_palette);
+	const int usable = palette_usable_count();
+	m_foreground_index = static_cast<PaintCore::ColorIndex>(
+		std::min<int>(m_foreground_index, usable - 1));
+	m_background_index = static_cast<PaintCore::ColorIndex>(
+		std::min<int>(m_background_index, usable - 1));
+	apply_tool_colors();
+	return true;
+}
+
+bool PaintBackend::transform_canvas(PaintCore::ImageTransform transform)
+{
+	return m_session.transform_image(transform);
 }
 
 bool PaintBackend::apply_pending_color_pick()
@@ -240,9 +366,11 @@ bool PaintBackend::new_document(int width, int height, int bits_per_pixel,
 		return false;
 	}
 
+	clear_transparent_color();
 	regenerate_palette();
 	apply_default_colors();
 	apply_tool_colors();
+	m_file_format = IndexedFormat::Index;
 	m_file.mark_new();
 	return true;
 }
@@ -279,10 +407,13 @@ bool PaintBackend::open_document(const std::string& path, std::string& error)
 
 	// The loaded file may use a different bpp; rebuild the palette and reset
 	// the selected colors to the new usable range.
+	clear_transparent_color();
 	regenerate_palette();
 	apply_default_colors();
 	apply_tool_colors();
+	m_file_format = loaded.format();
 	m_file.mark_saved(path, m_session.current_state_id());
+	add_recent_file(path);
 	return true;
 }
 
@@ -296,7 +427,15 @@ bool PaintBackend::save_document(std::string& error)
 	return save_document_as(m_file.path(), error);
 }
 
-bool PaintBackend::save_document_as(const std::string& path, std::string& error)
+bool PaintBackend::save_document_as(const std::string& path,
+                                    std::string& error)
+{
+	return save_document_as(path, m_file_format, error);
+}
+
+bool PaintBackend::save_document_as(const std::string& path,
+                                    IndexedFormat format,
+                                    std::string& error)
 {
 	error.clear();
 	if (path.empty())
@@ -322,19 +461,109 @@ bool PaintBackend::save_document_as(const std::string& path, std::string& error)
 
 	const ImageBuffer& image = m_session.get_main_buffer();
 	if (!save_indexed_image(path, image.width(), image.height(),
-	                        image.bitsPerPixel(), image.data(), error))
+	                        image.bitsPerPixel(), image.data(), format, error))
 	{
 		return false;
 	}
 
+	m_file_format = format;
 	m_file.mark_saved(path, m_session.current_state_id());
+	add_recent_file(path);
 	return true;
+}
+
+bool PaintBackend::export_image(const std::string& path,
+                                ImageExportFormat format,
+                                std::string& error)
+{
+	error.clear();
+	if (path.empty())
+	{
+		error = "No file path";
+		return false;
+	}
+
+	// Exporting should capture what the user sees, just like Save. It does not
+	// touch DocumentFile or the recent-files list.
+	if (m_activeTool && m_activeTool->is_drawing())
+	{
+		m_activeTool->on_cancel(m_session);
+	}
+	if (m_session.has_floating_region())
+	{
+		m_session.commit_floating_region();
+	}
+	if (m_session.has_pending_edit())
+	{
+		m_session.commit_pending_edit();
+	}
+
+	return ::export_image(path, format, m_session.get_main_buffer(),
+	                      m_palette, error);
+}
+
+void PaintBackend::set_recent_files(const std::vector<std::string>& files)
+{
+	m_recent_files.clear();
+	for (const std::string& path : files)
+	{
+		if (path.empty())
+		{
+			continue;
+		}
+		if (std::find(m_recent_files.begin(), m_recent_files.end(), path) !=
+		    m_recent_files.end())
+		{
+			continue;
+		}
+		m_recent_files.push_back(path);
+		if (m_recent_files.size() >= 10)
+		{
+			break;
+		}
+	}
+}
+
+void PaintBackend::add_recent_file(std::string path)
+{
+	if (path.empty())
+	{
+		return;
+	}
+
+	// Newest first, no duplicates, at most 10 entries. AppConfig persists the
+	// list at application exit.
+	const auto existing =
+		std::find(m_recent_files.begin(), m_recent_files.end(), path);
+	if (existing != m_recent_files.end())
+	{
+		m_recent_files.erase(existing);
+	}
+	m_recent_files.insert(m_recent_files.begin(), std::move(path));
+	if (m_recent_files.size() > 10)
+	{
+		m_recent_files.resize(10);
+	}
 }
 
 void PaintBackend::regenerate_palette()
 {
+	const std::optional<PaintCore::ColorIndex> transparent =
+		m_palette.transparent_index();
 	m_palette = make_palette(m_palette_mode, palette_bits_per_pixel(),
 	                         m_palette_inverted);
+	m_palette.set_transparent_index(transparent);
+}
+
+void PaintBackend::refresh_palette_for_document_bpp()
+{
+	regenerate_palette();
+	const int usable = palette_usable_count();
+	m_foreground_index = static_cast<PaintCore::ColorIndex>(
+		std::min<int>(m_foreground_index, usable - 1));
+	m_background_index = static_cast<PaintCore::ColorIndex>(
+		std::min<int>(m_background_index, usable - 1));
+	apply_tool_colors();
 }
 
 void PaintBackend::apply_default_colors()

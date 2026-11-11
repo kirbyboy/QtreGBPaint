@@ -2,6 +2,7 @@
 #define QTREGBPAINT_FLOATING_REGION_EDITOR_H
 
 #include "core/color.h"
+#include "core/image_transform.h"
 #include "core/vec2.h"
 #include "paint/floating_region.h"
 #include "paint/image_buffer.h"
@@ -42,6 +43,11 @@ public:
 	bool delete_floating_region();
 	bool paste_from_clipboard(const PaintCore::Vec2& pos = {});
 	bool invert_floating_region_colors();
+
+	// Flips/rotates the floating content without committing or cancelling the
+	// selection. 90/270 swap the width/height and recenter the region; the
+	// original hole is unchanged.
+	bool transform_floating_region(PaintCore::ImageTransform transform);
 
 	bool has_clipboard() const
 	{

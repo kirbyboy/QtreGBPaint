@@ -21,6 +21,8 @@ class ShapeTool : public DrawTool
 		ShapeTool(PaintCore::ColorIndex foreground = 1,
 		          PaintCore::ColorIndex background = 0);
 
+		bool drag_anchor(PaintCore::Vec2& anchor) const override;
+
 	protected:
 		Mode mode() const;
 };

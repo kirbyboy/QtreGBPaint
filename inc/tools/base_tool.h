@@ -62,6 +62,14 @@ class ToolBase
 			return false;
 		}
 
+		// Eyedropper tools expose the color under the pointer while the button
+		// is held, so the frontend can fill the tool-options area with it.
+		virtual bool color_pick_preview(PaintCore::ColorIndex& color) const
+		{
+			(void)color;
+			return false;
+		}
+
 		// A tool with an uncommitted edit (for example a curve being shaped)
 		// exposes its lifecycle so PaintSession can make it exclusive with the
 		// floating selection and with undo/redo.
@@ -170,10 +178,43 @@ class ToolBase
 		virtual DrawBuffer* get_draw_buffer() { return nullptr; }
 		virtual bool is_drawing() const { return false; }
 
+		// True while a mouse press is being tracked, even if the tool does not
+		// paint. The eyedropper uses it to keep receiving moves and the release
+		// while it previews the sampled color.
+		virtual bool is_operating() const { return is_drawing(); }
+
+		// Accepts an in-progress stroke when an external action (image
+		// transform) must not discard it. The default cancels; drawing and
+		// selection tools override it to commit.
+		virtual void commit_active_stroke(PaintSession& canvas)
+		{
+			if (is_drawing())
+			{
+				on_cancel(canvas);
+			}
+		}
+
+		// Fixed first point of a two-point operation (line, rect, circle,
+		// selection and curve endpoints). While present, the status bar shows
+		// the start point and the current pointer position.
+		virtual bool drag_anchor(PaintCore::Vec2& anchor) const
+		{
+			(void)anchor;
+			return false;
+		}
+
 		// Transient marquee drawn by selection-like tools while dragging.
 		// Floating content itself lives in the editor, not in the tool.
 		virtual bool has_marquee() const { return false; }
 		virtual PaintCore::Rect marquee_rect() const { return {}; }
+
+		// Selection-like tools can create a floating selection covering the
+		// whole canvas, applying their current mode and hole background.
+		virtual bool select_all(PaintSession& canvas)
+		{
+			(void)canvas;
+			return false;
+		}
 
 		// Footprint preview under the pointer. The tool chooses the color and
 		// whether the fill is opaque and needs a fixed 1-pixel screen border

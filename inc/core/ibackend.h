@@ -23,7 +23,12 @@ class IGuiBackend
 		virtual void set_cursor(PaintCore::CursorType cursor) = 0;
 		virtual bool set_cursor_image(PaintCore::CursorType cursor,
 		                              const PaintCore::CursorImage& image) = 0;
-		virtual void poll_events(bool& running) = 0;
+		virtual void poll_events() = 0;
+
+		// A window-manager close request is only a request: the frontend
+		// decides whether to close immediately or to ask about unsaved changes.
+		virtual bool quit_requested() const = 0;
+		virtual void clear_quit_request() = 0;
 		
 		virtual void* createTexture(int width, int height) = 0;
 		virtual void updateTexture(void* texture_id, const PaintCore::Color* pixels, int width, int height) = 0;

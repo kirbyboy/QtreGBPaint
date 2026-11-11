@@ -35,7 +35,6 @@ DEPS := $(SRCS:$(SRCDIR)/%.cpp=$(DEPDIR)/%.d)
 # ==== Libraries and includes ====
 CXXFLAGS += $(OPTFLAGS) \
 	-I$(INCDIR) \
-	-I$(ROOTDIR)/lib/tinyfiledialogs/src \
 	-I$(ROOTDIR)/lib/imgui/src \
 	-I$(ROOTDIR)/lib/imgui/src/backends \
 	-I$(ROOTDIR)/lib/ImGuiFileDialog \
@@ -43,8 +42,7 @@ CXXFLAGS += $(OPTFLAGS) \
 LDLIBS += \
 	$(IMGUIFILE_DIALOG_LIB) \
 	$(ROOTDIR)/lib/imgui/libimgui.a \
-	$(ROOTDIR)/lib/tinyfiledialogs/libtinyfiledialog.a \
-	$(shell sdl2-config --libs) -pthread
+	$(shell sdl2-config --libs) -lz -pthread
 
 all: $(TARGET_PATH)
 
@@ -87,6 +85,9 @@ release:
 run-release:
 	$(MAKE) BUILD_TYPE=release run
 
+appimage:
+	$(ROOTDIR)/packaging/build_appimage.sh
+
 clean:
 	$(RM) -r $(ROOTDIR)/obj $(ROOTDIR)/obj-release \
 		$(ROOTDIR)/deps $(ROOTDIR)/deps-release $(BUILDDIR)
@@ -96,4 +97,4 @@ ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS)
 endif
 
-.PHONY: all clean test test-full test-asan test-ubsan test-sanitize run release run-release
+.PHONY: all clean test test-full test-asan test-ubsan test-sanitize run release run-release appimage

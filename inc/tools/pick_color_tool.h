@@ -5,8 +5,10 @@
 #include "core/vec2.h"
 #include "tools/base_tool.h"
 
-// Eyedropper. A left click samples the canvas color for the foreground; a
-// right click samples it for the background. The application consumes the
+// Eyedropper. The left button samples the canvas color for the foreground; the
+// right button samples it for the background. The sample is taken on release so
+// the tool can preview the color under the pointer while the button is held. A
+// release outside the canvas cancels the pick. The application consumes the
 // result after input routing and returns to the last editing tool.
 class PickColorTool : public ToolBase
 {
@@ -24,11 +26,20 @@ class PickColorTool : public ToolBase
 			return button == kLeftButton || button == kRightButton;
 		}
 
+		bool is_operating() const override { return m_pressed_button != 0; }
 		bool take_color_pick(ColorPick& pick) override;
+		bool color_pick_preview(PaintCore::ColorIndex& color) const override;
 
 	private:
+		void update_preview(PaintSession& canvas,
+		                    const PaintCore::Vec2& pos);
+		void clear_press();
+
 		ColorPick m_pick{};
 		bool m_has_pick = false;
+		int m_pressed_button = 0;
+		PaintCore::ColorIndex m_preview_color = 0;
+		bool m_has_preview = false;
 };
 
 #endif

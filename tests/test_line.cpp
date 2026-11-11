@@ -155,6 +155,29 @@ TEST_CASE("line tool previews and commits the straight line")
 	CHECK(canvas.can_undo());
 }
 
+TEST_CASE("line tool exposes the press point as drag anchor")
+{
+	PaintSession canvas(8, 8);
+	LineTool tool(2, 0);
+	canvas.set_tool(&tool);
+
+	Vec2 anchor{};
+	CHECK_FALSE(tool.drag_anchor(anchor));
+
+	tool.on_mouse_press(canvas, Vec2{2, 3}, 1);
+	REQUIRE(tool.drag_anchor(anchor));
+	CHECK_EQ(anchor.x, 2);
+	CHECK_EQ(anchor.y, 3);
+
+	tool.on_mouse_move(canvas, Vec2{6, 6});
+	REQUIRE(tool.drag_anchor(anchor));
+	CHECK_EQ(anchor.x, 2);
+	CHECK_EQ(anchor.y, 3);
+
+	tool.on_mouse_release(canvas, Vec2{6, 6}, 1);
+	CHECK_FALSE(tool.drag_anchor(anchor));
+}
+
 TEST_CASE("line tool clips lines that leave the canvas")
 {
 	PaintSession canvas(6, 6);

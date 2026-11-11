@@ -86,11 +86,34 @@ void Palette::setColor(PaintCore::ColorIndex index, PaintCore::Color color)
 	m_colors[index] = color;
 }
 
+void Palette::set_transparent_index(
+	std::optional<PaintCore::ColorIndex> index)
+{
+	if (index.has_value() && *index >= m_colors.size())
+	{
+		return;
+	}
+	m_transparent_index = index;
+}
+
+PaintCore::Color Palette::getStoredColor(PaintCore::ColorIndex index) const
+{
+	if (index >= m_colors.size())
+	{
+		return {255, 0, 255, 255}; // magenta: out-of-range sentinel
+	}
+	return m_colors[index];
+}
+
 PaintCore::Color Palette::getColor(PaintCore::ColorIndex index) const
 {
 	if (index >= m_colors.size())
 	{
 		return {255, 0, 255, 255}; // magenta: out-of-range sentinel
+	}
+	if (is_transparent(index))
+	{
+		return {0, 0, 0, 0};
 	}
 	return m_colors[index];
 }
@@ -137,8 +160,7 @@ int palette_usable_color_count(int bits_per_pixel)
 	{
 		return 0;
 	}
-	const int count = 1 << bits_per_pixel;
-	return bits_per_pixel == 8 ? 255 : count;
+	return 1 << bits_per_pixel;
 }
 
 int palette_visual_color_count(int bits_per_pixel)
@@ -164,6 +186,19 @@ int palette_visual_color_index(int slot, int bits_per_pixel)
 	// visual-1 is the darkest.
 	return static_cast<int>(
 		(static_cast<long long>(slot) * (usable - 1)) / (visual - 1));
+}
+
+bool is_visual_palette_index(int index, int bits_per_pixel)
+{
+	const int visual = palette_visual_color_count(bits_per_pixel);
+	for (int slot = 0; slot < visual; ++slot)
+	{
+		if (palette_visual_color_index(slot, bits_per_pixel) == index)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 Palette make_palette(PaletteMode mode, int bits_per_pixel, bool inverted)

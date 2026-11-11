@@ -1,0 +1,48 @@
+QtreGBPaint visual assets
+
+This file covers the visual assets in the `assets/` directory and the packaged
+copy `packaging/qtregbpaint.png` (together, the "Assets"). The program code is
+covered by `LICENSE.txt` (GPL-3.0-or-later), not by this file.
+
+Copyright dedication
+--------------------
+Unless noted otherwise below, the QtreGBPaint project dedicates the Assets to
+the public domain under the Creative Commons CC0 1.0 Universal Public Domain
+Dedication:
+
+https://creativecommons.org/publicdomain/zero/1.0/
+
+To the extent possible under law, the project has waived all copyright and
+related or neighboring rights to those Assets.
+
+This dedication covers, among others:
+
+- the application icon and logo: `assets/QtreGBPaint.png` and its packaged
+  copy `packaging/qtregbpaint.png`;
+- the toolbar button icons: `assets/*_button.idx`;
+- the tool option sheets: `assets/rect_options.idx`,
+  `assets/selection_options.idx` and `assets/fill_options.idx`;
+- the project-created cursor bitmaps: `assets/cursors/cross.ipx`,
+  `assets/cursors/fill.ipx`, `assets/cursors/move.ipx`,
+  `assets/cursors/pencil.ipx`, `assets/cursors/pick.ipx` and
+  `assets/cursors/slim_cross.ipx`.
+
+All the cursor bitmaps, including `move.ipx`, were created or redrawn from
+scratch by the project and do not incorporate third-party cursor art. The
+visual assets were created by the project, in several cases using QtreGBPaint
+itself.
+
+Provenance of the application icon
+----------------------------------
+The application icon was generated with ChatGPT (OpenAI) in 2026 from prompts
+and creative direction provided by the QtreGBPaint project. To the best of the
+project's knowledge, it does not incorporate any third-party source image.
+
+Trademark notice
+----------------
+The application icon and logo are part of the QtreGBPaint Marks and identify
+the official project. CC0 1.0 covers copyright and related rights only. It
+does not waive, grant, license or otherwise affect any trademark, service
+mark, trade dress or other distinctive-sign rights. Use of the icon and logo
+as Marks is governed by `TRADEMARK.md`; forks and modified versions must use a
+different icon and visual identity.

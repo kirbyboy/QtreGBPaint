@@ -7,6 +7,32 @@
 
 #include "core/color.h"
 
+// Storage encodings for the .idx file format. The image model is always one
+// byte per pixel; these modes only change how the payload is written/read.
+enum class IndexedFormat
+{
+	Index,
+	Binary,
+	Packed,
+	BinaryPacked,
+};
+
+const char* indexed_format_name(IndexedFormat format);
+
+// Number of bytes in one packed row, before text/hex expansion.
+std::size_t indexed_image_row_bytes(int width, int bits_per_pixel);
+
+// Approximate payload size for the selected encoding. `Index` uses the maximum
+// decimal width for the bpp, so it is an upper bound, not an exact size.
+std::size_t indexed_image_data_size(int width, int height, int bits_per_pixel,
+                                    IndexedFormat format);
+
+// Payload size plus a small average header allowance (64 bytes). This is the
+// value shown in the Save As options.
+std::size_t indexed_image_estimated_file_size(int width, int height,
+                                               int bits_per_pixel,
+                                               IndexedFormat format);
+
 // Indexed image and .idx file format.
 //
 // Header:
@@ -17,12 +43,12 @@
 // The first line contains the "IndexedImage" magic word and, optionally, the
 // mode. If the second word is absent, "Index" is assumed.
 //
-// Index mode (implemented):
+// Index mode:
 //   One decimal value per pixel, in the range 0..2^bpp-1, separated by spaces.
 //   Rows are written on separate lines, although the reader accepts any
 //   whitespace separation.
 //
-// Future modes (documented, not implemented yet):
+// Other modes:
 //   Binary:
 //     One byte per pixel, exactly width*height bytes after the header.
 //   Packed:
@@ -51,6 +77,7 @@ public:
     int width() const { return m_width; }
     int height() const { return m_height; }
     int bitsPerPixel() const { return m_bpp; }
+    IndexedFormat format() const { return m_format; }
     std::size_t expectedSize() const
     {
         return static_cast<std::size_t>(m_width) * static_cast<std::size_t>(m_height);
@@ -62,13 +89,20 @@ private:
     int m_width = 0;
     int m_height = 0;
     int m_bpp = 0;
+    IndexedFormat m_format = IndexedFormat::Index;
     std::vector<PaintCore::ColorIndex> m_data;
     bool m_valid = false;
     std::string m_error;
 };
 
-// Writes an IndexedImage in Index mode without constructing an intermediate
-// copy. Returns false and fills `error` on failure.
+// Writes an IndexedImage with the requested encoding without constructing an
+// intermediate copy. Returns false and fills `error` on failure.
+bool save_indexed_image(const std::string& path, int width, int height,
+                        int bits_per_pixel,
+                        const std::vector<PaintCore::ColorIndex>& data,
+                        IndexedFormat format, std::string& error);
+
+// Backwards-compatible helper: writes Index mode.
 bool save_indexed_image(const std::string& path, int width, int height,
                         int bits_per_pixel,
                         const std::vector<PaintCore::ColorIndex>& data,

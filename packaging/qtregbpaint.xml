@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-qtregbpaint-index">
+    <comment>QtreGBPaint indexed image</comment>
+    <comment xml:lang="es">Imagen indexada de QtreGBPaint</comment>
+    <icon name="qtregbpaint"/>
+    <!-- Detect by the actual .idx header, not by the generic .idx extension. -->
+    <magic priority="60">
+      <match type="string" value="IndexedImage" offset="0"/>
+    </magic>
+  </mime-type>
+</mime-info>

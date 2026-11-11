@@ -1,7 +1,9 @@
 #include "paint/paint_session.h"
 #include "tools/base_tool.h"
 #include "paint/canvas_area.h"
+#include "paint/checkerboard.h"
 #include "paint/color_imgui.h"
+#include "paint/draw_buffer.h"
 #include "core/ibackend.h"
 #include <algorithm>
 #include <cmath>
@@ -14,6 +16,8 @@ using namespace std;
 
 namespace
 {
+constexpr int kCheckerboardCell = 8;
+
 struct ContentClip
 {
 	ImVec2 min{};
@@ -198,17 +202,7 @@ void ImGuiCanvasRenderer::draw_rect_filled(int x, int y, int w, int h, const Pai
 	draw_list->AddRectFilled(ImVec2(p0.x, p0.y), ImVec2(p1.x, p1.y), toImU32(color));
 }
 
-void ImGuiCanvasRenderer::draw_rect(int x, int y, int w, int h, const PaintCore::Color& color, int thickness)
-{
-	(void)x; (void)y; (void)w; (void)h; (void)color; (void)thickness;
-	// TODO
-}
-
-void ImGuiCanvasRenderer::draw_line(int x0, int y0, int x1, int y1, const PaintCore::Color& color, int thickness)
-{
-	(void)x0; (void)y0; (void)x1; (void)y1; (void)color; (void)thickness;
-	// TODO
-}
+// CanvasArea
 
 // CanvasArea
 
@@ -220,6 +214,8 @@ CanvasArea::CanvasArea(IGuiBackend* backend, PaintSession& session)
 CanvasArea::~CanvasArea()
 {
 	destroy_canvas_tiles();
+	destroy_preview_tiles();
+	m_checkerboard.destroy();
 	if (m_backend && m_floating_texture)
 	{
 		m_backend->destroyTexture(m_floating_texture);
@@ -255,6 +251,10 @@ void CanvasArea::render(ImDrawList* draw_list, const Palette& palette,
 	// Base image as a cache of visible tiles; preview stays as primitives for
 	// now.
 	const bool palette_changed = update_palette_lut(palette);
+	if (palette_changed)
+	{
+		destroy_preview_tiles();
+	}
 	const bool canvas_tiles_ready = update_canvas_tiles(palette_changed);
 	update_floating_texture(palette_changed);
 
@@ -263,16 +263,45 @@ void CanvasArea::render(ImDrawList* draw_list, const Palette& palette,
 	const ContentClip clip = current_content_clip();
 	draw_list->PushClipRect(clip.min, clip.max, true);
 
+	// Transparency checkerboard under the image. Fixed screen-space cells,
+	// anchored to the image origin so it scrolls with the image.
+	if (palette.transparent_index().has_value())
+	{
+		ensure_checkerboard_texture();
+		const PaintCore::Vec2f image_min = m_view.image_to_screen(
+			PaintCore::Vec2f{0.0f, 0.0f});
+		const PaintCore::Vec2f image_max = m_view.image_to_screen(
+			PaintCore::Vec2f{static_cast<float>(m_session.getWidth()),
+			                 static_cast<float>(m_session.getHeight())});
+		const ImVec2 checker_min(
+			std::max(image_min.x, clip.min.x),
+			std::max(image_min.y, clip.min.y));
+		const ImVec2 checker_max(
+			std::min(image_max.x, clip.max.x),
+			std::min(image_max.y, clip.max.y));
+		draw_checkerboard(
+			draw_list, checker_min, checker_max,
+			ImVec2(image_min.x, image_min.y));
+	}
+
 	if (canvas_tiles_ready)
 	{
 		draw_canvas_tiles(draw_list);
-		m_session.render_preview(renderer, palette);
+		if (!draw_preview_tiles(draw_list, palette))
+		{
+			m_session.render_preview(renderer, palette);
+		}
 	}
 	else
 	{
 		// Fallback if the backend cannot create a texture.
+		destroy_preview_tiles();
 		m_session.render(renderer, m_view, palette);
 	}
+
+	// Transparent preview pixels must show the checkerboard instead of the
+	// old canvas pixel that the tile cache still contains.
+	draw_preview_transparency(draw_list, palette);
 
 	// Hole and floating content belong to the image, so the grid still covers
 	// them. The marquee is drawn afterwards to keep it crisp.
@@ -558,6 +587,222 @@ void CanvasArea::draw_canvas_tiles(ImDrawList* draw_list)
 	}
 }
 
+void CanvasArea::destroy_preview_tiles()
+{
+	if (m_backend)
+	{
+		for (auto& entry : m_preview_tiles)
+		{
+			if (entry.second.texture)
+			{
+				m_backend->destroyTexture(entry.second.texture);
+			}
+		}
+	}
+	m_preview_tiles.clear();
+}
+
+void CanvasArea::ensure_checkerboard_texture()
+{
+	if (m_checkerboard.valid() || !m_backend)
+	{
+		return;
+	}
+
+	// A 256x256 texture holds 32 cells of 8 px, so the parity pattern repeats
+	// and the tiles align at the image origin. If creation fails, drawing
+	// falls back to one rect per cell.
+	m_checkerboard.create(m_backend, kCheckerboardCell);
+}
+
+void CanvasArea::draw_checkerboard(ImDrawList* draw_list, const ImVec2& min,
+                                   const ImVec2& max,
+                                   const ImVec2& origin) const
+{
+	if (m_checkerboard.valid())
+	{
+		m_checkerboard.draw(draw_list, min, max, origin);
+		return;
+	}
+
+	PaintUi::draw_checkerboard(draw_list, min, max,
+	                           static_cast<float>(kCheckerboardCell), origin);
+}
+
+bool CanvasArea::draw_preview_tiles(ImDrawList* draw_list,
+                                    const Palette& palette)
+{
+	(void)palette;
+	if (!draw_list || !m_backend)
+	{
+		return false;
+	}
+
+	ToolBase* tool = m_session.active_tool();
+	DrawBuffer* buffer = tool ? tool->get_draw_buffer() : nullptr;
+	if (!buffer || !buffer->is_active() || !buffer->has_painted_pixels())
+	{
+		destroy_preview_tiles();
+		return true;
+	}
+
+	const int image_width = m_session.getWidth();
+	const int image_height = m_session.getHeight();
+	if (image_width <= 0 || image_height <= 0)
+	{
+		destroy_preview_tiles();
+		return true;
+	}
+
+	const PaintCore::Rect buffer_rect{buffer->x(), buffer->y(),
+	                                  buffer->width(), buffer->height()};
+	const PaintCore::Rect visible = m_view.visible_image_rect(
+		image_width, image_height);
+	const PaintCore::Rect area = intersect(buffer_rect, visible);
+	if (area.empty())
+	{
+		destroy_preview_tiles();
+		return true;
+	}
+
+	const PaintCore::TileSpan span = PaintCore::tiles_covering(
+		area, image_width, image_height);
+	const std::uint64_t revision = buffer->revision();
+	const std::vector<PaintCore::ColorIndex>& data = buffer->data();
+
+	// Drop textures that left the visible buffer area.
+	for (auto it = m_preview_tiles.begin(); it != m_preview_tiles.end();)
+	{
+		const int tile_x = static_cast<int>(it->first & 0xffffffffu);
+		const int tile_y = static_cast<int>(it->first >> 32);
+		if (tile_x < span.x0 || tile_x >= span.x1 ||
+		    tile_y < span.y0 || tile_y >= span.y1)
+		{
+			if (it->second.texture)
+			{
+				m_backend->destroyTexture(it->second.texture);
+			}
+			it = m_preview_tiles.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+
+	for (int tile_y = span.y0; tile_y < span.y1; ++tile_y)
+	{
+		for (int tile_x = span.x0; tile_x < span.x1; ++tile_x)
+		{
+			const PaintCore::Rect rect = PaintCore::tile_rect(
+				image_width, image_height, tile_x, tile_y);
+			if (rect.empty())
+			{
+				continue;
+			}
+
+			const std::uint64_t key = PaintCore::tile_key(tile_x, tile_y);
+			auto it = m_preview_tiles.find(key);
+			if (it == m_preview_tiles.end())
+			{
+				PreviewTile tile;
+				tile.texture = m_backend->createTexture(rect.w, rect.h);
+				if (!tile.texture)
+				{
+					destroy_preview_tiles();
+					return false;
+				}
+				tile.width = rect.w;
+				tile.height = rect.h;
+				it = m_preview_tiles.emplace(key, tile).first;
+			}
+			else if (it->second.width != rect.w ||
+			         it->second.height != rect.h)
+			{
+				if (it->second.texture)
+				{
+					m_backend->destroyTexture(it->second.texture);
+				}
+				it->second.texture =
+					m_backend->createTexture(rect.w, rect.h);
+				if (!it->second.texture)
+				{
+					destroy_preview_tiles();
+					return false;
+				}
+				it->second.width = rect.w;
+				it->second.height = rect.h;
+				it->second.revision = 0;
+			}
+
+			if (it->second.revision != revision)
+			{
+				m_preview_pixels.assign(
+					static_cast<std::size_t>(rect.w) *
+						static_cast<std::size_t>(rect.h),
+					PaintCore::Color{0, 0, 0, 0});
+				for (int y = 0; y < rect.h; ++y)
+				{
+					const int global_y = rect.y + y;
+					const int local_y = global_y - buffer->y();
+					if (local_y < 0 || local_y >= buffer->height())
+					{
+						continue;
+					}
+					for (int x = 0; x < rect.w; ++x)
+					{
+						const int global_x = rect.x + x;
+						const int local_x = global_x - buffer->x();
+						if (local_x < 0 || local_x >= buffer->width() ||
+						    !buffer->is_painted(local_x, local_y))
+						{
+							continue;
+						}
+						const std::size_t source =
+							static_cast<std::size_t>(local_y) *
+								static_cast<std::size_t>(buffer->width()) +
+							static_cast<std::size_t>(local_x);
+						const std::size_t target =
+							static_cast<std::size_t>(y) *
+								static_cast<std::size_t>(rect.w) +
+							static_cast<std::size_t>(x);
+						m_preview_pixels[target] = m_lut[data[source]];
+					}
+				}
+				m_backend->updateTexture(it->second.texture,
+				                         m_preview_pixels.data(), rect.w,
+				                         rect.h);
+				it->second.revision = revision;
+			}
+		}
+	}
+
+	for (int tile_y = span.y0; tile_y < span.y1; ++tile_y)
+	{
+		for (int tile_x = span.x0; tile_x < span.x1; ++tile_x)
+		{
+			auto it = m_preview_tiles.find(
+				PaintCore::tile_key(tile_x, tile_y));
+			if (it == m_preview_tiles.end() || !it->second.texture)
+			{
+				continue;
+			}
+			const PaintCore::Rect rect = PaintCore::tile_rect(
+				image_width, image_height, tile_x, tile_y);
+			const PaintCore::Vec2f p0 = m_view.image_to_screen(
+				PaintCore::Vec2f{static_cast<float>(rect.x),
+				                 static_cast<float>(rect.y)});
+			const PaintCore::Vec2f p1 = m_view.image_to_screen(
+				PaintCore::Vec2f{static_cast<float>(rect.right()),
+				                 static_cast<float>(rect.bottom())});
+			draw_list->AddImage(
+				reinterpret_cast<ImTextureID>(it->second.texture),
+				ImVec2(p0.x, p0.y), ImVec2(p1.x, p1.y));
+		}
+	}
+	return true;
+}
+
 void CanvasArea::update_floating_texture(bool palette_changed)
 {
 	const FloatingRegion& region = m_session.floating_region();
@@ -622,9 +867,8 @@ void CanvasArea::update_floating_texture(bool palette_changed)
 	{
 		const PaintCore::ColorIndex index = data[i];
 		const bool transparent =
-			index == PaintCore::TRANSPARENT_INDEX ||
-			(region.transparent_background &&
-			 index == region.transparent_color);
+			region.transparent_background &&
+			index == region.transparent_color;
 		if (transparent)
 		{
 			m_upload_pixels[i] = PaintCore::Color{0, 0, 0, 0};
@@ -650,17 +894,44 @@ void CanvasArea::draw_floating_region(ImDrawList* draw_list,
 		return;
 	}
 
-	// The canvas texture still contains the pixels under the hole; cover them
-	// with the current fill color while the region floats.
-	if (!region.hole.empty())
-	{
-		renderer.draw_rect_filled(
-			region.hole.x, region.hole.y, region.hole.w, region.hole.h,
-			palette.getColor(region.hole_fill));
-	}
-
 	const PaintCore::Rect canvas_rect{
 		0, 0, m_session.getWidth(), m_session.getHeight()};
+
+	// The canvas texture still contains the pixels under the hole; cover them
+	// with the current fill color while the region floats. A transparent fill
+	// must cover them with the checkerboard instead of an alpha-0 rect.
+	if (!region.hole.empty())
+	{
+		if (palette.is_transparent(region.hole_fill))
+		{
+			const PaintCore::Rect visible_hole =
+				intersect(region.hole, canvas_rect);
+			if (!visible_hole.empty())
+			{
+				const PaintCore::Vec2f hole_min = m_view.image_to_screen(
+					PaintCore::Vec2f{
+						static_cast<float>(visible_hole.x),
+						static_cast<float>(visible_hole.y)});
+				const PaintCore::Vec2f hole_max = m_view.image_to_screen(
+					PaintCore::Vec2f{
+						static_cast<float>(visible_hole.right()),
+						static_cast<float>(visible_hole.bottom())});
+				const PaintCore::Vec2f image_origin =
+					m_view.image_to_screen(PaintCore::Vec2f{0.0f, 0.0f});
+				draw_checkerboard(
+					draw_list, ImVec2(hole_min.x, hole_min.y),
+					ImVec2(hole_max.x, hole_max.y),
+					ImVec2(image_origin.x, image_origin.y));
+			}
+		}
+		else
+		{
+			renderer.draw_rect_filled(
+				region.hole.x, region.hole.y, region.hole.w, region.hole.h,
+				palette.getColor(region.hole_fill));
+		}
+	}
+
 	const PaintCore::Rect visible = intersect(region.rect, canvas_rect);
 	if (visible.empty())
 	{
@@ -700,9 +971,8 @@ void CanvasArea::draw_floating_region(ImDrawList* draw_list,
 			const PaintCore::ColorIndex color = region.content().get_pixel(
 				x - region.rect.x, y - region.rect.y);
 			const bool transparent =
-				color == PaintCore::TRANSPARENT_INDEX ||
-				(region.transparent_background &&
-				 color == region.transparent_color);
+				region.transparent_background &&
+				color == region.transparent_color;
 			if (transparent)
 			{
 				continue;
@@ -788,6 +1058,10 @@ void CanvasArea::draw_stamp_preview(ImDrawList* draw_list,
 	const PaintCore::Color color = palette.getColor(preview.color);
 	const int alpha = preview.opaque ? 255 : 150;
 	const ImU32 fill = IM_COL32(color.r, color.g, color.b, alpha);
+	const bool transparent = palette.is_transparent(preview.color);
+	const PaintCore::Vec2f screen_origin = m_view.image_to_screen(
+		PaintCore::Vec2f{0.0f, 0.0f});
+	const ImVec2 checker_origin(screen_origin.x, screen_origin.y);
 	const int width = m_session.getWidth();
 	const int height = m_session.getHeight();
 
@@ -816,8 +1090,17 @@ void CanvasArea::draw_stamp_preview(ImDrawList* draw_list,
 		const PaintCore::Vec2f p1 = m_view.image_to_screen(
 			PaintCore::Vec2f{static_cast<float>(x + 1),
 			                 static_cast<float>(y + 1)});
-		draw_list->AddRectFilled(ImVec2(p0.x, p0.y), ImVec2(p1.x, p1.y),
-		                         fill);
+		if (transparent)
+		{
+			draw_checkerboard(
+				draw_list, ImVec2(p0.x, p0.y), ImVec2(p1.x, p1.y),
+				checker_origin);
+		}
+		else
+		{
+			draw_list->AddRectFilled(ImVec2(p0.x, p0.y), ImVec2(p1.x, p1.y),
+			                         fill);
+		}
 	}
 
 	if (preview.border)
@@ -842,6 +1125,83 @@ void CanvasArea::draw_stamp_preview(ImDrawList* draw_list,
 		                         ImVec2(p0.x, p1.y), border);
 		draw_list->AddRectFilled(ImVec2(p1.x, p0.y),
 		                         ImVec2(p1.x + 1.0f, p1.y), border);
+	}
+}
+
+void CanvasArea::draw_preview_transparency(ImDrawList* draw_list,
+                                           const Palette& palette) const
+{
+	if (!draw_list || !palette.transparent_index().has_value())
+	{
+		return;
+	}
+
+	ToolBase* tool = m_session.active_tool();
+	if (!tool)
+	{
+		return;
+	}
+
+	DrawBuffer* buffer = tool->get_draw_buffer();
+	if (!buffer || !buffer->is_active())
+	{
+		return;
+	}
+
+	const int buffer_x = buffer->x();
+	const int buffer_y = buffer->y();
+	const int buffer_w = buffer->width();
+	const int buffer_h = buffer->height();
+	if (buffer_w <= 0 || buffer_h <= 0)
+	{
+		return;
+	}
+
+	const std::vector<PaintCore::ColorIndex>& data = buffer->data();
+	const PaintCore::Vec2f image_origin = m_view.image_to_screen(
+		PaintCore::Vec2f{0.0f, 0.0f});
+	const ImVec2 checker_origin(image_origin.x, image_origin.y);
+
+	for (int y = 0; y < buffer_h; ++y)
+	{
+		int run_start = -1;
+		for (int x = 0; x <= buffer_w; ++x)
+		{
+			bool transparent = false;
+			if (x < buffer_w && buffer->is_painted(x, y))
+			{
+				const std::size_t index =
+					static_cast<std::size_t>(y) * buffer_w + x;
+				transparent = palette.is_transparent(data[index]);
+			}
+
+			if (transparent)
+			{
+				if (run_start < 0)
+				{
+					run_start = x;
+				}
+				continue;
+			}
+
+			if (run_start < 0)
+			{
+				continue;
+			}
+
+			// Coalesce each horizontal run into one checkerboard call; the
+			// pattern stays anchored to the image origin.
+			const PaintCore::Vec2f p0 = m_view.image_to_screen(
+				PaintCore::Vec2f{static_cast<float>(buffer_x + run_start),
+				                 static_cast<float>(buffer_y + y)});
+			const PaintCore::Vec2f p1 = m_view.image_to_screen(
+				PaintCore::Vec2f{static_cast<float>(buffer_x + x),
+				                 static_cast<float>(buffer_y + y + 1)});
+			draw_checkerboard(
+				draw_list, ImVec2(p0.x, p0.y), ImVec2(p1.x, p1.y),
+				checker_origin);
+			run_start = -1;
+		}
 	}
 }
 
@@ -965,10 +1325,73 @@ PaintCore::Vec2 CanvasArea::visible_image_origin() const
 
 bool CanvasArea::pointer_over_image(const ImVec2& mouse) const
 {
-	const PaintCore::Vec2 img = m_view.screen_to_image_pixel(
-		PaintCore::Vec2f{mouse.x, mouse.y});
+	const PaintCore::Vec2 img = image_position_at(mouse);
 	return img.x >= 0 && img.y >= 0 &&
 	       img.x < m_session.getWidth() && img.y < m_session.getHeight();
+}
+
+PaintCore::Vec2 CanvasArea::image_position_at(const ImVec2& mouse) const
+{
+	return m_view.screen_to_image_pixel(
+		PaintCore::Vec2f{mouse.x, mouse.y});
+}
+
+bool CanvasArea::image_pixel_at(const ImVec2& mouse, PaintCore::Vec2& pos,
+                                PaintCore::ColorIndex& color) const
+{
+	pos = image_position_at(mouse);
+	const ImageBuffer& image = m_session.get_main_buffer();
+	if (pos.x < 0 || pos.y < 0 ||
+	    pos.x >= image.width() || pos.y >= image.height())
+	{
+		return false;
+	}
+
+	color = image.get_pixel(pos.x, pos.y);
+	return true;
+}
+
+ImVec2 CanvasArea::visible_image_center() const
+{
+	const float viewport_x0 = m_view.origin.x + m_view.scroll_px.x;
+	const float viewport_y0 = m_view.origin.y + m_view.scroll_px.y;
+	const float viewport_x1 = viewport_x0 + m_view.viewport_size.x;
+	const float viewport_y1 = viewport_y0 + m_view.viewport_size.y;
+
+	const float image_x0 = m_view.origin.x;
+	const float image_y0 = m_view.origin.y;
+	const float image_x1 =
+		image_x0 + static_cast<float>(m_session.getWidth()) * m_view.zoom;
+	const float image_y1 =
+		image_y0 + static_cast<float>(m_session.getHeight()) * m_view.zoom;
+
+	const float x0 = std::max(viewport_x0, image_x0);
+	const float y0 = std::max(viewport_y0, image_y0);
+	const float x1 = std::min(viewport_x1, image_x1);
+	const float y1 = std::min(viewport_y1, image_y1);
+	if (x0 < x1 && y0 < y1)
+	{
+		return ImVec2((x0 + x1) * 0.5f, (y0 + y1) * 0.5f);
+	}
+
+	return ImVec2((viewport_x0 + viewport_x1) * 0.5f,
+	              (viewport_y0 + viewport_y1) * 0.5f);
+}
+
+bool CanvasArea::scroll_for_zoom_anchor(const ImVec2& screen_anchor,
+                                        float new_zoom, ImVec2& scroll) const
+{
+	if (m_view.zoom <= 0.0f ||
+	    m_view.viewport_size.x <= 0.0f || m_view.viewport_size.y <= 0.0f ||
+	    new_zoom <= 0.0f)
+	{
+		return false;
+	}
+
+	const PaintCore::Vec2f result = m_view.scroll_for_zoom_anchor(
+		PaintCore::Vec2f{screen_anchor.x, screen_anchor.y}, new_zoom);
+	scroll = ImVec2(result.x, result.y);
+	return true;
 }
 
 bool CanvasArea::handle_floating_input(const PaintCore::Vec2& img_pos,
@@ -1063,6 +1486,7 @@ void CanvasArea::handle_input(const ImVec2& mouse)
     const bool pressed = left_pressed;
     const bool released = left_released;
     const bool item_hovered = ImGui::IsItemHovered();
+    m_mouse_over_canvas = item_hovered || ImGui::IsItemActive();
     const ContentClip clip = current_content_clip();
     m_hover_inside = false;
 
@@ -1179,7 +1603,7 @@ void CanvasArea::handle_input(const ImVec2& mouse)
     if (left_down && right_down)
     {
         if (m_stroke_button != 0 ||
-            (m_session.active_tool() && m_session.active_tool()->is_drawing()))
+            (m_session.active_tool() && m_session.active_tool()->is_operating()))
         {
             m_session.cancel_active_stroke();
         }
@@ -1202,7 +1626,7 @@ void CanvasArea::handle_input(const ImVec2& mouse)
     ToolBase* tool = m_session.active_tool();
 
     // Undo or a tool switch may have cancelled the stroke outside this router.
-    if (m_stroke_button != 0 && (!tool || !tool->is_drawing()))
+    if (m_stroke_button != 0 && (!tool || !tool->is_operating()))
     {
         m_stroke_button = 0;
     }
@@ -1230,7 +1654,7 @@ void CanvasArea::handle_input(const ImVec2& mouse)
         tool->accepts_button(start_button))
     {
         m_session.handle_mouse_press(img_pos, start_button);
-        if (m_session.active_tool() && m_session.active_tool()->is_drawing())
+        if (m_session.active_tool() && m_session.active_tool()->is_operating())
         {
             m_stroke_button = start_button;
         }

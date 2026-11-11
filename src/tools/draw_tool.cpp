@@ -110,3 +110,22 @@ bool DrawTool::is_drawing() const
 {
 	return m_drawing;
 }
+
+void DrawTool::commit_active_stroke(PaintSession& canvas)
+{
+	if (!m_drawing)
+	{
+		return;
+	}
+
+	// Reuse the normal release path: the tool commits the preview buffer, or
+	// enters its pending-edit phase (Curve). PaintSession handles the pending
+	// edit after this call.
+	on_mouse_release(canvas, m_current_pos, m_active_button);
+	if (m_drawing)
+	{
+		m_drawing = false;
+		m_active_button = 0;
+		m_preview_buffer.reset();
+	}
+}

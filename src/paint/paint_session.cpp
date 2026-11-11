@@ -135,7 +135,7 @@ bool PaintSession::can_redo() const
 
 void PaintSession::cancel_active_stroke()
 {
-	if (m_active_tool && m_active_tool->is_drawing())
+	if (m_active_tool && m_active_tool->is_operating())
 	{
 		m_active_tool->on_cancel(*this);
 	}
@@ -161,7 +161,7 @@ bool PaintSession::undo()
 
 	// An in-progress stroke is not in the history yet: undoing it is
 	// equivalent to cancelling it.
-	if (m_active_tool && m_active_tool->is_drawing())
+	if (m_active_tool && m_active_tool->is_operating())
 	{
 		cancel_active_stroke();
 		return true;
@@ -174,7 +174,7 @@ bool PaintSession::redo()
 {
 	if (m_floating_editor.has_floating_region() ||
 	    has_pending_edit() ||
-	    (m_active_tool && m_active_tool->is_drawing()))
+	    (m_active_tool && m_active_tool->is_operating()))
 	{
 		return false;
 	}
@@ -214,6 +214,53 @@ bool PaintSession::resize(int new_width, int new_height,
 	}
 
 	return m_document.resize(new_width, new_height, fill);
+}
+
+bool PaintSession::change_bits_per_pixel(
+	int new_bits_per_pixel,
+	const std::vector<PaintCore::ColorIndex>& mapping)
+{
+	if (new_bits_per_pixel < 1 || new_bits_per_pixel > 8 ||
+	    new_bits_per_pixel == getBitsPerPixel())
+	{
+		return false;
+	}
+
+	// Transient edits belong to the current format and must become part of the
+	// image before the palette indices are rewritten.
+	m_floating_editor.commit_floating_region();
+	if (has_pending_edit())
+	{
+		commit_pending_edit();
+	}
+	if (m_active_tool)
+	{
+		m_active_tool->on_cancel(*this);
+	}
+
+	return m_document.change_bits_per_pixel(new_bits_per_pixel, mapping);
+}
+
+bool PaintSession::transform_image(PaintCore::ImageTransform transform)
+{
+	// Pending work is accepted before the canvas changes: an active stroke,
+	// a pending tool edit or a floating region can add one history step; the
+	// transform adds another.
+	if (m_active_tool && m_active_tool->is_drawing())
+	{
+		m_active_tool->commit_active_stroke(*this);
+	}
+	if (has_pending_edit())
+	{
+		commit_pending_edit();
+	}
+	m_floating_editor.commit_floating_region();
+	if (m_active_tool)
+	{
+		m_active_tool->on_cancel(*this);
+	}
+
+	return m_document.transform_image(transform);
 }
 
 bool PaintSession::begin_selection(const PaintCore::Rect& rect,
@@ -287,6 +334,12 @@ bool PaintSession::paste_from_clipboard(const PaintCore::Vec2& pos)
 bool PaintSession::invert_floating_region_colors()
 {
 	return m_floating_editor.invert_floating_region_colors();
+}
+
+bool PaintSession::transform_floating_region(
+	PaintCore::ImageTransform transform)
+{
+	return m_floating_editor.transform_floating_region(transform);
 }
 
 void PaintSession::set_history_limits(HistoryLimits limits)
@@ -378,13 +431,13 @@ void PaintSession::render_preview(ICanvasRenderer& renderer,
 	{
 		for (int x = 0; x < buf_w; ++x)
 		{
-			const std::uint8_t color_index =
-				data[static_cast<std::size_t>(y) * static_cast<std::size_t>(buf_w) +
-				     static_cast<std::size_t>(x)];
-			if (color_index == PaintCore::TRANSPARENT_INDEX)
+			if (!draw_buffer->is_painted(x, y))
 			{
 				continue;
 			}
+			const std::uint8_t color_index =
+				data[static_cast<std::size_t>(y) * static_cast<std::size_t>(buf_w) +
+				     static_cast<std::size_t>(x)];
 			renderer.draw_rect_filled(
 				buf_x + x, buf_y + y, 1, 1,
 				palette.getColor(color_index));

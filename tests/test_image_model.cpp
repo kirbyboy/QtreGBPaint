@@ -140,6 +140,42 @@ TEST_CASE("test_data_accessor_is_read_only")
 		"ImageBuffer::data() must expose read-only storage");
 }
 
+TEST_CASE("test_remap_bits_per_pixel_updates_indices_and_metadata")
+{
+	ImageBuffer image(4, 1, 2);
+	image.set_pixel(0, 0, 0);
+	image.set_pixel(1, 0, 1);
+	image.set_pixel(2, 0, 2);
+	image.set_pixel(3, 0, 3);
+	image.clear_dirty_rect();
+
+	image.remap_bits_per_pixel(2, {3, 2, 1, 0});
+	CHECK_EQ(image.bitsPerPixel(), 2);
+	CHECK_EQ(image.get_pixel(0, 0), 3);
+	CHECK_EQ(image.get_pixel(1, 0), 2);
+	CHECK_EQ(image.get_pixel(2, 0), 1);
+	CHECK_EQ(image.get_pixel(3, 0), 0);
+	CHECK_EQ(image.dirty_rect().w, 4);
+	CHECK_EQ(image.dirty_rect().h, 1);
+
+	image.remap_bits_per_pixel(1, {0, 1, 1, 0});
+	CHECK_EQ(image.bitsPerPixel(), 1);
+	CHECK_EQ(image.get_pixel(0, 0), 0);
+	CHECK_EQ(image.get_pixel(1, 0), 1);
+	CHECK_EQ(image.get_pixel(2, 0), 1);
+	CHECK_EQ(image.get_pixel(3, 0), 0);
+
+	CHECK(throws_invalid_argument([&] {
+		image.remap_bits_per_pixel(0, {0, 1});
+	}));
+	CHECK(throws_invalid_argument([&] {
+		image.remap_bits_per_pixel(8, {0, 1, 2});
+	}));
+	CHECK(throws_invalid_argument([&] {
+		image.remap_bits_per_pixel(1, {0, 2});
+	}));
+}
+
 TEST_CASE("test_palette_valid_sizes")
 {
 	for (int bpp = 1; bpp <= 8; ++bpp)
@@ -185,7 +221,7 @@ TEST_CASE("test_palette_visual_sampling")
 	CHECK_EQ(palette_usable_color_count(2), 4);
 	CHECK_EQ(palette_usable_color_count(5), 32);
 	CHECK_EQ(palette_usable_color_count(6), 64);
-	CHECK_EQ(palette_usable_color_count(8), 255);
+	CHECK_EQ(palette_usable_color_count(8), 256);
 	CHECK_EQ(palette_usable_color_count(0), 0);
 	CHECK_EQ(palette_usable_color_count(9), 0);
 
@@ -198,6 +234,9 @@ TEST_CASE("test_palette_visual_sampling")
 	CHECK_EQ(palette_visual_color_index(0, 2), 0);
 	CHECK_EQ(palette_visual_color_index(1, 2), 1);
 	CHECK_EQ(palette_visual_color_index(3, 2), 3);
+	CHECK_EQ(palette_visual_color_index(31, 8), 255);
+	CHECK(is_visual_palette_index(255, 8));
+	CHECK_FALSE(is_visual_palette_index(254, 8));
 
 	// 64 colors are sampled 0, 2, 4, ..., 62, 63. The last swatch is the
 	// darkest usable color.
@@ -206,9 +245,9 @@ TEST_CASE("test_palette_visual_sampling")
 	CHECK_EQ(palette_visual_color_index(30, 6), 60);
 	CHECK_EQ(palette_visual_color_index(31, 6), 63);
 
-	// 8bpp uses 255 usable colors, not 256; the last swatch is index 254.
+	// 8bpp uses all 256 entries; the last swatch is index 255.
 	CHECK_EQ(palette_visual_color_index(0, 8), 0);
-	CHECK_EQ(palette_visual_color_index(31, 8), 254);
+	CHECK_EQ(palette_visual_color_index(31, 8), 255);
 }
 
 TEST_CASE("test_generated_palettes_go_light_to_dark")
@@ -250,8 +289,18 @@ TEST_CASE("test_generated_palettes_go_light_to_dark")
 	const Palette many = make_palette(PaletteMode::Grayscale, 8, false);
 	CHECK_EQ(many.size(), 256u);
 	CHECK_COLOR(many.getColor(0), 255, 255, 255, 0xFF);
-	CHECK_COLOR(many.getColor(254), 0, 0, 0, 0xFF);
-	// Index 255 is reserved for transparency; it must still be a valid color.
 	CHECK_COLOR(many.getColor(255), 0, 0, 0, 0xFF);
+
+	// Transparency is an optional interpretation, not a reserved index.
+	Palette transparent = Palette::grayscale(8);
+	CHECK_FALSE(transparent.is_transparent(255));
+	transparent.set_transparent_index(255);
+	CHECK(transparent.is_transparent(255));
+	CHECK_COLOR(transparent.getColor(255), 0, 0, 0, 0);
+	CHECK_COLOR(transparent.getStoredColor(255), 255, 255, 255, 0xFF);
+	CHECK_COLOR(transparent.getColor(254), 254, 254, 254, 0xFF);
+	transparent.set_transparent_index(std::nullopt);
+	CHECK_FALSE(transparent.is_transparent(255));
+	CHECK_COLOR(transparent.getColor(255), 255, 255, 255, 0xFF);
 }
 }

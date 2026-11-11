@@ -32,6 +32,8 @@ class CurveTool : public DrawTool
 		bool commit_pending_edit(PaintSession& canvas) override;
 		void cancel_pending_edit(PaintSession& canvas) override;
 
+		bool drag_anchor(PaintCore::Vec2& anchor) const override;
+
 		bool edit_overlay(EditOverlay& overlay) const override;
 		void move_edit_handle(int index, const PaintCore::Vec2& pos) override;
 

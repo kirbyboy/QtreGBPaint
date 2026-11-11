@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "core/color.h"
+#include "core/image_transform.h"
 #include "core/rect.h"
 
 class ImageBuffer;
@@ -49,15 +50,28 @@ struct CanvasResize
 	PaintCore::ColorIndex fill = 0;
 };
 
+// Changes the number of meaningful palette indices. `mapping[old_index]`
+// gives the new index; redo can rebuild the result from the before snapshot.
+struct CanvasBitsPerPixel
+{
+	int bits_per_pixel = 0;
+	std::vector<PaintCore::ColorIndex> mapping;
+};
+
 struct UndoStep
 {
 	std::vector<PixelPatch> patches;
 
-	// Snapshot steps change the canvas dimensions; they do not use patches.
-	// Only the state before the resize is stored; redo rebuilds the result
-	// with `canvas_resize`.
+	// Snapshot steps change the canvas format/dimensions; they do not use
+	// patches. Only the state before the change is stored; redo rebuilds the
+	// result with `canvas_resize` or `canvas_bits_per_pixel`.
 	std::optional<CanvasSnapshot> before_canvas;
 	std::optional<CanvasResize> canvas_resize;
+	std::optional<CanvasBitsPerPixel> canvas_bits_per_pixel;
+
+	// Pixel-permutation steps store only the transformation. Undo applies
+	// its inverse, so no full image copy is needed.
+	std::optional<PaintCore::ImageTransform> canvas_transform;
 
 	// Identity of the state after this step. 0 is the initial state.
 	std::uint64_t state_id = 0;

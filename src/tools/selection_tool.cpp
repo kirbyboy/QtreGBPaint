@@ -88,6 +88,38 @@ PaintCore::Rect SelectionTool::marquee_rect() const
 	return {left, top, right - left + 1, bottom - top + 1};
 }
 
+bool SelectionTool::drag_anchor(PaintCore::Vec2& anchor) const
+{
+	if (!m_dragging)
+	{
+		return false;
+	}
+	anchor = m_start;
+	return true;
+}
+
+bool SelectionTool::select_all(PaintSession& canvas)
+{
+	// Same as dragging from the top-left to the bottom-right corner: the
+	// current mode decides the mask and the stored background fills the hole.
+	m_dragging = false;
+	const bool transparent =
+		option_value("mode") == static_cast<int>(Mode::Transparent);
+	return canvas.begin_selection(
+		PaintCore::Rect{0, 0, canvas.getWidth(), canvas.getHeight()},
+		m_background, transparent);
+}
+
+void SelectionTool::commit_active_stroke(PaintSession& canvas)
+{
+	if (!m_dragging)
+	{
+		return;
+	}
+
+	on_mouse_release(canvas, m_current, kLeftButton);
+}
+
 void SelectionTool::sync_floating_region(PaintSession& canvas)
 {
 	canvas.set_floating_transparency(

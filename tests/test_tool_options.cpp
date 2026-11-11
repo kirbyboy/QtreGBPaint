@@ -44,7 +44,7 @@ TEST_CASE("Tool options expose defaults and validate values")
 	CHECK(options[0].id == "mode");
 	CHECK(options[0].type == ToolOptionType::Choice);
 	CHECK(options[0].visible_in_options_bar);
-	CHECK_EQ(options[0].value, static_cast<int>(SquareTool::Mode::Outline));
+	CHECK_EQ(options[0].value, static_cast<int>(SquareTool::Mode::Both));
 	REQUIRE(options[0].choices.size() == 3u);
 	CHECK_EQ(options[0].choices[0].value, static_cast<int>(SquareTool::Mode::Outline));
 	CHECK_EQ(options[0].choices[1].value, static_cast<int>(SquareTool::Mode::Fill));
@@ -73,10 +73,24 @@ TEST_CASE("Integer tool options clamp to their range")
 	CHECK_FALSE(probe.set_option("size", 1));
 }
 
-TEST_CASE("SquareTool draws only the outline by default")
+TEST_CASE("SquareTool draws outline and fill by default")
 {
 	PaintSession canvas(8, 8);
 	SquareTool tool(1, 2);
+	draw_rectangle(canvas, tool, 1, 1, 4, 4);
+
+	const ImageBuffer& image = canvas.get_main_buffer();
+	CHECK_EQ(image.get_pixel(1, 1), 1);
+	CHECK_EQ(image.get_pixel(4, 4), 1);
+	CHECK_EQ(image.get_pixel(2, 2), 2);
+	CHECK_EQ(image.get_pixel(0, 0), 0);
+}
+
+TEST_CASE("SquareTool outline mode leaves the interior transparent")
+{
+	PaintSession canvas(8, 8);
+	SquareTool tool(1, 2);
+	tool.set_option("mode", static_cast<int>(SquareTool::Mode::Outline));
 	draw_rectangle(canvas, tool, 1, 1, 4, 4);
 
 	const ImageBuffer& image = canvas.get_main_buffer();
@@ -118,6 +132,7 @@ TEST_CASE("SquareTool constrains to a perfect square with Shift")
 {
 	PaintSession canvas(10, 10);
 	SquareTool tool(1, 2);
+	tool.set_option("mode", static_cast<int>(SquareTool::Mode::Outline));
 	canvas.set_tool(&tool);
 	PaintCore::Modifiers modifiers;
 	modifiers.shift = true;
@@ -156,5 +171,5 @@ TEST_CASE("Tool option state is independent per tool instance")
 
 	first.set_option("mode", static_cast<int>(SquareTool::Mode::Fill));
 	CHECK_EQ(first.option_value("mode"), static_cast<int>(SquareTool::Mode::Fill));
-	CHECK_EQ(second.option_value("mode"), static_cast<int>(SquareTool::Mode::Outline));
+	CHECK_EQ(second.option_value("mode"), static_cast<int>(SquareTool::Mode::Both));
 }

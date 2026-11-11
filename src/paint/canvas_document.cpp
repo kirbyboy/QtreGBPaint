@@ -5,6 +5,7 @@
 
 #include "paint/canvas_renderer.h"
 #include "paint/draw_buffer.h"
+#include "paint/image_transform.h"
 
 using namespace PaintCore;
 using namespace std;
@@ -64,10 +65,6 @@ void CanvasDocument::render_image_buffer(
 			ColorIndex c = m_image_buffer.data()[
 				static_cast<std::size_t>(y) * static_cast<std::size_t>(m_image_buffer.width()) +
 				static_cast<std::size_t>(x)];
-			if (c == PaintCore::TRANSPARENT_INDEX)
-			{
-				continue;
-			}
 			// IMAGE coordinates; the renderer applies the transformation.
 			renderer.draw_rect_filled(x, y, 1, 1, palette.getColor(c));
 		}
@@ -204,6 +201,71 @@ bool CanvasDocument::resize(int new_width, int new_height,
 	step.before_canvas = std::move(before);
 	step.canvas_resize = CanvasResize{new_width, new_height, fill};
 	m_history.push(std::move(step));
+	return true;
+}
+
+bool CanvasDocument::change_bits_per_pixel(
+	int new_bits_per_pixel,
+	const std::vector<PaintCore::ColorIndex>& mapping)
+{
+	const int old_bits_per_pixel = m_image_buffer.bitsPerPixel();
+	if (new_bits_per_pixel < 1 || new_bits_per_pixel > 8 ||
+	    new_bits_per_pixel == old_bits_per_pixel)
+	{
+		return false;
+	}
+
+	const std::size_t expected_mapping = static_cast<std::size_t>(
+		1u << old_bits_per_pixel);
+	if (mapping.size() != expected_mapping)
+	{
+		return false;
+	}
+
+	const int new_count = 1 << new_bits_per_pixel;
+	for (PaintCore::ColorIndex value : mapping)
+	{
+		if (static_cast<int>(value) >= new_count)
+		{
+			return false;
+		}
+	}
+
+	CanvasSnapshot before = make_canvas_snapshot(m_image_buffer);
+	m_image_buffer.remap_bits_per_pixel(new_bits_per_pixel, mapping);
+
+	UndoStep step;
+	step.before_canvas = std::move(before);
+	step.canvas_bits_per_pixel =
+		CanvasBitsPerPixel{new_bits_per_pixel, mapping};
+	m_history.push(std::move(step));
+	return true;
+}
+
+bool CanvasDocument::transform_image(PaintCore::ImageTransform transform)
+{
+	if (!PaintCore::is_valid_image_transform(transform))
+	{
+		return false;
+	}
+
+	ImageBuffer transformed =
+		PaintCore::transform_image(m_image_buffer, transform);
+	if (transformed.width() == m_image_buffer.width() &&
+	    transformed.height() == m_image_buffer.height() &&
+	    transformed.data() == m_image_buffer.data())
+	{
+		return false;
+	}
+
+	// Push only the transform kind before replacing the image, so a rejected
+	// step cannot leave pixels changed without history.
+	UndoStep step;
+	step.canvas_transform = transform;
+	m_history.push(std::move(step));
+
+	m_image_buffer = std::move(transformed);
+	m_image_buffer.mark_all_dirty();
 	return true;
 }
 

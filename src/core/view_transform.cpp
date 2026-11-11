@@ -50,6 +50,24 @@ Vec2 ViewTransform::screen_to_image_pixel(const Vec2f& screen) const
 	};
 }
 
+Vec2f ViewTransform::scroll_for_zoom_anchor(const Vec2f& screen_anchor,
+                                            float new_zoom) const
+{
+	if (zoom <= 0.0f || new_zoom <= 0.0f)
+	{
+		return scroll_px;
+	}
+
+	// origin = content_start - scroll, so keeping the same image point under
+	// the anchor means:
+	//   scroll' = scroll + (anchor - origin) * (new_zoom / zoom - 1)
+	const float ratio = new_zoom / zoom;
+	return Vec2f{
+		scroll_px.x + (screen_anchor.x - origin.x) * (ratio - 1.0f),
+		scroll_px.y + (screen_anchor.y - origin.y) * (ratio - 1.0f),
+	};
+}
+
 Rect ViewTransform::visible_image_rect(int image_width, int image_height) const
 {
 	if (image_width <= 0 || image_height <= 0 || zoom <= 0.0f)

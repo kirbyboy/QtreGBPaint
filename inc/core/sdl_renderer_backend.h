@@ -7,6 +7,7 @@
 
 #include <SDL2/SDL.h>
 #include "ibackend.h"
+#include "core/window_geometry.h"
 
 
 class SDLRendererBackend : public IGuiBackend
@@ -15,6 +16,11 @@ class SDLRendererBackend : public IGuiBackend
 		SDLRendererBackend();
 
 		void init() override;
+		// Same as init(), but creates the window hidden, applies the stored
+		// geometry and then shows it. Avoids a visible jump on startup.
+		void init_with_geometry(const PaintCore::WindowGeometry& geometry);
+		PaintCore::WindowGeometry window_geometry() const;
+
 		void shutdown() override;
 
 		void begin_imgui_frame() override;
@@ -24,7 +30,9 @@ class SDLRendererBackend : public IGuiBackend
 		void set_cursor(PaintCore::CursorType cursor) override;
 		bool set_cursor_image(PaintCore::CursorType cursor,
 		                      const PaintCore::CursorImage& image) override;
-		void poll_events(bool& running) override;
+		void poll_events() override;
+		bool quit_requested() const override { return m_quit_requested; }
+		void clear_quit_request() override { m_quit_requested = false; }
 		
 		void* createTexture(int width, int height) override;
 		void updateTexture(void* textureId, const PaintCore::Color* pixels, int width, int height) override;
@@ -40,8 +48,11 @@ class SDLRendererBackend : public IGuiBackend
 		SDL_Renderer* m_renderer = nullptr;
 		std::unordered_map<void*, SDL_Texture*> m_textures;
 		bool m_imgui_ready = false;
+		bool m_quit_requested = false;
 		int m_minimum_width = 0;
 		int m_minimum_height = 0;
+		PaintCore::WindowGeometry m_normal_geometry;
+		bool m_window_maximized = false;
 
 		PaintCore::CursorType m_requested_cursor = PaintCore::CursorType::Arrow;
 		std::array<SDL_Cursor*, kToolCursorCount> m_tool_cursors{};
@@ -51,6 +62,7 @@ class SDLRendererBackend : public IGuiBackend
 		void create_cursors();
 		void destroy_cursors();
 		void update_cursor();
+		void update_normal_geometry();
 		SDL_Cursor* tool_cursor(PaintCore::CursorType cursor) const;
 };
 

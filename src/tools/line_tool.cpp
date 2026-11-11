@@ -29,6 +29,16 @@ void LineTool::on_mouse_press(PaintSession& canvas,
 	}
 }
 
+bool LineTool::drag_anchor(PaintCore::Vec2& anchor) const
+{
+	if (!m_drawing)
+	{
+		return false;
+	}
+	anchor = m_start_pos;
+	return true;
+}
+
 void LineTool::draw_preview(DrawBuffer& buffer,
                              const PaintCore::Modifiers& modifiers)
 {

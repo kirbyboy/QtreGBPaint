@@ -19,6 +19,8 @@ public:
 	void on_mouse_press(PaintSession& canvas,
 	                    const PaintCore::Vec2& pos, int button) override;
 
+	bool drag_anchor(PaintCore::Vec2& anchor) const override;
+
 protected:
 	void draw_preview(DrawBuffer& buffer, const PaintCore::Modifiers& modifiers) override;
 

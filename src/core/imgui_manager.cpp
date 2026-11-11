@@ -13,6 +13,11 @@ void ImGuiManager::init()
 
 	ImGuiIO& io = ImGui::GetIO();
 
+	// The application has a fixed layout and persists its own settings in
+	// AppConfig. Do not read or write imgui.ini: the current working
+	// directory is unreliable for installed packages and AppImages.
+	io.IniFilename = nullptr;
+
 	// Enable docking and other settings.
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // keyboard navigation
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;      // enable docking

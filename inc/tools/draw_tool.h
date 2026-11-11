@@ -29,6 +29,7 @@ class DrawTool : public ToolBase
 		DrawBuffer* get_draw_buffer() override;
 		PaintCore::Vec2 get_start_pos();
 		bool is_drawing() const override;
+		void commit_active_stroke(PaintSession& canvas) override;
 
 	protected:
 		virtual void draw_preview(DrawBuffer& buffer, const PaintCore::Modifiers& modifiers) = 0;

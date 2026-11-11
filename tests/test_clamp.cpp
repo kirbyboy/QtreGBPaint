@@ -72,6 +72,24 @@ TEST_CASE("DrawBuffer and PaintSession clamp")
 	}
 }
 
+TEST_CASE("SquareTool exposes the press point as drag anchor")
+{
+	PaintSession canvas(8, 8);
+	SquareTool tool(1, 2);
+	canvas.set_tool(&tool);
+
+	PaintCore::Vec2 anchor{};
+	CHECK_FALSE(tool.drag_anchor(anchor));
+
+	tool.on_mouse_press(canvas, PaintCore::Vec2{2, 3}, 1);
+	REQUIRE(tool.drag_anchor(anchor));
+	CHECK_EQ(anchor.x, 2);
+	CHECK_EQ(anchor.y, 3);
+
+	tool.on_mouse_release(canvas, PaintCore::Vec2{5, 6}, 1);
+	CHECK_FALSE(tool.drag_anchor(anchor));
+}
+
 TEST_CASE("SquareTool uses the colors selected from the palette")
 {
 	PaintSession canvas(8, 8);

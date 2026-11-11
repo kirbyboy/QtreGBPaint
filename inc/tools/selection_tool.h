@@ -29,6 +29,9 @@ class SelectionTool : public ToolBase
 		bool is_drawing() const override { return m_dragging; }
 		bool has_marquee() const override { return m_dragging; }
 		PaintCore::Rect marquee_rect() const override;
+		void commit_active_stroke(PaintSession& canvas) override;
+		bool select_all(PaintSession& canvas) override;
+		bool drag_anchor(PaintCore::Vec2& anchor) const override;
 		void sync_floating_region(PaintSession& canvas) override;
 
 	private:

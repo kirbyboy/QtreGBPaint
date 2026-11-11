@@ -6,7 +6,6 @@
 namespace PaintCore
 {
 	using ColorIndex = uint8_t;
-	inline constexpr ColorIndex TRANSPARENT_INDEX = 255;
 
 	struct Color
 	{

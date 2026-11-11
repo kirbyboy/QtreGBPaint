@@ -189,4 +189,55 @@ TEST_CASE("test_visible_rect_covers_viewport")
 	CHECK(last.x < view.viewport_size.x);
 	CHECK(last.y < view.viewport_size.y);
 }
+
+TEST_CASE("test_scroll_for_zoom_anchor_keeps_image_point")
+{
+	const ViewTransform view = ViewTransform::make(
+		Vec2f{100.0f, 100.0f}, Vec2f{50.0f, 30.0f},
+		Vec2f{200.0f, 150.0f}, 8.0f);
+	const Vec2f anchor{180.0f, 160.0f};
+	const Vec2f image_before = view.screen_to_image(anchor);
+
+	const Vec2f scroll = view.scroll_for_zoom_anchor(anchor, 16.0f);
+	const Vec2f new_origin{
+		view.origin.x + view.scroll_px.x - scroll.x,
+		view.origin.y + view.scroll_px.y - scroll.y};
+	const Vec2f image_after{
+		(anchor.x - new_origin.x) / 16.0f,
+		(anchor.y - new_origin.y) / 16.0f};
+
+	CHECK_NEAR(image_after.x, image_before.x);
+	CHECK_NEAR(image_after.y, image_before.y);
+}
+
+TEST_CASE("test_scroll_for_zoom_anchor_is_relative_to_scroll")
+{
+	const ViewTransform view = ViewTransform::make(
+		Vec2f{100.0f, 100.0f}, Vec2f{50.0f, 30.0f},
+		Vec2f{200.0f, 160.0f}, 4.0f);
+	const Vec2f anchor{150.0f, 150.0f}; // viewport center
+
+	const Vec2f scroll = view.scroll_for_zoom_anchor(anchor, 8.0f);
+	CHECK_NEAR(scroll.x, 100.0f);
+	CHECK_NEAR(scroll.y, 80.0f);
+
+	const Vec2f scroll_out = view.scroll_for_zoom_anchor(anchor, 2.0f);
+	CHECK_NEAR(scroll_out.x, 25.0f);
+	CHECK_NEAR(scroll_out.y, 5.0f);
+}
+
+TEST_CASE("test_scroll_for_zoom_anchor_rejects_invalid_zoom")
+{
+	const ViewTransform view = ViewTransform::make(
+		Vec2f{10.0f, 20.0f}, Vec2f{3.0f, 4.0f},
+		Vec2f{100.0f, 80.0f}, 4.0f);
+
+	const Vec2f zero = view.scroll_for_zoom_anchor(Vec2f{50.0f, 40.0f}, 0.0f);
+	const Vec2f negative =
+		view.scroll_for_zoom_anchor(Vec2f{50.0f, 40.0f}, -2.0f);
+	CHECK_NEAR(zero.x, view.scroll_px.x);
+	CHECK_NEAR(zero.y, view.scroll_px.y);
+	CHECK_NEAR(negative.x, view.scroll_px.x);
+	CHECK_NEAR(negative.y, view.scroll_px.y);
+}
 }

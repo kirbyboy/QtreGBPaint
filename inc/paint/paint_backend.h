@@ -2,12 +2,14 @@
 #define QTREGBPAINT_PAINT_BACKEND_H
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include "core/ibackend.h"
 #include "paint/document_file.h"
+#include "paint/image_export.h"
 #include "paint/palette.h"
 #include "paint/indexed_image.h"
 #include "paint/paint_session.h"
@@ -47,6 +49,20 @@ public:
     PaintCore::ColorIndex foreground_index() const { return m_foreground_index; }
     PaintCore::ColorIndex background_index() const { return m_background_index; }
 
+    // Palette transparency: one visible palette index can be rendered with
+    // alpha 0. It is a palette property, not a document/history change.
+    std::optional<PaintCore::ColorIndex> transparent_index() const
+    {
+        return m_palette.transparent_index();
+    }
+    bool has_transparent_color() const
+    {
+        return m_palette.transparent_index().has_value();
+    }
+    bool set_transparent_color(PaintCore::ColorIndex index);
+    bool set_transparent_foreground();
+    void clear_transparent_color();
+
     void select_palette(PaletteMode mode);
     void toggle_palette_inverted();
     void set_foreground_index(PaintCore::ColorIndex index);
@@ -57,6 +73,8 @@ public:
     bool undo();
     bool redo();
     bool resize_canvas(int width, int height);
+    bool change_bits_per_pixel(int bits_per_pixel);
+    bool transform_canvas(PaintCore::ImageTransform transform);
 
     // Applies a pending pick from the active color-picker tool. Left picks
     // update the foreground, right picks the background, and the previous
@@ -67,6 +85,7 @@ public:
     // owns the file dialogs and just forwards paths here.
     const DocumentFile& file() const { return m_file; }
     bool has_file_path() const { return m_file.has_path(); }
+    IndexedFormat file_format() const { return m_file_format; }
     std::string file_display_name() const { return m_file.display_name(); }
     bool is_modified() const;
     bool new_document(int width, int height, std::string& error);
@@ -75,6 +94,23 @@ public:
     bool open_document(const std::string& path, std::string& error);
     bool save_document(std::string& error);
     bool save_document_as(const std::string& path, std::string& error);
+    bool save_document_as(const std::string& path, IndexedFormat format,
+                          std::string& error);
+
+    // Writes a copy in the requested image format. Exporting never updates the
+    // .idx savepoint or the recent-files list, but it does commit an active
+    // floating region/pending edit so the exported copy matches the canvas.
+    bool export_image(const std::string& path, ImageExportFormat format,
+                      std::string& error);
+
+    // Most recently opened/saved files, newest first, capped at 10. The menu
+    // uses it to build the recent-files section; AppConfig persists it.
+    const std::vector<std::string>& recent_files() const
+    {
+        return m_recent_files;
+    }
+    // Replaces the in-memory list with the one loaded from AppConfig.
+    void set_recent_files(const std::vector<std::string>& files);
 
     void addButton(const std::string& name,
                    std::shared_ptr<ToolBase> tool,
@@ -125,6 +161,8 @@ private:
     // Last tool that edits the document. Selection and Pick Color are
     // transient/non-editing tools and do not overwrite it.
     std::string m_last_edit_button;
+    std::vector<std::string> m_recent_files;
+    IndexedFormat m_file_format = IndexedFormat::Index;
     PaintCore::CursorType m_activeCursor = PaintCore::CursorType::Arrow;
     ImTextureID m_defaultIcon = 0;
 
@@ -132,6 +170,8 @@ private:
     void regenerate_palette();
     void apply_default_colors();
     void apply_tool_colors();
+    void refresh_palette_for_document_bpp();
+    void add_recent_file(std::string path);
 
     ImTextureID createIconTexture(const IndexedImage& image, int x, int y,
                                   int width, int height,

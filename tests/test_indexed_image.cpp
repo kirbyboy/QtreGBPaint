@@ -63,6 +63,7 @@ TEST_CASE("IndexedImage loads the default Index mode")
 		"3 0 1\n");
 
 	CHECK(image.isValid());
+	CHECK(image.format() == IndexedFormat::Index);
 	CHECK_EQ(image.width(), 3);
 	CHECK_EQ(image.height(), 2);
 	CHECK_EQ(image.bitsPerPixel(), 2);
@@ -121,7 +122,63 @@ TEST_CASE("IndexedImage accepts the full 8bpp index range")
 	CHECK_EQ(image.data()[1], 255);
 }
 
-TEST_CASE("IndexedImage rejects malformed headers and unsupported modes")
+TEST_CASE("IndexedImage round-trips every storage format")
+{
+	const std::vector<ColorIndex> pixels{0, 1, 2, 3, 1, 0};
+
+	for (IndexedFormat format : {IndexedFormat::Index, IndexedFormat::Binary,
+	                             IndexedFormat::Packed,
+	                             IndexedFormat::BinaryPacked})
+	{
+		TempIdxFile file("");
+		std::string error;
+		REQUIRE(save_indexed_image(file.path, 3, 2, 2, pixels, format, error));
+		CHECK(error.empty());
+
+		const IndexedImage image = IndexedImage::loadFromFile(file.path);
+		REQUIRE(image.isValid());
+		CHECK(image.format() == format);
+		CHECK_EQ(image.width(), 3);
+		CHECK_EQ(image.height(), 2);
+		CHECK_EQ(image.bitsPerPixel(), 2);
+		CHECK(image.data() == pixels);
+	}
+}
+
+TEST_CASE("IndexedImage validates binary payload sizes and Packed digits")
+{
+	const std::string short_binary = "IndexedImage Binary\n2 2\n2\nabc";
+	CHECK(!load(short_binary).isValid());
+
+	const std::string long_binary = "IndexedImage Binary\n2 2\n2\nabcde";
+	CHECK(!load(long_binary).isValid());
+
+	const std::string bad_packed = "IndexedImage Packed\n2 1\n2\n0g\n";
+	CHECK(!load(bad_packed).isValid());
+
+	const std::string bad_packed_size = "IndexedImage Packed\n3 1\n2\n0\n";
+	CHECK(!load(bad_packed_size).isValid());
+
+	const std::string short_packed_binary =
+		"IndexedImage BinaryPacked\n3 1\n2\n";
+	CHECK(!load(short_packed_binary).isValid());
+}
+
+TEST_CASE("IndexedImage reports approximate format sizes")
+{
+	CHECK_EQ(indexed_image_row_bytes(3, 2), 1u);
+	CHECK_EQ(indexed_image_row_bytes(5, 2), 2u);
+	CHECK_EQ(indexed_image_data_size(3, 2, 2, IndexedFormat::Binary), 6u);
+	CHECK_EQ(indexed_image_data_size(3, 2, 2, IndexedFormat::BinaryPacked), 2u);
+	CHECK_EQ(indexed_image_data_size(3, 2, 2, IndexedFormat::Packed), 6u);
+	// bpp 2 => max value 3 => one digit; values plus separator/newline.
+	CHECK_EQ(indexed_image_data_size(3, 2, 2, IndexedFormat::Index), 12u);
+	CHECK_EQ(indexed_image_estimated_file_size(
+	             3, 2, 2, IndexedFormat::BinaryPacked),
+	         66u);
+}
+
+TEST_CASE("IndexedImage rejects malformed headers and payloads")
 {
 	const IndexedImage empty = load("");
 	CHECK(!empty.isValid());

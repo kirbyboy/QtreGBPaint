@@ -1,9 +1,18 @@
 # Build
 build/
+tests/build-*/
 *.o
 *.obj
 *.exe
 *.out
+obj/
+obj-release/
+deps/
+deps-release/
+compile_commands.json
+
+# Dependencias locales (se descargan aparte)
+lib/
 
 # IDE
 .vscode/
@@ -12,3 +21,8 @@ build/
 
 # Otros
 *.log
+imgui.ini
+tmp/
+
+# Trabajo del agente (scripts, capturas, artefactos)
+temp/

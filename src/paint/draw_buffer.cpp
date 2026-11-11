@@ -24,16 +24,20 @@ void DrawBuffer::clear()
 {
 	if(m_active)
 	{
-		std::fill(m_data.begin(), m_data.end(), PaintCore::TRANSPARENT_INDEX);
+		std::fill(m_data.begin(), m_data.end(), 0);
+		std::fill(m_painted.begin(), m_painted.end(), false);
+		++m_revision;
 	}
 }
 
 void DrawBuffer::reset()
 {
 	m_data.clear();
+	m_painted.clear();
 	m_x = m_y = 0;
 	m_width = m_height = 0;
 	m_active = false;
+	++m_revision;
 }
 
 void DrawBuffer::set_bounds(int width, int height)
@@ -49,8 +53,10 @@ void DrawBuffer::begin(int x, int y)
 	m_y = clamp_to_bound(y, m_max_height);
 	m_width = 1;
 	m_height = 1;
-	m_data.resize(1, PaintCore::TRANSPARENT_INDEX);
+	m_data.resize(1, 0);
+	m_painted.resize(1, false);
 	m_active = true;
+	++m_revision;
 }
 
 void DrawBuffer::ensure_fit(int px, int py)
@@ -82,7 +88,8 @@ void DrawBuffer::ensure_fit(int px, int py)
 	int new_width = max_x - min_x + 1;
 	int new_height = max_y - min_y + 1;
 
-	std::vector<uint8_t> new_data(new_width * new_height, 255);
+	std::vector<uint8_t> new_data(new_width * new_height, 0);
+	std::vector<bool> new_painted(new_width * new_height, false);
 
 	for (int y = 0; y < m_height; ++y)
 	{
@@ -91,14 +98,17 @@ void DrawBuffer::ensure_fit(int px, int py)
 			int old_index = y * m_width + x;
 			int new_index = (y + (m_y - min_y)) * new_width + (x + (m_x - min_x));
 			new_data[new_index] = m_data[old_index];
+			new_painted[new_index] = m_painted[old_index];
 		}
 	}
 
 	m_data.swap(new_data);
+	m_painted.swap(new_painted);
 	m_x = min_x;
 	m_y = min_y;
 	m_width = new_width;
 	m_height = new_height;
+	++m_revision;
 }
 
 void DrawBuffer::set_pixel(int local_x, int local_y, PaintCore::ColorIndex color_index)
@@ -110,12 +120,29 @@ void DrawBuffer::set_pixel(int local_x, int local_y, PaintCore::ColorIndex color
 
 	int idx = local_y * m_width + local_x;
 	m_data[idx] = color_index;
+	m_painted[idx] = true;
 	m_active = true;
+	++m_revision;
 }
 
 bool DrawBuffer::is_active() const
 {
 	return m_active;
+}
+
+bool DrawBuffer::has_painted_pixels() const
+{
+	return std::any_of(m_painted.begin(), m_painted.end(),
+	                   [](bool painted) { return painted; });
+}
+
+bool DrawBuffer::is_painted(int x, int y) const
+{
+	if (x < 0 || y < 0 || x >= m_width || y >= m_height)
+	{
+		return false;
+	}
+	return m_painted[static_cast<std::size_t>(y) * m_width + x];
 }
 
 void DrawBuffer::blend_onto(ImageBuffer &target)
@@ -134,12 +161,13 @@ void DrawBuffer::blend_onto(ImageBuffer &target)
 	{
 		for(int x = start_x; x < end_x; ++x)
 		{
-			uint8_t color = m_data[y * m_width + x];
-			if(color == PaintCore::TRANSPARENT_INDEX)
+			const std::size_t idx =
+				static_cast<std::size_t>(y) * m_width + x;
+			if (!m_painted[idx])
 			{
 				continue;
 			}
-			target.set_pixel(m_x + x, m_y + y, color);
+			target.set_pixel(m_x + x, m_y + y, m_data[idx]);
 		}
 	}
 	clear();

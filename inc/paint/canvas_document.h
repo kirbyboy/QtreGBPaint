@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "core/color.h"
+#include "core/image_transform.h"
 #include "core/rect.h"
 #include "core/view_transform.h"
 #include "paint/image_buffer.h"
@@ -44,6 +45,18 @@ public:
     void replace_image(ImageBuffer image);
 
     bool resize(int new_width, int new_height, PaintCore::ColorIndex fill);
+
+    // Changes the palette size of the image. `mapping[old_index]` is the new
+    // index; the caller builds it from the old/new palettes. The complete
+    // before image goes into the history and redo reapplies the mapping.
+    bool change_bits_per_pixel(
+        int new_bits_per_pixel,
+        const std::vector<PaintCore::ColorIndex>& mapping);
+
+    // Applies a pixel permutation (flip/rotation). 90/270 swap the canvas
+    // dimensions. The history stores only the transform; undo applies its
+    // inverse. Returns false when the image/dimensions do not change.
+    bool transform_image(PaintCore::ImageTransform transform);
 
     void set_history_limits(HistoryLimits limits);
     HistoryLimits history_limits() const;

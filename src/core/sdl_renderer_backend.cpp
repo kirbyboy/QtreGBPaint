@@ -1,4 +1,5 @@
 #include <SDL2/SDL.h>
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <stdexcept>
@@ -10,6 +11,33 @@
 
 namespace
 {
+bool position_is_visible(int x, int y, int width, int height)
+{
+	const int display_count = SDL_GetNumVideoDisplays();
+	if (display_count <= 0)
+	{
+		// Headless or unusual backend: let SDL/window manager decide.
+		return true;
+	}
+
+	SDL_Rect window_rect{x, y, width, height};
+	for (int display = 0; display < display_count; ++display)
+	{
+		SDL_Rect bounds{};
+		if (SDL_GetDisplayBounds(display, &bounds) != 0)
+		{
+			continue;
+		}
+		SDL_Rect overlap{};
+		if (SDL_IntersectRect(&window_rect, &bounds, &overlap) &&
+		    overlap.w >= 32 && overlap.h >= 32)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 SDL_Cursor* create_color_cursor(const PaintCore::CursorImage& image)
 {
 	if (image.width <= 0 || image.height <= 0)
@@ -68,6 +96,12 @@ SDLRendererBackend::SDLRendererBackend()
 
 void SDLRendererBackend::init()
 {
+	init_with_geometry(PaintCore::WindowGeometry{});
+}
+
+void SDLRendererBackend::init_with_geometry(
+	const PaintCore::WindowGeometry& geometry)
+{
 	if(!ImGui::GetCurrentContext())
 	{
 		throw std::runtime_error("ImGui context required before backend init");
@@ -77,13 +111,34 @@ void SDLRendererBackend::init()
 	{
 		throw std::runtime_error("SDL could not init");
 	}
-	m_window = SDL_CreateWindow("QtreGB", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+
+	const int width = std::max(1, geometry.width);
+	const int height = std::max(1, geometry.height);
+	int x = SDL_WINDOWPOS_CENTERED;
+	int y = SDL_WINDOWPOS_CENTERED;
+	if (geometry.has_position &&
+	    position_is_visible(geometry.x, geometry.y, width, height))
+	{
+		x = geometry.x;
+		y = geometry.y;
+	}
+
+	// Start hidden so the stored geometry is applied before the first frame.
+	m_window = SDL_CreateWindow("QtreGBPaint", x, y, width, height,
+	                            SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE);
 	if(!m_window)
 	{
 		throw std::runtime_error("SDL could not create window");
 	}
 	m_minimum_width = 0;
 	m_minimum_height = 0;
+	m_normal_geometry = geometry;
+	m_normal_geometry.width = width;
+	m_normal_geometry.height = height;
+	m_normal_geometry.maximized = false;
+	m_normal_geometry.has_position =
+		geometry.has_position && x == geometry.x && y == geometry.y;
+
 	m_renderer = SDL_CreateRenderer(m_window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 	if(!m_renderer)
 	{
@@ -104,6 +159,57 @@ void SDLRendererBackend::init()
 	// overwriting the tool cursors set by the paint frontend.
 	ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
 	create_cursors();
+
+	if (geometry.maximized)
+	{
+		SDL_MaximizeWindow(m_window);
+	}
+	SDL_ShowWindow(m_window);
+
+	// Query the final state. When not maximized, this also records the actual
+	// centered position for the first time the app runs.
+	update_normal_geometry();
+}
+
+PaintCore::WindowGeometry SDLRendererBackend::window_geometry() const
+{
+	PaintCore::WindowGeometry result = m_normal_geometry;
+	result.maximized = m_window_maximized;
+	return result;
+}
+
+void SDLRendererBackend::update_normal_geometry()
+{
+	if (!m_window)
+	{
+		return;
+	}
+
+	const Uint32 flags = SDL_GetWindowFlags(m_window);
+	m_window_maximized = (flags & SDL_WINDOW_MAXIMIZED) != 0;
+	if (m_window_maximized || (flags & SDL_WINDOW_MINIMIZED) ||
+	    (flags & SDL_WINDOW_HIDDEN))
+	{
+		return;
+	}
+
+	int x = 0;
+	int y = 0;
+	int width = 0;
+	int height = 0;
+	SDL_GetWindowPosition(m_window, &x, &y);
+	SDL_GetWindowSize(m_window, &width, &height);
+	if (width <= 0 || height <= 0)
+	{
+		return;
+	}
+
+	m_normal_geometry.x = x;
+	m_normal_geometry.y = y;
+	m_normal_geometry.width = width;
+	m_normal_geometry.height = height;
+	m_normal_geometry.maximized = false;
+	m_normal_geometry.has_position = true;
 }
 
 void SDLRendererBackend::begin_imgui_frame()
@@ -188,7 +294,7 @@ bool SDLRendererBackend::set_cursor_image(PaintCore::CursorType cursor,
 	return true;
 }
 
-void SDLRendererBackend::poll_events(bool& running)
+void SDLRendererBackend::poll_events()
 {
 	SDL_Event event;
 	while(SDL_PollEvent(&event))
@@ -196,7 +302,7 @@ void SDLRendererBackend::poll_events(bool& running)
 		ImGui_ImplSDL2_ProcessEvent(&event);
 		if(event.type == SDL_QUIT)
 		{
-			running = false;
+			m_quit_requested = true;
 		}
 		else if(event.type == SDL_WINDOWEVENT)
 		{
@@ -211,6 +317,10 @@ void SDLRendererBackend::poll_events(bool& running)
 			}
 		}
 	}
+
+	// Keep the last non-maximized geometry for AppConfig. This runs once per
+	// frame after the window-manager events have been processed.
+	update_normal_geometry();
 }
 
 void SDLRendererBackend::shutdown()

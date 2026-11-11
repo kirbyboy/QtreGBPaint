@@ -24,6 +24,16 @@ class DrawBuffer
 		void set_pixel(int x, int y, PaintCore::ColorIndex color_index);
 		bool is_active() const;
 
+		// Coverage mask: true only for pixels the tool actually wrote. It is
+		// independent of the stored index, so a palette index such as 255 can
+		// be painted without being confused with an untouched pixel.
+		bool is_painted(int x, int y) const;
+		const std::vector<bool>& painted() const { return m_painted; }
+		bool has_painted_pixels() const;
+		// Changes whenever the buffer contents or bounds change. The preview
+		// tile cache uses it to avoid redundant texture uploads.
+		std::uint64_t revision() const { return m_revision; }
+
 		void blend_onto(ImageBuffer& target);
 
 		const std::vector<PaintCore::ColorIndex>& data() const;
@@ -45,6 +55,8 @@ class DrawBuffer
 		bool m_active = false;
 
 		std::vector<PaintCore::ColorIndex> m_data;
+		std::vector<bool> m_painted;
+		std::uint64_t m_revision = 0;
 };
 
 #endif

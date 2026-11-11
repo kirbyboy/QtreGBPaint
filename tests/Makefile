@@ -27,11 +27,15 @@ OBJDIR := $(BUILDDIR)/obj
 CXXFLAGS += $(SANITIZER_FLAGS) -I$(ROOTDIR)/inc -I$(ROOTDIR)/lib \
 	-I$(ROOTDIR)/lib/imgui/src -I$(ROOTDIR)/lib/imgui/src/backends
 LDFLAGS += $(SANITIZER_FLAGS)
+LDLIBS += -lz
 
 # Código de producción que usan los tests headless.
 PROJECT_SRCS := \
 	$(ROOTDIR)/src/core/view_transform.cpp \
+	$(ROOTDIR)/src/paint/app_config.cpp \
 	$(ROOTDIR)/src/paint/canvas_document.cpp \
+	$(ROOTDIR)/src/paint/image_transform.cpp \
+	$(ROOTDIR)/src/paint/image_export.cpp \
 	$(ROOTDIR)/src/paint/document_file.cpp \
 	$(ROOTDIR)/src/paint/floating_region_editor.cpp \
 	$(ROOTDIR)/src/paint/paint_backend.cpp \
@@ -63,6 +67,8 @@ DOCTEST_OBJ := $(OBJDIR)/doctest_main.o
 
 TEST_BINS := \
 	$(BUILDDIR)/test_image_model \
+	$(BUILDDIR)/test_app_config \
+	$(BUILDDIR)/test_image_export \
 	$(BUILDDIR)/test_dirty \
 	$(BUILDDIR)/test_draw_buffer \
 	$(BUILDDIR)/test_undo \
@@ -73,7 +79,9 @@ TEST_BINS := \
 	$(BUILDDIR)/test_tool_options \
 	$(BUILDDIR)/test_canvas_resize \
 	$(BUILDDIR)/test_canvas_tiles \
+	$(BUILDDIR)/test_canvas_transform \
 	$(BUILDDIR)/test_document_file \
+	$(BUILDDIR)/test_window_title \
 	$(BUILDDIR)/test_file_session \
 	$(BUILDDIR)/test_line \
 	$(BUILDDIR)/test_curve \
@@ -90,6 +98,7 @@ PALETTE_OBJS := $(IMAGE_OBJS) $(OBJDIR)/src/paint/palette.o
 CURSOR_OBJS := $(OBJDIR)/src/paint/cursor_asset.o \
 	$(OBJDIR)/src/paint/indexed_image.o
 CANVAS_OBJS := $(PALETTE_OBJS) \
+	$(OBJDIR)/src/paint/image_transform.o \
 	$(OBJDIR)/src/core/view_transform.o \
 	$(OBJDIR)/src/paint/canvas_document.o \
 	$(OBJDIR)/src/paint/floating_region_editor.o \
@@ -140,6 +149,16 @@ $(DOCTEST_OBJ): $(TEST_DIR)/doctest_main.cpp
 $(BUILDDIR)/test_image_model: $(OBJDIR)/tests/test_image_model.o $(PALETTE_OBJS) $(DOCTEST_OBJ)
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
+$(BUILDDIR)/test_app_config: $(OBJDIR)/tests/test_app_config.o \
+		$(OBJDIR)/src/paint/app_config.o $(DOCTEST_OBJ)
+	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+$(BUILDDIR)/test_image_export: $(OBJDIR)/tests/test_image_export.o \
+		$(OBJDIR)/src/paint/image_export.o \
+		$(OBJDIR)/src/paint/image_buffer.o \
+		$(OBJDIR)/src/paint/palette.o $(DOCTEST_OBJ)
+	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
 $(BUILDDIR)/test_dirty: $(OBJDIR)/tests/test_dirty.o $(IMAGE_OBJS) $(DOCTEST_OBJ)
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
@@ -178,13 +197,21 @@ $(BUILDDIR)/test_canvas_resize: $(OBJDIR)/tests/test_canvas_resize.o \
 $(BUILDDIR)/test_canvas_tiles: $(OBJDIR)/tests/test_canvas_tiles.o $(DOCTEST_OBJ)
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
+$(BUILDDIR)/test_canvas_transform: $(OBJDIR)/tests/test_canvas_transform.o \
+		$(CANVAS_OBJS) $(DOCTEST_OBJ)
+	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
 $(BUILDDIR)/test_document_file: $(OBJDIR)/tests/test_document_file.o \
 		$(OBJDIR)/src/paint/document_file.o $(DOCTEST_OBJ)
+	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+$(BUILDDIR)/test_window_title: $(OBJDIR)/tests/test_window_title.o $(DOCTEST_OBJ)
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 $(BUILDDIR)/test_file_session: $(OBJDIR)/tests/test_file_session.o \
 		$(OBJDIR)/src/paint/paint_backend.o \
 		$(OBJDIR)/src/paint/document_file.o \
+		$(OBJDIR)/src/paint/image_export.o \
 		$(CANVAS_OBJS) $(CURSOR_OBJS) $(DOCTEST_OBJ)
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
@@ -233,6 +260,7 @@ $(BUILDDIR)/test_pick_color: $(OBJDIR)/tests/test_pick_color.o \
 		$(OBJDIR)/src/tools/selection_tool.o \
 		$(OBJDIR)/src/paint/paint_backend.o \
 		$(OBJDIR)/src/paint/document_file.o \
+		$(OBJDIR)/src/paint/image_export.o \
 		$(CANVAS_OBJS) $(CURSOR_OBJS) $(DOCTEST_OBJ)
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 

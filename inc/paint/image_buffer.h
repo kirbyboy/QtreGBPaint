@@ -29,6 +29,13 @@ class ImageBuffer
 		void resize(int newW, int newH, PaintCore::ColorIndex fill = 0);
 		void copy_from(const ImageBuffer& src, int dstX, int dstY);
 
+		// Reinterprets every pixel through mapping[old_index] and changes the
+		// number of meaningful palette indices. `mapping` must contain one
+		// entry per old index and every value must fit in `new_bpp`.
+		void remap_bits_per_pixel(
+			int new_bpp,
+			const std::vector<PaintCore::ColorIndex>& mapping);
+
 		// Copies a contiguous region (row by row). The rect must be inside the
 		// buffer; out-of-range rects are rejected.
 		std::vector<PaintCore::ColorIndex> read_region(const PaintCore::Rect& rect) const;

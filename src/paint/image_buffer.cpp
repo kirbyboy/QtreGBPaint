@@ -123,6 +123,39 @@ void ImageBuffer::copy_from(const ImageBuffer &src, int dstX, int dstY)
 	}
 }
 
+void ImageBuffer::remap_bits_per_pixel(
+	int new_bpp,
+	const std::vector<PaintCore::ColorIndex>& mapping)
+{
+	if (new_bpp < 1 || new_bpp > 8)
+	{
+		throw std::invalid_argument("Bits per pixel must be in the range 1..8");
+	}
+
+	const std::size_t old_count =
+		static_cast<std::size_t>(1u << m_bits_per_pixel);
+	if (mapping.size() != old_count)
+	{
+		throw std::invalid_argument("Pixel mapping size does not match the old bpp");
+	}
+
+	const int new_count = 1 << new_bpp;
+	for (PaintCore::ColorIndex value : mapping)
+	{
+		if (static_cast<int>(value) >= new_count)
+		{
+			throw std::invalid_argument("Pixel mapping value is out of range");
+		}
+	}
+
+	for (PaintCore::ColorIndex& pixel : m_data)
+	{
+		pixel = pixel < mapping.size() ? mapping[pixel] : 0;
+	}
+	m_bits_per_pixel = new_bpp;
+	mark_all_dirty();
+}
+
 std::vector<PaintCore::ColorIndex> ImageBuffer::read_region(const PaintCore::Rect& rect) const
 {
 	if (rect.empty() || rect.x < 0 || rect.y < 0 ||

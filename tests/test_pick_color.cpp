@@ -55,7 +55,7 @@ void load_pixels(PaintSession& session, int width, int height,
 }
 }
 
-TEST_CASE("PickColorTool returns left and right picks once")
+TEST_CASE("PickColorTool samples on release and previews while pressed")
 {
 	const int width = 3;
 	const int height = 2;
@@ -71,16 +71,32 @@ TEST_CASE("PickColorTool returns left and right picks once")
 	CHECK(tool.accepts_button(ToolBase::kRightButton));
 	session.set_tool(&tool);
 
-	session.handle_mouse_press({1, 0}, ToolBase::kLeftButton);
 	ToolBase::ColorPick pick;
+	ColorIndex preview = 0;
+
+	session.handle_mouse_press({1, 0}, ToolBase::kLeftButton);
+	CHECK(tool.is_operating());
+	CHECK_FALSE(tool.is_drawing());
+	CHECK_FALSE(tool.take_color_pick(pick));
+	REQUIRE(tool.color_pick_preview(preview));
+	CHECK_EQ(preview, 2);
+
+	// The preview follows the pointer, and the sample uses the release spot.
+	session.handle_mouse_move({2, 1});
+	REQUIRE(tool.color_pick_preview(preview));
+	CHECK_EQ(preview, 3);
+	session.handle_mouse_release({2, 1}, ToolBase::kLeftButton);
+	CHECK_FALSE(tool.is_operating());
+	CHECK_FALSE(tool.color_pick_preview(preview));
 	REQUIRE(tool.take_color_pick(pick));
-	CHECK_EQ(pick.color, 2);
+	CHECK_EQ(pick.color, 3);
 	CHECK_FALSE(pick.background);
 	CHECK_FALSE(tool.take_color_pick(pick));
 
-	session.handle_mouse_press({2, 1}, ToolBase::kRightButton);
+	session.handle_mouse_press({1, 0}, ToolBase::kRightButton);
+	session.handle_mouse_release({1, 0}, ToolBase::kRightButton);
 	REQUIRE(tool.take_color_pick(pick));
-	CHECK_EQ(pick.color, 3);
+	CHECK_EQ(pick.color, 2);
 	CHECK(pick.background);
 }
 
@@ -97,29 +113,71 @@ TEST_CASE("PickColorTool ignores outside, transparent and cancelled picks")
 	session.set_tool(&tool);
 	ToolBase::ColorPick pick;
 
+	// Press outside the image and release outside: no pick.
 	session.handle_mouse_press({-1, 0}, ToolBase::kLeftButton);
-	CHECK_FALSE(tool.take_color_pick(pick));
-	session.handle_mouse_press({3, 0}, ToolBase::kLeftButton);
-	CHECK_FALSE(tool.take_color_pick(pick));
-	session.handle_mouse_press({0, 2}, ToolBase::kLeftButton);
+	session.handle_mouse_release({-1, 0}, ToolBase::kLeftButton);
 	CHECK_FALSE(tool.take_color_pick(pick));
 
+	// Press inside but release outside the image: no pick.
+	session.handle_mouse_press({1, 0}, ToolBase::kLeftButton);
+	ColorIndex preview = 0;
+	REQUIRE(tool.color_pick_preview(preview));
+	session.handle_mouse_release({3, 0}, ToolBase::kLeftButton);
+	CHECK_FALSE(tool.take_color_pick(pick));
+	CHECK_FALSE(tool.is_operating());
+
+	// 255 is a regular palette index at 8bpp and can be picked.
 	PaintSession transparent_session(2, 2);
 	ImageBuffer transparent(2, 2, 8);
 	transparent.fill(0);
-	transparent.set_pixel(1, 1, PaintCore::TRANSPARENT_INDEX);
+	transparent.set_pixel(1, 1, 255);
 	transparent_session.load_image(std::move(transparent));
 	PickColorTool transparent_tool;
 	transparent_session.set_tool(&transparent_tool);
 	transparent_session.handle_mouse_press({1, 1}, ToolBase::kLeftButton);
-	CHECK_FALSE(transparent_tool.take_color_pick(pick));
+	transparent_session.handle_mouse_release({1, 1}, ToolBase::kLeftButton);
+	REQUIRE(transparent_tool.take_color_pick(pick));
+	CHECK_EQ(pick.color, 255);
+	CHECK_FALSE(pick.background);
 
+	// Switching tools cancels the press without producing a pick.
 	session.handle_mouse_press({1, 0}, ToolBase::kLeftButton);
 	session.set_tool(nullptr);
+	CHECK_FALSE(tool.is_operating());
+	CHECK_FALSE(tool.take_color_pick(pick));
+
+	// cancel_active_stroke() is the both-buttons cancellation path.
+	session.set_tool(&tool);
+	session.handle_mouse_press({1, 0}, ToolBase::kLeftButton);
+	CHECK(tool.is_operating());
+	session.cancel_active_stroke();
+	CHECK_FALSE(tool.is_operating());
 	CHECK_FALSE(tool.take_color_pick(pick));
 }
 
-TEST_CASE("PaintBackend applies picks and restores the last editing tool")
+TEST_CASE("PickColorTool keeps the last valid preview outside the image")
+{
+	PaintSession session(2, 2);
+	load_pixels(session, 2, 2,
+	            {
+	                2, 0,
+	                0, 0,
+	            });
+
+	PickColorTool tool;
+	session.set_tool(&tool);
+	session.handle_mouse_press({0, 0}, ToolBase::kLeftButton);
+
+	ColorIndex preview = 0;
+	REQUIRE(tool.color_pick_preview(preview));
+	CHECK_EQ(preview, 2);
+
+	session.handle_mouse_move({20, 20});
+	REQUIRE(tool.color_pick_preview(preview));
+	CHECK_EQ(preview, 2);
+}
+
+TEST_CASE("PaintBackend applies picks on release and restores the editing tool")
 {
 	PaintBackend backend(nullptr);
 	add_test_buttons(backend);
@@ -135,6 +193,7 @@ TEST_CASE("PaintBackend applies picks and restores the last editing tool")
 	CHECK(backend.activeCursor() == PaintCore::CursorType::Pick);
 
 	backend.session().handle_mouse_press({1, 0}, ToolBase::kLeftButton);
+	backend.session().handle_mouse_release({1, 0}, ToolBase::kLeftButton);
 	CHECK(backend.apply_pending_color_pick());
 	CHECK_EQ(backend.foreground_index(), 2);
 	CHECK(backend.background_index() == 0);
@@ -143,11 +202,35 @@ TEST_CASE("PaintBackend applies picks and restores the last editing tool")
 
 	REQUIRE(backend.selectButton("Pick Color") != nullptr);
 	backend.session().handle_mouse_press({2, 1}, ToolBase::kRightButton);
+	backend.session().handle_mouse_release({2, 1}, ToolBase::kRightButton);
 	CHECK(backend.apply_pending_color_pick());
 	CHECK_EQ(backend.background_index(), 3);
 	CHECK_EQ(backend.foreground_index(), 2);
 	CHECK(backend.activeButton() == "Fill");
 	CHECK_FALSE(backend.can_undo());
+}
+
+TEST_CASE("Pick Color keeps colors and tool when released outside")
+{
+	PaintBackend backend(nullptr);
+	add_test_buttons(backend);
+	load_pixels(backend.session(), 3, 2,
+	            {
+	                0, 2, 0,
+	                0, 0, 0,
+	            });
+
+	REQUIRE(backend.selectButton("Fill") != nullptr);
+	REQUIRE(backend.selectButton("Pick Color") != nullptr);
+	const ColorIndex foreground = backend.foreground_index();
+	const ColorIndex background = backend.background_index();
+
+	backend.session().handle_mouse_press({1, 0}, ToolBase::kLeftButton);
+	backend.session().handle_mouse_release({10, 10}, ToolBase::kLeftButton);
+	CHECK_FALSE(backend.apply_pending_color_pick());
+	CHECK_EQ(backend.foreground_index(), foreground);
+	CHECK_EQ(backend.background_index(), background);
+	CHECK(backend.activeButton() == "Pick Color");
 }
 
 TEST_CASE("Pick Color stays active when there is no previous editing tool")
@@ -162,6 +245,7 @@ TEST_CASE("Pick Color stays active when there is no previous editing tool")
 
 	REQUIRE(backend.selectButton("Pick Color") != nullptr);
 	backend.session().handle_mouse_press({1, 1}, ToolBase::kLeftButton);
+	backend.session().handle_mouse_release({1, 1}, ToolBase::kLeftButton);
 	CHECK(backend.apply_pending_color_pick());
 	CHECK_EQ(backend.foreground_index(), 2);
 	CHECK(backend.activeButton() == "Pick Color");

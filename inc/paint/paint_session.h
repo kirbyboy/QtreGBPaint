@@ -70,6 +70,10 @@ public:
 	void clear_history();
 
 	bool resize(int new_width, int new_height, PaintCore::ColorIndex fill);
+	bool change_bits_per_pixel(
+		int new_bits_per_pixel,
+		const std::vector<PaintCore::ColorIndex>& mapping);
+	bool transform_image(PaintCore::ImageTransform transform);
 
 	// Floating region / clipboard forwards.
 	bool begin_selection(const PaintCore::Rect& rect,
@@ -97,6 +101,7 @@ public:
 	bool delete_floating_region();
 	bool paste_from_clipboard(const PaintCore::Vec2& pos = {});
 	bool invert_floating_region_colors();
+	bool transform_floating_region(PaintCore::ImageTransform transform);
 	bool has_clipboard() const { return m_floating_editor.has_clipboard(); }
 	const ImageBuffer& clipboard() const
 	{

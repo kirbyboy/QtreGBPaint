@@ -175,7 +175,7 @@ TEST_CASE("CircleTool exposes the same shape options as the rectangle")
 	CHECK(options[0].id == "mode");
 	CHECK(options[0].type == ToolOptionType::Choice);
 	CHECK(options[0].visible_in_options_bar);
-	CHECK_EQ(options[0].value, static_cast<int>(CircleTool::Mode::Outline));
+	CHECK_EQ(options[0].value, static_cast<int>(CircleTool::Mode::Both));
 	REQUIRE(options[0].choices.size() == 3u);
 	CHECK_EQ(options[0].choices[0].value,
 	         static_cast<int>(CircleTool::Mode::Outline));
@@ -196,6 +196,7 @@ TEST_CASE("CircleTool draws an ellipse outline inside the drag box")
 {
 	PaintSession canvas(10, 10);
 	CircleTool tool(1, 2);
+	tool.set_option("mode", static_cast<int>(CircleTool::Mode::Outline));
 	draw_shape(canvas, tool, 1, 1, 8, 8);
 
 	const ImageBuffer& image = canvas.get_main_buffer();
@@ -211,6 +212,7 @@ TEST_CASE("CircleTool draws an ellipse outline inside the drag box")
 
 	PaintSession flat_canvas(10, 10);
 	CircleTool flat_tool(1, 2);
+	flat_tool.set_option("mode", static_cast<int>(CircleTool::Mode::Outline));
 	draw_shape(flat_canvas, flat_tool, 1, 1, 8, 5);
 
 	const ImageBuffer& flat = flat_canvas.get_main_buffer();
@@ -221,6 +223,29 @@ TEST_CASE("CircleTool draws an ellipse outline inside the drag box")
 	CHECK_EQ(flat.get_pixel(1, 3), 1);
 	CHECK_EQ(flat.get_pixel(8, 3), 1);
 	CHECK_EQ(flat.get_pixel(4, 3), 0);
+}
+
+TEST_CASE("CircleTool exposes the press point as drag anchor")
+{
+	PaintSession canvas(10, 10);
+	CircleTool tool(1, 2);
+	canvas.set_tool(&tool);
+
+	PaintCore::Vec2 anchor{};
+	CHECK_FALSE(tool.drag_anchor(anchor));
+
+	tool.on_mouse_press(canvas, PaintCore::Vec2{2, 3}, 1);
+	REQUIRE(tool.drag_anchor(anchor));
+	CHECK_EQ(anchor.x, 2);
+	CHECK_EQ(anchor.y, 3);
+
+	tool.on_mouse_move(canvas, PaintCore::Vec2{7, 8});
+	REQUIRE(tool.drag_anchor(anchor));
+	CHECK_EQ(anchor.x, 2);
+	CHECK_EQ(anchor.y, 3);
+
+	tool.on_mouse_release(canvas, PaintCore::Vec2{7, 8}, 1);
+	CHECK_FALSE(tool.drag_anchor(anchor));
 }
 
 TEST_CASE("CircleTool fill mode uses the background color")
@@ -259,6 +284,7 @@ TEST_CASE("CircleTool constrains to a circle with Shift")
 {
 	PaintSession canvas(12, 12);
 	CircleTool tool(1, 2);
+	tool.set_option("mode", static_cast<int>(CircleTool::Mode::Outline));
 	canvas.set_tool(&tool);
 	PaintCore::Modifiers modifiers;
 	modifiers.shift = true;

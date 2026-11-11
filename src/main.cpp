@@ -6,6 +6,7 @@
 #include "core/ibackend.h"
 #include "core/imgui_manager.h"
 #include "core/sdl_renderer_backend.h"
+#include "paint/app_config.h"
 #include "paint/palette.h"
 #include "paint/paint_backend.h"
 #include "paint/paint_frontend.h"
@@ -20,13 +21,15 @@
 #include "tools/selection_tool.h"
 #include "tools/square_tool.h"
 
-int main()
+int main(int argc, char** argv)
 {
+	const AppConfig config = AppConfig::load_default();
+
 	ImGuiManager imgui_manager;
 	imgui_manager.init();
 
 	SDLRendererBackend backend;
-	backend.init();
+	backend.init_with_geometry(config.window);
 
 	// Robust asset path (relative to the executable, not the cwd).
 	std::string assetBase = "assets";
@@ -37,6 +40,7 @@ int main()
 	}
 
 	PaintBackend resources(&backend);
+	resources.set_recent_files(config.recent_files);
 	const Palette& grayPalette = resources.iconPalette();
 	resources.addButton("Selection", std::make_shared<SelectionTool>(),
 	                    PaintCore::CursorType::Crosshair,
@@ -143,17 +147,40 @@ int main()
 	                 assetBase + "/fill_options.idx", 46, 46);
 
 	PaintFrontend main_window(resources);
+	main_window.set_about_logo_path(assetBase + "/QtreGBPaint.png");
+	main_window.set_theme(config.theme);
+	main_window.set_grid_enabled(config.grid_enabled);
+	main_window.set_last_directory(config.last_directory);
+	if (argc > 1)
+	{
+		main_window.open_initial_file(argv[1]);
+	}
 
 	bool running = true;
 
 	while (running)
 	{
 		// Process SDL events (and forward them to ImGui).
-		backend.poll_events(running);
+		backend.poll_events();
 
 		imgui_manager.begin_frame(backend);
-		main_window.render();
+		running = main_window.render();
 		backend.render_imgui(imgui_manager.end_frame());
+	}
+
+	// Persist preferences and window placement once per run. Settings are
+	// intentionally not written every frame.
+	AppConfig saved = config;
+	saved.theme = main_window.theme();
+	saved.grid_enabled = main_window.grid_enabled();
+	saved.last_directory = main_window.last_directory();
+	saved.window = backend.window_geometry();
+	saved.recent_files = resources.recent_files();
+	std::string config_error;
+	if (!saved.save_default(config_error))
+	{
+		std::fprintf(stderr, "Could not save settings: %s\n",
+		             config_error.c_str());
 	}
 
 	backend.shutdown();

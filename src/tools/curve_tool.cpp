@@ -88,6 +88,18 @@ void CurveTool::on_cancel(PaintSession& canvas)
 	reset_state();
 }
 
+bool CurveTool::drag_anchor(PaintCore::Vec2& anchor) const
+{
+	// Only the initial endpoint drag has two coordinates. Moving the control
+	// handles is a single-point operation for the status bar.
+	if (m_phase != Phase::Endpoints || !m_drawing)
+	{
+		return false;
+	}
+	anchor = m_a;
+	return true;
+}
+
 void CurveTool::set_colors(PaintCore::ColorIndex foreground,
                            PaintCore::ColorIndex background)
 {

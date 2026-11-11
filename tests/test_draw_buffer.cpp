@@ -71,27 +71,33 @@ TEST_CASE("DrawBuffer blends with overflow at the target edges")
 	CHECK_EQ(target.dirty_rect().h, 1);
 }
 
-TEST_CASE("DrawBuffer skips transparent pixels and clears after blending")
+TEST_CASE("DrawBuffer coverage mask distinguishes painted 255 from untouched")
 {
-	ImageBuffer target(3, 3, 2);
+	ImageBuffer target(3, 3, 8);
 	target.fill(0);
 	target.clear_dirty_rect();
 
 	DrawBuffer buffer;
 	buffer.begin(0, 0);
 	buffer.ensure_fit(1, 1);
-	buffer.set_pixel(0, 0, PaintCore::TRANSPARENT_INDEX);
+	buffer.set_pixel(0, 0, 255);
 	buffer.set_pixel(1, 1, 2);
 
+	CHECK(buffer.is_painted(0, 0));
+	CHECK(buffer.is_painted(1, 1));
+	CHECK_FALSE(buffer.is_painted(1, 0));
+
 	buffer.blend_onto(target);
 
-	CHECK_EQ(target.get_pixel(0, 0), 0);
+	CHECK_EQ(target.get_pixel(0, 0), 255);
 	CHECK_EQ(target.get_pixel(1, 1), 2);
+	CHECK_EQ(target.get_pixel(1, 0), 0);
 
-	// blend_onto() clears the buffer: a second blend does not paint again.
+	// blend_onto() clears the coverage mask.
 	buffer.blend_onto(target);
-	CHECK_EQ(buffer.data()[0], PaintCore::TRANSPARENT_INDEX);
-	CHECK_EQ(buffer.data()[3], PaintCore::TRANSPARENT_INDEX);
+	CHECK_FALSE(buffer.is_painted(0, 0));
+	CHECK_FALSE(buffer.is_painted(1, 1));
+	CHECK_EQ(buffer.data()[0], 0);
 }
 
 TEST_CASE("DrawBuffer inactive blend is a no-op")

@@ -200,6 +200,28 @@ TEST_CASE("Curve first drag leaves a pending edit with handles")
 	CHECK_EQ(pixel_at(session, 16, 16), 0);
 }
 
+TEST_CASE("Curve exposes a drag anchor only while setting the endpoints")
+{
+	PaintSession session(32, 32);
+	CurveTool tool(2, 1);
+	Vec2 anchor{};
+	CHECK_FALSE(tool.drag_anchor(anchor));
+
+	tool.on_mouse_press(session, PaintCore::Vec2{4, 5}, 1);
+	REQUIRE(tool.drag_anchor(anchor));
+	CHECK_EQ(anchor.x, 4);
+	CHECK_EQ(anchor.y, 5);
+
+	tool.on_mouse_move(session, PaintCore::Vec2{20, 24});
+	REQUIRE(tool.drag_anchor(anchor));
+	CHECK_EQ(anchor.x, 4);
+	CHECK_EQ(anchor.y, 5);
+
+	tool.on_mouse_release(session, PaintCore::Vec2{20, 24}, 1);
+	REQUIRE(tool.has_pending_edit());
+	CHECK_FALSE(tool.drag_anchor(anchor));
+}
+
 TEST_CASE("Curve handles reshape the curve and commit one history step")
 {
 	PaintSession session(32, 32);
