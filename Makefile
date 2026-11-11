@@ -105,6 +105,12 @@ run-release:
 appimage:
 	$(ROOTDIR)/packaging/build_appimage.sh
 
+deb:
+	$(ROOTDIR)/packaging/build_deb.sh
+
+release-assets:
+	$(ROOTDIR)/packaging/build_release_assets.sh
+
 clean:
 	$(RM) -r $(ROOTDIR)/obj $(ROOTDIR)/obj-release \
 		$(ROOTDIR)/deps $(ROOTDIR)/deps-release $(BUILDDIR)
@@ -114,4 +120,4 @@ ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS)
 endif
 
-.PHONY: all clean test test-full test-asan test-ubsan test-sanitize run release run-release appimage deps
+.PHONY: all clean test test-full test-asan test-ubsan test-sanitize run release run-release appimage deb release-assets deps

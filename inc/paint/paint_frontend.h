@@ -67,6 +67,7 @@ class PaintFrontend
 
 		void apply_theme_style();
 		void renderMenuBar();
+		void renderDialogs();
 		void renderToolbar();
 		void renderToolOptions();
 		void renderPalette();

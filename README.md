@@ -6,6 +6,8 @@ QtreGBPaint is a small pixel-art paint program in the spirit of classic
 MS Paint, with indexed palettes inspired by old retro handheld console.  It
 edits images from 1 to 8 bits per pixel and stores them in its own `.idx` format.
 
+Current release: **0.9.1**.
+
 ![QtreGBPaint main window](docs/screenshots/main.png)
 
 ## Features
@@ -71,6 +73,8 @@ make                 # debug: build/QtreGBPaint
 make run             # build and run the debug binary
 make release         # release: build/QtreGBPaint-release
 make run-release     # build and run the release binary
+make deb             # Debian package in build/
+make appimage        # AppImage in build/
 ```
 
 Tests:
@@ -91,6 +95,49 @@ The SDL smoke tests live in `temp/` and are not part of the repository:
 The main Makefile also builds `lib/imgui/libimgui.a` and
 `lib/ImGuiFileDialog/libImGuiFileDialog.a` if they are missing. If `lib/` has
 not been populated yet, run `make deps` first.
+
+## Install from a release
+
+Download the files from the latest release:
+
+<https://github.com/kirbyboy/QtreGBPaint/releases/latest>
+
+### Debian / Ubuntu
+
+```sh
+sudo apt install ./qtregbpaint_0.9.1_amd64.deb
+```
+
+### AppImage
+
+```sh
+chmod +x QtreGBPaint-0.9.1-x86_64.AppImage
+./QtreGBPaint-0.9.1-x86_64.AppImage
+```
+
+The AppImage runs without installation. Desktop integration (for example with
+AppImageLauncher) is recommended if you want the launcher and dock icon to be
+registered like a regular application. The `.deb` package installs the desktop
+entry, icon and MIME type automatically.
+
+## Packaging
+
+Both packages are built from a release binary and are intended for GitHub
+releases, not for the official Debian archive.
+
+```sh
+make deb            # build/qtregbpaint_0.9.1_amd64.deb
+make appimage       # build/QtreGBPaint-0.9.1-x86_64.AppImage
+make release-assets # both files plus build/SHA256SUMS-0.9.1
+```
+
+The `.deb` installs the binary in `/usr/bin`, assets in
+`/usr/share/qtregbpaint/assets`, the desktop entry, icon, MIME type and
+AppStream metadata. The application resolves assets from the build tree, the
+AppImage layout and the system installation path. The `.deb` also associates
+the running window with `io.github.kirbyboy.QtreGBPaint.desktop`, so GNOME,
+KDE and other docks can show the application icon. A raw AppImage may need
+desktop integration (for example AppImageLauncher) for the same dock behavior.
 
 ## Usage
 

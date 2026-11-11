@@ -107,6 +107,14 @@ void SDLRendererBackend::init_with_geometry(
 		throw std::runtime_error("ImGui context required before backend init");
 	}
 
+	// Wayland uses the application id to find the desktop entry; X11 uses
+	// WM_CLASS. SDL reads these environment variables for the class name.
+	SDL_setenv("SDL_VIDEO_X11_WMCLASS",
+	           "io.github.kirbyboy.QtreGBPaint", 1);
+	SDL_setenv("SDL_VIDEO_WAYLAND_WMCLASS",
+	           "io.github.kirbyboy.QtreGBPaint", 1);
+	SDL_SetHint(SDL_HINT_APP_NAME, "QtreGBPaint");
+
 	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0)
 	{
 		throw std::runtime_error("SDL could not init");
@@ -294,6 +302,38 @@ bool SDLRendererBackend::set_cursor_image(PaintCore::CursorType cursor,
 	return true;
 }
 
+void SDLRendererBackend::set_window_icon(const PaintCore::Color* pixels,
+                                         int width, int height)
+{
+	if (!m_window || !pixels || width <= 0 || height <= 0)
+	{
+		return;
+	}
+
+	SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(
+		0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
+	if (!surface)
+	{
+		return;
+	}
+
+	if (SDL_ConvertPixels(width, height, SDL_PIXELFORMAT_RGBA32, pixels,
+	                      width * static_cast<int>(sizeof(PaintCore::Color)),
+	                      SDL_PIXELFORMAT_RGBA32, surface->pixels,
+	                      surface->pitch) != 0)
+	{
+		SDL_FreeSurface(surface);
+		return;
+	}
+
+	SDL_SetWindowIcon(m_window, surface);
+	if (m_window_icon)
+	{
+		SDL_FreeSurface(m_window_icon);
+	}
+	m_window_icon = surface;
+}
+
 void SDLRendererBackend::poll_events()
 {
 	SDL_Event event;
@@ -349,6 +389,11 @@ void SDLRendererBackend::shutdown()
 	{
 		SDL_DestroyWindow(m_window);
 		m_window = nullptr;
+	}
+	if(m_window_icon)
+	{
+		SDL_FreeSurface(m_window_icon);
+		m_window_icon = nullptr;
 	}
 	SDL_Quit();
 }

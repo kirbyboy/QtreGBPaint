@@ -23,6 +23,12 @@ class IGuiBackend
 		virtual void set_cursor(PaintCore::CursorType cursor) = 0;
 		virtual bool set_cursor_image(PaintCore::CursorType cursor,
 		                              const PaintCore::CursorImage& image) = 0;
+		// Sets the window icon from RGBA pixels. Desktops that use a window
+		// icon property (for example X11 taskbars) pick it up immediately;
+		// Wayland compositors normally associate the window through its
+		// application id instead.
+		virtual void set_window_icon(const PaintCore::Color* pixels, int width,
+		                             int height) = 0;
 		virtual void poll_events() = 0;
 
 		// A window-manager close request is only a request: the frontend

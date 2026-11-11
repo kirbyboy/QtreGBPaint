@@ -30,6 +30,8 @@ class SDLRendererBackend : public IGuiBackend
 		void set_cursor(PaintCore::CursorType cursor) override;
 		bool set_cursor_image(PaintCore::CursorType cursor,
 		                      const PaintCore::CursorImage& image) override;
+		void set_window_icon(const PaintCore::Color* pixels, int width,
+		                     int height) override;
 		void poll_events() override;
 		bool quit_requested() const override { return m_quit_requested; }
 		void clear_quit_request() override { m_quit_requested = false; }
@@ -46,6 +48,7 @@ class SDLRendererBackend : public IGuiBackend
 
 		SDL_Window* m_window = nullptr;
 		SDL_Renderer* m_renderer = nullptr;
+		SDL_Surface* m_window_icon = nullptr;
 		std::unordered_map<void*, SDL_Texture*> m_textures;
 		bool m_imgui_ready = false;
 		bool m_quit_requested = false;

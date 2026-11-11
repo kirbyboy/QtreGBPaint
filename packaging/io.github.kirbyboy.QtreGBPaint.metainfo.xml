@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.kirbyboy.QtreGBPaint</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>QtreGBPaint</name>
+  <summary>Pixel-art paint program with retro handheld-inspired palettes</summary>
+  <description>
+    <p>
+      QtreGBPaint is a small pixel-art paint program in the spirit of classic
+      MS Paint, with indexed palettes inspired by classic retro handheld
+      consoles.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Indexed images from 1 to 8 bits per pixel.</li>
+      <li>Selection, brush, pencil, eraser, fill, line, curve, rectangle and circle tools.</li>
+      <li>Undo/redo, canvas resize and bits-per-pixel changes.</li>
+      <li>Indexed .idx files plus BMP and PNG export.</li>
+      <li>Transparency checkerboard, grid and zoom from 1x to 64x.</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.kirbyboy.QtreGBPaint.desktop</launchable>
+  <url type="homepage">https://github.com/kirbyboy/QtreGBPaint</url>
+  <url type="bugtracker">https://github.com/kirbyboy/QtreGBPaint/issues</url>
+  <developer id="io.github.kirbyboy">
+    <name>kirbiboy</name>
+  </developer>
+  <content_rating type="oars-1.1"/>
+  <categories>
+    <category>Graphics</category>
+    <category>2DGraphics</category>
+  </categories>
+  <keywords>
+    <keyword>pixel art</keyword>
+    <keyword>retro handheld</keyword>
+    <keyword>paint</keyword>
+    <keyword>indexed image</keyword>
+  </keywords>
+  <screenshots>
+    <screenshot type="default">
+      <image type="source">https://raw.githubusercontent.com/kirbyboy/QtreGBPaint/main/docs/screenshots/main.png</image>
+      <caption>QtreGBPaint main window</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source">https://raw.githubusercontent.com/kirbyboy/QtreGBPaint/main/docs/screenshots/about.png</image>
+      <caption>About QtreGBPaint</caption>
+    </screenshot>
+  </screenshots>
+  <releases>
+    <release version="0.9.1" date="2026-11-11">
+      <description>
+        <p>Packaged release with Debian and AppImage downloads.</p>
+        <ul>
+          <li>Window and desktop icon association fixed.</li>
+          <li>PaintFrontend implementation split by responsibility.</li>
+          <li>Project and asset licensing documented.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.9.0" date="2026-11-11">
+      <description>
+        <p>Initial public release.</p>
+      </description>
+    </release>
+  </releases>
+  <provides>
+    <binary>QtreGBPaint</binary>
+  </provides>
+</component>

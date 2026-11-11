@@ -9,7 +9,8 @@ en `tmp/backup/<yyyymmdd_hh24mmss>/`.
 
 ## Qué es
 
-Paint minimalista con paleta de Game Boy (documentos de 1 a 8 bpp). Base: Paint de Windows XP.
+Paint minimalista con paletas indexadas inspiradas en consolas portátiles retro
+(documentos de 1 a 8 bpp). Base: Paint de Windows XP.
 Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
 
 ## Licencia y marca
@@ -44,6 +45,7 @@ Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
   `rect_options.idx`, `selection_options.idx` y `fill_options.idx`, icono final
   `QtreGBPaint.png` (256×256 RGBA) y las licencias `LICENSE`/`LICENSE.es.md`.
 - `README.md`: presentación en inglés con características, build, uso, licencia y capturas; las imágenes están en `docs/screenshots/`.
+- `packaging/`: `.desktop`, icono, MIME XML, metadata AppStream, script de AppImage y script del `.deb`.
 - `tests/`: tests headless con doctest y `tests/Makefile` autónomo.
 - `lib/`: dependencias locales (imgui, doctest). `lib/ImGuiFileDialog` contiene ImGuiFileDialog v0.6.8 y su Makefile; el directorio no se versiona y se rellena con `make deps`.
 - `build/`: binarios debug y release generados por Makefile.
@@ -162,16 +164,17 @@ Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
 
 Repositorio: <https://github.com/kirbyboy/QtreGBPaint>
 
-Rama `main`, HEAD `1051b2b` ("Finishing app and added licenses"). Ese commit
-incluye el trabajo de las sesiones 2026-11-10/11: título/cierre/atajos, barra de
+Rama `main`, HEAD `95b72ed` ("Added dependencies"). Ese commit incluye el
+trabajo de las sesiones 2026-11-10/11: título/cierre/atajos, barra de
 estado/cuentagotas, menús/atajos, zoom anclado, Select All, Flip/Rotate de
 selección y de imagen, tema Light/Both/icono Outline, botones de toolbar sin
 fondo, transparencia de paleta, configuración `.ini`/geometría de ventana,
 recientes pulsables con corrección de rutas corruptas, cambio de bpp en
 Properties, exportación BMP/PNG, formatos de almacenamiento `.idx`, apertura
 desde `%f`/CLI, MIME por magic, guardado atómico, preview por tiles, damero con
-textura, About con logo PNG y la licencia CC0 de todos los assets. Último
-backup: `tmp/backup/20261111_153859/`.
+textura, About con logo PNG, la licencia CC0 de todos los assets, el README y
+el bootstrap de dependencias (`make deps`). Último backup:
+`tmp/backup/20261111_153859/`.
 
 - `IndexedImage` y formato `.idx` estricto; `ppm_image` eliminado.
 - Tests headless con doctest en `tests/` y su propio `Makefile`.
@@ -182,14 +185,19 @@ backup: `tmp/backup/20261111_153859/`.
 - Selección rectangular, región flotante y menú `Selection` con Copy, Cut,
   Paste e Invert Colors sobre `FloatingRegionEditor`/`PaintSession`.
 
-El `README.md`, las capturas de `docs/screenshots/`, la ampliación de
-`assets/LICENSE` a las capturas y el bootstrap de dependencias (`scripts/`,
-`Makefile`, `packaging/build_appimage.sh`, documentación) quedan **staged**
-pendientes del siguiente commit. Los artefactos ignorados son `compile_commands.json`, `deps*/`,
-`obj*/`, `build/`, `lib/`, `imgui.ini`, `tmp/` y `temp/`. Los assets
-`.idx`/`.ipx`, los tests y el código de rejilla/handles ya estaban versionados
-desde `7c0d30c`. `canvas.h`/`canvas.cpp` se renombraron a
-`canvas_document.h`/`canvas_document.cpp` con `git mv`.
+El empaquetado `.deb`/AppStream, el fallback de assets, el icono de
+ventana/class y la separación de `PaintFrontend`
+(`packaging/build_deb.sh`, `packaging/deb/`,
+`packaging/io.github.kirbyboy.QtreGBPaint.metainfo.xml`, `.desktop`, `Makefile`,
+`packaging/build_appimage.sh`, `src/main.cpp`, `src/core/ibackend.h`,
+`src/core/sdl_renderer_backend.*`, `src/paint/paint_frontend*.cpp` e
+`src/paint/paint_frontend_internal.h`) quedan **staged** pendientes del
+siguiente commit; README, AGENTS y HANDOFF se actualizan en el mismo bloque.
+Los artefactos ignorados son `compile_commands.json`, `deps*/`, `obj*/`,
+`build/`, `lib/`, `imgui.ini`, `tmp/` y `temp/`. Los assets `.idx`/`.ipx`, los
+tests y el código de rejilla/handles ya estaban versionados desde `7c0d30c`.
+`canvas.h`/`canvas.cpp` se renombraron a `canvas_document.h`/
+`canvas_document.cpp` con `git mv`.
 
 ## Pendiente inmediato
 
@@ -206,10 +214,10 @@ PaintSession”. El menú **File** (New/Open/Save/Save As) ya está implementado
 ImGuiFileDialog. El prompt al cerrar la ventana, los atajos `Ctrl+N/O/S` y el
 título con el nombre del archivo quedaron cerrados el 2026-11-10 (ver “Sesión
 2026-11-10 — Título de ventana, cierre y atajos”). Los modos binarios del
-`.idx`, el damero con textura y la licencia del icono (CC0 + marca) ya están
-cerrados; quedan como siguientes pasos el empaquetado `.deb`/AppStream y los
-pendientes de calidad del plan de cierre. Las herramientas **Line**, **Pencil**,
-**Brush**, **Eraser**, **Fill**, **Curve** y **Pick Color** ya están cerradas; Fill usa un scanline
+`.idx`, el damero con textura, la licencia del icono (CC0 + marca) y el
+empaquetado `.deb`/AppStream ya están cerrados; quedan los pendientes de
+calidad del plan de cierre. Las herramientas **Line**, **Pencil**, **Brush**,
+**Eraser**, **Fill**, **Curve** y **Pick Color** ya están cerradas; Fill usa un scanline
 flood fill por spans (`inc/core/fill.h`), Pick Color vuelve a la última tool de
 edición tras muestrear y Curve usa una Bézier cúbica con handles y edición
 pendiente (`inc/core/bezier.h`, `ToolBase::EditOverlay`). Line y Curve comparten
@@ -237,6 +245,9 @@ make          # debug
 make release  # release
 make test     # tests headless
 make run      # ejecutar debug
+make deb      # paquete Debian 0.9.1
+make appimage # AppImage 0.9.1
+make release-assets # ambos + SHA256SUMS-0.9.1
 make clean    # limpiar todo
 ```
 
@@ -1448,10 +1459,11 @@ colores reflejado en el canvas) y capturas
   `linuxdeploy` omite por defecto. Tamaño resultante: **10.381.816 bytes
   (~9,9 MiB)**; sin esas dos librerías eran **9.435.640 bytes (~9,0 MiB)**.
   Probado en el equipo: arranca y carga los assets.
-- **Pendiente para una entrega real.** AppStream metadata, compilar en una base
-  más antigua (Ubuntu 22.04) para compatibilidad de glibc y revisar licencias
-  de terceros. El antiguo pendiente de mover `imgui.ini` a
-  `$XDG_CONFIG_HOME` quedó resuelto en la sesión de configuración `.ini`.
+- **Pendiente para una entrega real.** AppStream metadata (resuelto el
+  2026-11-11), compilar en una base más antigua (Ubuntu 22.04) para
+  compatibilidad de glibc y revisar licencias de terceros. El antiguo pendiente
+  de mover `imgui.ini` a `$XDG_CONFIG_HOME` quedó resuelto en la sesión de
+  configuración `.ini`.
 
 ## Sesión 2026-11-10 — Título de ventana, cierre y atajos
 
@@ -2095,8 +2107,8 @@ colores reflejado en el canvas) y capturas
 
 - **README.** Nuevo `README.md` en inglés con descripción, características,
   build, tests, uso, alcance, estructura, licencia y créditos. Capturas en
-  `docs/screenshots/main.png` (ventana principal con un Game Boy dibujado) y
-  `about.png` (modal About). `assets/LICENSE` amplía su alcance a
+  `docs/screenshots/main.png` (ventana principal con una consola portátil
+  dibujada) y `about.png` (modal About). `assets/LICENSE` amplía su alcance a
   `docs/screenshots/`.
 - **Limpieza.** Eliminado `data/` (no contenía nada útil); `HANDOFF.md` ya no
   lo menciona.
@@ -2126,6 +2138,82 @@ colores reflejado en el canvas) y capturas
   copia limpia sin `lib/`: `make deps`, `make` y `make -C tests test-circle`
   pasan; el binario se enlaza con los dos `.a` generados.
 
+## Sesión 2026-11-11 — Paquete .deb, AppStream y fallback de assets
+
+- **Versión.** Paquete `qtregbpaint` **0.9.0**, app-id
+  `io.github.kirbyboy.QtreGBPaint`, maintainer
+  `kirbiboy <kirbiboy@users.noreply.github.com>`. Es un paquete binario para
+  adjuntar a una release de GitHub, no para el archivo oficial de Debian.
+- **Empaquetado.** Nuevo `packaging/build_deb.sh` y target `make deb`: usa
+  `dpkg-deb` directo (sin debhelper), construye el release, instala binario,
+  assets, `.desktop`, icono, MIME XML, metadata AppStream y documentación en
+  `/usr/share/doc/qtregbpaint`. Añade scripts `postinst`/`postrm` para
+  actualizar MIME, escritorio e iconos.
+- **AppStream.** Nuevo
+  `packaging/io.github.kirbyboy.QtreGBPaint.metainfo.xml` con resumen,
+  descripción, licencias, URLs, capturas, categorías y release 0.9.0. Valida
+  con `appstreamcli validate --no-net`.
+- **Assets.** `main` resuelve ahora `assets` en este orden: junto al
+  ejecutable, `../assets` (build/AppImage), `../share/qtregbpaint/assets`
+  (instalación en `/usr/bin`) y rutas absolutas de `/usr/share` y
+  `/usr/local/share`, con `assets` como último recurso. El `.deb` instala en
+  `/usr/share/qtregbpaint/assets`.
+- **AppImage.** Copia el `.desktop` con el ID de AppStream y añade la metadata
+  a `usr/share/metainfo`.
+- **Icono de ventana.** `IGuiBackend::set_window_icon` recibe el logo RGBA y
+  `SDLRendererBackend` lo convierte en una superficie de 64×64 (los iconos
+  mayores no llegan a `_NET_WM_ICON` en X11) y llama a `SDL_SetWindowIcon`.
+  `SDL_VIDEO_X11_WMCLASS` y `SDL_VIDEO_WAYLAND_WMCLASS` fijan el class/app_id
+  a `io.github.kirbyboy.QtreGBPaint`, y el `.desktop` declara
+  `StartupWMClass=io.github.kirbyboy.QtreGBPaint`. Así el dock asocia la
+  ventana con el icono del `.desktop`; en Wayland se comprobó con
+  `WAYLAND_DEBUG=1` que se envía el `set_app_id` correcto.
+- **Verificación.** `make deb` genera
+  `build/qtregbpaint_0.9.0_amd64.deb`; se extrajo con `dpkg-deb -x`, se
+  revisaron los archivos instalados y el binario extraído arrancó con
+  `SDL_VIDEODRIVER=dummy` durante 2 s. `desktop-file-validate` y
+  `appstreamcli validate --no-net` pasan.
+
+## Sesión 2026-11-11 — Separación de PaintFrontend
+
+- **Motivo.** `paint_frontend.cpp` había llegado a ~2.370 líneas y mezclaba
+  layout/render, menús, modales, operaciones de archivo, exportación y
+  acciones de selección/zoom.
+- **Reparto.** La clase y la API pública no cambian; solo se reparten las
+  implementaciones en `src/paint/`:
+  - `paint_frontend.cpp`: ciclo de vida, tema, layout, canvas, toolbar,
+    opciones, paleta, barra de estado y helpers de render.
+  - `paint_frontend_menu.cpp`: barra de menús.
+  - `paint_frontend_dialogs.cpp`: modales (About, Properties, Flip/Rotate),
+    atajos globales y diálogos de archivo.
+  - `paint_frontend_file.cpp`: New/Open/Save/Save As, exportación, recientes,
+    cierre y errores.
+  - `paint_frontend_actions.cpp`: selección, Select All, Properties,
+    Flip/Rotate y zoom.
+  - `paint_frontend_helpers.cpp` y `paint_frontend_internal.h`: helpers
+    compartidos (extensiones, rutas, tamaños y descripciones de formato).
+- **Render.** `render()` llama a `renderMenuBar()`, luego a `renderDialogs()` y
+  mantiene `renderFileDialogs()` al final, con el mismo orden de ejecución que
+  antes. El comportamiento de menús, atajos y modales no cambia.
+- **Verificación.** Build debug/release; suite normal y `test-full`; **42
+  smokes** en verde, incluidos `about`, `menus`, `shortcuts`, `file`, `export`,
+  `idx_options` y `selection`.
+
+## Sesión 2026-11-11 — Release 0.9.1
+
+- **Versión.** Release `0.9.1`: AppStream, `README`, `AGENTS`, `HANDOFF`,
+  `build_deb.sh` y `build_appimage.sh` actualizados. La primera release
+  empaquetada fue `0.9.0`.
+- **Artefactos.** Nuevo `packaging/build_release_assets.sh` y target
+  `make release-assets`: construye el `.deb`, el AppImage versionado y
+  `build/SHA256SUMS-0.9.1`. El AppImage pasa a llamarse
+  `QtreGBPaint-0.9.1-x86_64.AppImage`.
+- **Notas.** `packaging/RELEASE_NOTES_0.9.1.md` contiene descargas,
+  instalación, verificación y cambios para publicar en GitHub.
+- **Verificación.** `make release-assets` genera los tres archivos;
+  `appstreamcli validate --no-net`, `desktop-file-validate`, `make test` y los
+  42 smokes siguen en verde.
+
 ## Plan de cierre — 2026-11-10
 
 Orden acordado para las próximas sesiones:
@@ -2136,9 +2224,14 @@ Orden acordado para las próximas sesiones:
    - [x] MIME: tipo propio `application/x-qtregbpaint-index` detectado por
      **magic** (`IndexedImage` al inicio), sin reclamar `*.idx`. XML en
      `packaging/qtregbpaint.xml`; el `.desktop` lo declara.
-   - [ ] Empaquetado `.deb` y metadata AppStream. `app-id` propuesto:
-     `io.github.kirbyboy.QtreGBPaint`; falta decidir la versión inicial. No hay
-     web propia: usar el repositorio como URL.
+   - [x] Empaquetado `.deb` y metadata AppStream. Versión actual `0.9.1`
+     (primera release `0.9.0`); `app-id`
+     `io.github.kirbyboy.QtreGBPaint`; maintainer
+     `kirbiboy <kirbiboy@users.noreply.github.com>`. `make release-assets`
+     genera `build/qtregbpaint_0.9.1_amd64.deb`,
+     `build/QtreGBPaint-0.9.1-x86_64.AppImage` y
+     `build/SHA256SUMS-0.9.1`; los assets se instalan en
+     `/usr/share/qtregbpaint/assets` y `main` los resuelve también desde ahí.
    - [x] Licencia de código: `GPL-3.0-or-later` en `LICENSE.txt`, con aviso de
      marca separado en `TRADEMARK.md` y avisos de terceros en
      `THIRD_PARTY_NOTICES.md`. Titular público: «the QtreGBPaint project»;
@@ -2166,7 +2259,10 @@ Orden acordado para las próximas sesiones:
      (`inc/paint/checkerboard.h`, `src/paint/checkerboard.cpp`) dibuja quads
      de 256×256 con el patrón anclado al origen de la imagen; si falla la
      textura, se conserva el dibujo por celdas.
-   - [ ] Separar `PaintFrontend` (menús, diálogos y exportación) en archivos.
+   - [x] Separar `PaintFrontend` (menús, diálogos y exportación) en archivos:
+     `paint_frontend.cpp` (núcleo/render), `paint_frontend_menu.cpp`,
+     `paint_frontend_dialogs.cpp`, `paint_frontend_file.cpp`,
+     `paint_frontend_actions.cpp` y `paint_frontend_helpers.cpp`.
    - [ ] Añadir CI (`test-full` + smokes); requiere un bootstrap versionado de
      `lib/` porque esas dependencias no están en git. El bootstrap ya existe:
      `make deps` / `scripts/bootstrap_deps.sh`, con imgui

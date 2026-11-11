@@ -1,7 +1,11 @@
 #include <SDL.h>
+#include <algorithm>
 #include <cstdio>
+#include <filesystem>
 #include <memory>
 #include <string>
+#include <system_error>
+#include <vector>
 
 #include "core/ibackend.h"
 #include "core/imgui_manager.h"
@@ -10,6 +14,7 @@
 #include "paint/palette.h"
 #include "paint/paint_backend.h"
 #include "paint/paint_frontend.h"
+#include "paint/png_image.h"
 #include "tools/brush_tool.h"
 #include "tools/circle_tool.h"
 #include "tools/curve_tool.h"
@@ -20,6 +25,77 @@
 #include "tools/pick_color_tool.h"
 #include "tools/selection_tool.h"
 #include "tools/square_tool.h"
+
+namespace
+{
+bool asset_directory_has_logo(const std::string& directory)
+{
+	std::error_code error;
+	return std::filesystem::is_regular_file(
+		std::filesystem::path(directory) / "QtreGBPaint.png", error);
+}
+
+// Search the layouts used by the build tree, AppImage and a system install.
+std::string resolve_asset_base()
+{
+	std::vector<std::string> candidates;
+	if (char* base_path = SDL_GetBasePath())
+	{
+		const std::string base(base_path);
+		SDL_free(base_path);
+		candidates.push_back(base + "assets");
+		candidates.push_back(base + "../assets");
+		candidates.push_back(base + "../share/qtregbpaint/assets");
+	}
+	candidates.push_back("/usr/share/qtregbpaint/assets");
+	candidates.push_back("/usr/local/share/qtregbpaint/assets");
+	candidates.push_back("assets");
+
+	for (const std::string& candidate : candidates)
+	{
+		if (asset_directory_has_logo(candidate))
+		{
+			return candidate;
+		}
+	}
+	return "assets";
+}
+// Some X11 window managers reject very large _NET_WM_ICON properties, so the
+// window icon is downscaled to a size that works everywhere. The About dialog
+// still uses the full-resolution PNG.
+PaintCore::RgbaImage make_window_icon(const PaintCore::RgbaImage& source,
+                                      int max_size)
+{
+	if (source.width <= 0 || source.height <= 0 || source.pixels.empty() ||
+	    max_size <= 0 ||
+	    (source.width <= max_size && source.height <= max_size))
+	{
+		return source;
+	}
+
+	const int longest = std::max(source.width, source.height);
+	const int width = std::max(1, source.width * max_size / longest);
+	const int height = std::max(1, source.height * max_size / longest);
+	PaintCore::RgbaImage icon;
+	icon.width = width;
+	icon.height = height;
+	icon.pixels.resize(static_cast<std::size_t>(width) *
+	                   static_cast<std::size_t>(height));
+	for (int y = 0; y < height; ++y)
+	{
+		const int source_y = y * source.height / height;
+		for (int x = 0; x < width; ++x)
+		{
+			const int source_x = x * source.width / width;
+			icon.pixels[static_cast<std::size_t>(y) * width + x] =
+				source.pixels[static_cast<std::size_t>(source_y) *
+				                  source.width +
+				              source_x];
+		}
+	}
+	return icon;
+}
+} // namespace
 
 int main(int argc, char** argv)
 {
@@ -32,11 +108,21 @@ int main(int argc, char** argv)
 	backend.init_with_geometry(config.window);
 
 	// Robust asset path (relative to the executable, not the cwd).
-	std::string assetBase = "assets";
-	if (char* basePath = SDL_GetBasePath())
+	const std::string assetBase = resolve_asset_base();
+
+	// Give the window a real icon. Wayland compositors normally use the
+	// application id instead; both paths point to the same desktop entry.
+	PaintCore::RgbaImage window_icon;
+	std::string window_icon_error;
+	if (PaintCore::load_png_rgba(assetBase + "/QtreGBPaint.png", window_icon,
+	                             window_icon_error))
 	{
-		assetBase = std::string(basePath) + "../assets";
-		SDL_free(basePath);
+		const PaintCore::RgbaImage icon = make_window_icon(window_icon, 64);
+		backend.set_window_icon(icon.pixels.data(), icon.width, icon.height);
+	}
+	else
+	{
+		std::fprintf(stderr, "Window icon: %s\n", window_icon_error.c_str());
 	}
 
 	PaintBackend resources(&backend);

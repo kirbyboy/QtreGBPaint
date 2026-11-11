@@ -4,9 +4,9 @@ Guía para agentes que trabajen en este repositorio.
 
 ## Proyecto
 
-`QtreGBPaint` es una aplicación de pintura (estilo Paint de Windows XP) con paleta
-limitada a los colores de Game Boy. Genera imágenes indexadas de 1 a 8 bpp. Usa
-ImGui + SDL2, con abstracciones para backends.
+La aplicación es un editor de pixel art con paletas indexadas inspiradas en
+consolas portátiles retro; genera imágenes de 1 a 8 bpp. Usa ImGui + SDL2, con
+abstracciones para backends.
 
 El código se distribuye bajo `GPL-3.0-or-later` (`LICENSE.txt`). La marca y el
 icono se rigen por `TRADEMARK.md`; los assets visuales originales
@@ -23,7 +23,7 @@ marca. Las licencias de terceros están en `THIRD_PARTY_NOTICES.md`.
 - `scripts/`: `bootstrap_deps.sh` y los Makefiles de las dependencias locales.
 - `lib/`: dependencias locales (imgui, doctest, ImGuiFileDialog) - ignoradas por git.
 - `tests/`: tests headless con doctest y su propio `Makefile`.
-- `packaging/`: `.desktop`, icono, MIME XML (magic `IndexedImage`) y script de AppImage.
+- `packaging/`: `.desktop`, icono, MIME XML (magic `IndexedImage`), metadata AppStream, script de AppImage y script del `.deb`.
 - `README.md`: presentación en inglés, características, build, uso, licencia y capturas; `docs/screenshots/` contiene las imágenes del README.
 - `LICENSE.txt`, `assets/LICENSE`/`.es.md`, `TRADEMARK.md`/`.es.md` y `THIRD_PARTY_NOTICES.md`/`.es.md`: licencia GPL-3.0-or-later, licencia CC0 de los assets, política de marca y avisos de terceros.
 - `build/`: binarios debug y release generados por Makefile.
@@ -38,7 +38,9 @@ make                    # debug: build/QtreGBPaint
 make release            # release: build/QtreGBPaint-release
 make run                # ejecuta el binario debug
 make run-release        # ejecuta el binario release
-make appimage           # AppImage en build/QtreGBPaint-x86_64.AppImage
+make appimage           # AppImage en build/QtreGBPaint-0.9.1-x86_64.AppImage
+make deb                # paquete Debian en build/qtregbpaint_0.9.1_amd64.deb
+make release-assets     # .deb + AppImage + build/SHA256SUMS-0.9.1
 make -j"$(nproc)" test  # suite normal, en paralelo
 make -j"$(nproc)" test-full  # normal + ASAN + UBSAN + sanitize
 make test-asan          # tests con AddressSanitizer
@@ -349,7 +351,11 @@ La separación del lienzo es:
   fuente de verdad para previews y commits.
 - `PaintFrontend` es la vista/controller ImGui: layout, menús, toolbar, canvas y
   panel de paleta. Solo conserva estado transitorio de vista (zoom, rejilla,
-  popups y campos de diálogo).
+  popups y campos de diálogo). La implementación está dividida en
+  `paint_frontend.cpp` (núcleo/render), `paint_frontend_menu.cpp`,
+  `paint_frontend_dialogs.cpp`, `paint_frontend_file.cpp`,
+  `paint_frontend_actions.cpp` y `paint_frontend_helpers.cpp`; la API pública
+  sigue en `inc/paint/paint_frontend.h`.
 - `CanvasArea` recibe `PaintSession&` del backend; no la posee. Las tools reciben
   `PaintSession&`, no `CanvasDocument&`. La imagen se sube como tiles de 256×256
   (`paint/canvas_tile_grid.h`) con cache de la zona visible más un margen de un
@@ -446,6 +452,16 @@ el scroll y el frontend lo aplica con `SetNextWindowContentSize()` +
 `SetNextWindowScroll()` en el frame siguiente. `CanvasArea::mouse_over_canvas()`
 evita mostrar coordenadas/color de imagen cuando el puntero está sobre la barra
 de estado, la paleta o los scrollbars.
+El paquete Debian `0.9.1` se genera con `make deb` (`packaging/build_deb.sh`):
+instala el binario en `/usr/bin`, los assets en `/usr/share/qtregbpaint/assets`,
+el `.desktop`, el icono, el MIME XML y la metadata AppStream en
+`io.github.kirbyboy.QtreGBPaint.metainfo.xml`. `main::resolve_asset_base()`
+busca los assets junto al ejecutable, en `../assets`, en
+`../share/qtregbpaint/assets`, en `/usr/share/qtregbpaint/assets` y en
+`/usr/local/share/qtregbpaint/assets`. El icono de ventana se sube con
+`SDL_SetWindowIcon` (64×64; X11 rechaza iconos mayores) y el class/app_id es
+`io.github.kirbyboy.QtreGBPaint`, que coincide con el `.desktop` y su
+`StartupWMClass`.
 Tests actuales: 269 casos y 9780 aserciones (normal); `test-full` suma
 1076 casos y 39120 aserciones. Smokes: 42 en verde. Revisar `HANDOFF.md` y
 `git diff` antes de tocar estos archivos.

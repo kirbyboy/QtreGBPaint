@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
 Name=QtreGBPaint
-Comment=Game Boy palette paint
+Comment=Retro handheld palette paint
 Exec=QtreGBPaint %f
 Icon=qtregbpaint
 Terminal=false
 Categories=Graphics;2DGraphics;
-Homepage=https://github.com/kirbyboy/QtreGBPaint
+StartupWMClass=io.github.kirbyboy.QtreGBPaint
 MimeType=application/x-qtregbpaint-index;

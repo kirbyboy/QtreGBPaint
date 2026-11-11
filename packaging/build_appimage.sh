@@ -10,9 +10,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VERSION="${VERSION:-0.9.1}"
 TOOLS_DIR="${TOOLS_DIR:-$ROOT_DIR/temp/appimage-tools}"
 APPDIR="${APPDIR:-$ROOT_DIR/temp/appimage/QtreGBPaint.AppDir}"
-OUTPUT="${OUTPUT:-$ROOT_DIR/build/QtreGBPaint-x86_64.AppImage}"
+OUTPUT="${OUTPUT:-$ROOT_DIR/build/QtreGBPaint-${VERSION}-x86_64.AppImage}"
 LINUXDEPLOY="${LINUXDEPLOY:-$TOOLS_DIR/linuxdeploy-x86_64.AppImage}"
 APPIMAGETOOL="${APPIMAGETOOL:-$TOOLS_DIR/appimagetool-x86_64.AppImage}"
 CXX="${CXX:-g++}"
@@ -42,15 +43,18 @@ rm -rf "$APPDIR"
 mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/assets"
 cp "$ROOT_DIR/build/QtreGBPaint-release" "$APPDIR/usr/bin/QtreGBPaint"
 cp -a "$ROOT_DIR/assets/." "$APPDIR/usr/assets/"
-cp "$ROOT_DIR/packaging/qtregbpaint.desktop" "$APPDIR/"
+cp "$ROOT_DIR/packaging/qtregbpaint.desktop" \
+	"$APPDIR/io.github.kirbyboy.QtreGBPaint.desktop"
 cp "$ROOT_DIR/packaging/qtregbpaint.png" "$APPDIR/"
-mkdir -p "$APPDIR/usr/share/mime/packages"
+mkdir -p "$APPDIR/usr/share/mime/packages" "$APPDIR/usr/share/metainfo"
 cp "$ROOT_DIR/packaging/qtregbpaint.xml" "$APPDIR/usr/share/mime/packages/"
+cp "$ROOT_DIR/packaging/io.github.kirbyboy.QtreGBPaint.metainfo.xml" \
+	"$APPDIR/usr/share/metainfo/"
 
 "$LINUXDEPLOY" --appimage-extract-and-run \
     --appdir "$APPDIR" \
     --executable "$APPDIR/usr/bin/QtreGBPaint" \
-    --desktop-file "$APPDIR/qtregbpaint.desktop" \
+    --desktop-file "$APPDIR/io.github.kirbyboy.QtreGBPaint.desktop" \
     --icon-file "$APPDIR/qtregbpaint.png"
 
 # linuxdeploy excludes these two by default, but they are needed on systems
