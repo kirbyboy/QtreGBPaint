@@ -163,7 +163,8 @@ int run()
 		}
 		else if (frame == 4)
 		{
-			CHECK(ImGui::FindWindowByName("Properties") != nullptr);
+			CHECK(ImGui::FindWindowByName(
+				"Properties###properties") != nullptr);
 			CHECK(h.frontend.m_canvas_area.session().getWidth() == 256);
 			CHECK(h.frontend.m_canvas_area.session().getHeight() == 256);
 		}

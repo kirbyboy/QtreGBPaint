@@ -158,7 +158,7 @@ int run()
 	push_quit();
 	CHECK(render_frame(h) == false);
 	CHECK(!h.backend.quit_requested());
-	CHECK(!window_exists("Unsaved Changes"));
+	CHECK(!window_exists("Unsaved Changes###unsaved_changes"));
 
 	// The real app exits here; the smoke keeps the harness alive for the next
 	// scenario, so clear the close flag explicitly.
@@ -177,7 +177,7 @@ int run()
 
 	push_quit();
 	CHECK(render_frame(h) == true);
-	CHECK(window_exists("Unsaved Changes"));
+	CHECK(window_exists("Unsaved Changes###unsaved_changes"));
 	CHECK(h.frontend.m_pending_file_action ==
 	      PaintFrontend::FileAction::Quit);
 

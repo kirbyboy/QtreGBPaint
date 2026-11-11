@@ -13,6 +13,10 @@
 #include "paint/paint_frontend.h"
 #include "paint/checkerboard.h"
 #include "paint/color_imgui.h"
+#include "paint/i18n.h"
+#include "paint/ui_roles.h"
+#include "paint/ui_tokens.h"
+#include "paint/ui_widgets.h"
 #include "paint/window_title.h"
 #include "tools/tool_option.h"
 
@@ -20,17 +24,8 @@ using namespace std;
 
 namespace
 {
-constexpr float kToolButtonSize = 32.0f;
 constexpr int kToolbarColumns = 2;
-constexpr float kToolOptionsHeight = 116.0f;
-constexpr float kToolOptionIconWidth = 60.0f;
-constexpr float kToolOptionIconHeight = 16.0f;
-constexpr float kToolOptionRowHeight = 24.0f;
 constexpr float kCanvasResizeMargin = 12.0f;
-constexpr float kPaletteColorSize = 50.0f;
-constexpr float kSwatchSize = 28.0f;
-constexpr float kSwatchGap = 6.0f;
-constexpr float kSwatchBevel = 2.0f;
 constexpr int kPaletteReferenceCells = 10;
 constexpr int kPaletteSingleRowLimit = 16;
 constexpr float kMinCanvasWidth = 256.0f;
@@ -83,8 +78,8 @@ void draw_choice_preview(ImDrawList* draw_list,
 	const float cell_width = cell_max.x - cell_min.x;
 	const float cell_height = cell_max.y - cell_min.y;
 	const float requested_scale = std::min(
-		(cell_width - 4.0f) / reference_extent,
-		(cell_height - 4.0f) / reference_extent);
+		(cell_width - PaintUi::Space::kXs) / reference_extent,
+		(cell_height - PaintUi::Space::kXs) / reference_extent);
 	const float scale = std::max(1.0f, std::floor(requested_scale));
 	const float width = (max_x - min_x + 1) * scale;
 	const float height = (max_y - min_y + 1) * scale;
@@ -115,15 +110,15 @@ ToolbarLayout compute_toolbar_layout(int toolCount, const ImGuiStyle& style)
 	const float rowGap = style.ItemSpacing.y;
 
 	const float toolsWidth =
-		kToolButtonSize * kToolbarColumns +
+		PaintUi::Size::kToolButton * kToolbarColumns +
 		columnGap * (kToolbarColumns - 1);
 	const float toolsHeight =
-		rows > 0 ? rows * kToolButtonSize + (rows - 1) * rowGap : 0.0f;
+		rows > 0 ? rows * PaintUi::Size::kToolButton + (rows - 1) * rowGap : 0.0f;
 
 	const float contentHeight =
 		style.WindowPadding.y * 2.0f +
 		(rows > 0 ? toolsHeight + rowGap : 0.0f) +
-		kToolOptionsHeight;
+		PaintUi::Size::kToolOptionsHeight;
 
 	return ToolbarLayout{
 		toolsWidth + style.WindowPadding.x * 2.0f,
@@ -133,13 +128,13 @@ ToolbarLayout compute_toolbar_layout(int toolCount, const ImGuiStyle& style)
 
 float compute_palette_grid_width(const ImGuiStyle& style)
 {
-	return kPaletteReferenceCells * kPaletteColorSize +
+	return kPaletteReferenceCells * PaintUi::Size::kPaletteColor +
 		(kPaletteReferenceCells - 1) * style.ItemSpacing.x;
 }
 
 float compute_palette_panel_width(const ImGuiStyle& style)
 {
-	return kPaletteColorSize + style.ItemSpacing.x +
+	return PaintUi::Size::kPaletteColor + style.ItemSpacing.x +
 		compute_palette_grid_width(style) +
 		style.WindowPadding.x * 2.0f;
 }
@@ -157,7 +152,7 @@ int palette_column_count(int colorCount, int rows)
 float compute_palette_height(const ImGuiStyle& style)
 {
 	return style.WindowPadding.y * 2.0f +
-		kPaletteColorSize + style.ItemSpacing.y +
+		PaintUi::Size::kPaletteColor + style.ItemSpacing.y +
 		ImGui::GetFrameHeight();
 }
 
@@ -205,7 +200,7 @@ void PaintFrontend::draw_checkerboard(ImDrawList* draw_list, const ImVec2& min,
 		return;
 	}
 
-	PaintUi::draw_checkerboard(draw_list, min, max, 4.0f, origin);
+	PaintUi::draw_checkerboard(draw_list, min, max, PaintUi::Space::kXs, origin);
 }
 
 void PaintFrontend::select_tool(const std::string& name)
@@ -219,6 +214,21 @@ void PaintFrontend::open_initial_file(const std::string& path)
 	{
 		open_recent_path(path);
 	}
+}
+
+void PaintFrontend::set_language(const std::string& language)
+{
+	m_language = language.empty() ? "system" : language;
+	i18n::set_locale(m_language);
+}
+
+std::string PaintFrontend::document_display_name() const
+{
+	if (m_backend.has_file_path())
+	{
+		return m_backend.file_display_name();
+	}
+	return i18n::tr("Untitled");
 }
 
 void PaintFrontend::set_theme(Theme theme)
@@ -274,7 +284,7 @@ bool PaintFrontend::render()
 
 	const std::string windowTitle =
 		PaintCore::make_window_title(
-			m_backend.file_display_name(), m_backend.is_modified()) +
+			document_display_name(), m_backend.is_modified()) +
 		"###QtreGBPaintMain";
 
 	// Full window with menu bar
@@ -398,37 +408,8 @@ void PaintFrontend::renderToolbar()
 		}
 
 		const bool active = (m_backend.activeButton() == btn.name);
-		// Inactive tools blend with the toolbar background; only the selected
-		// tool keeps the theme's ButtonActive blue. Hover/press use a neutral
-		// translucent text color instead of ImGui's button background.
-		ImU32 button_color = IM_COL32(0, 0, 0, 0);
-		ImU32 hover_color = ImGui::GetColorU32(ImGuiCol_Text, 0.08f);
-		ImU32 pressed_color = ImGui::GetColorU32(ImGuiCol_Text, 0.14f);
-		if (active)
-		{
-			const ImU32 active_color = ImGui::GetColorU32(ImGuiCol_ButtonActive);
-			button_color = active_color;
-			hover_color = active_color;
-			pressed_color = active_color;
-		}
-		ImGui::PushStyleColor(ImGuiCol_Button, button_color);
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hover_color);
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, pressed_color);
-
-		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 0.0f));
-		const ImVec2 buttonSize(kToolButtonSize, kToolButtonSize);
-		const bool clicked = btn.icon
-			? ImGui::ImageButton(btn.name.c_str(), btn.icon, buttonSize)
-			: ImGui::Button(btn.name.c_str(), buttonSize);
-		ImGui::PopStyleVar();
-		ImGui::PopStyleColor(3);
-
-		if (ImGui::IsItemHovered())
-		{
-			ImGui::SetTooltip("%s", btn.name.c_str());
-		}
-
-		if (clicked)
+		if (PaintUi::tool_button(btn.name.c_str(), btn.icon, active,
+		                         i18n::tr(btn.name.c_str())))
 		{
 			select_tool(btn.name);
 		}
@@ -438,7 +419,7 @@ void PaintFrontend::renderToolbar()
 
 	ImGui::Spacing();
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 8.0f));
-	ImGui::BeginChild("ToolOptions", ImVec2(0.0f, kToolOptionsHeight), true,
+	ImGui::BeginChild("ToolOptions", ImVec2(0.0f, PaintUi::Size::kToolOptionsHeight), true,
 	                  ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 	renderToolOptions();
 	ImGui::EndChild();
@@ -501,7 +482,7 @@ void PaintFrontend::renderToolOptions()
 					const ImVec2 grid_pos = ImGui::GetCursorScreenPos();
 					const float grid_width = ImGui::GetContentRegionAvail().x;
 					const float cell_width = grid_width / columns;
-					const float cell_height = kToolOptionRowHeight;
+					const float cell_height = PaintUi::Size::kToolOptionRow;
 
 					float reference_extent = 1.0f;
 					for (const ToolOptionChoice& choice : option.choices)
@@ -522,54 +503,40 @@ void PaintFrontend::renderToolOptions()
 							cell_min.x + cell_width,
 							cell_min.y + cell_height);
 
-						ImGui::SetCursorScreenPos(cell_min);
 						ImGui::PushID(choice.value);
-						ImGui::InvisibleButton(
-							"##option_cell", ImVec2(cell_width, cell_height));
-						const bool clicked = ImGui::IsItemClicked();
-						const bool hovered = ImGui::IsItemHovered();
+						const PaintUi::OptionCellState state =
+							PaintUi::option_cell(
+								"##option_cell", cell_min,
+								ImVec2(cell_width, cell_height),
+								option.value == choice.value);
 
-						if (clicked)
+						if (state.clicked)
 						{
 							tool->set_option(option.id, choice.value);
 						}
 
 						ImDrawList* draw_list = ImGui::GetWindowDrawList();
-						const bool selected = (option.value == choice.value);
-						if (selected)
-						{
-							draw_list->AddRectFilled(
-								cell_min, cell_max,
-								ImGui::GetColorU32(ImGuiCol_HeaderActive, 0.65f));
-						}
-						else if (hovered)
-						{
-							draw_list->AddRectFilled(
-								cell_min, cell_max, IM_COL32(255, 255, 255, 18));
-						}
-
 						if (!choice.preview.empty())
 						{
 							draw_choice_preview(
 								draw_list, choice.preview, cell_min, cell_max,
-								reference_extent,
-								ImGui::GetColorU32(ImGuiCol_Text));
+								reference_extent, PaintUi::Roles::text());
 						}
 						else
 						{
 							const ImVec2 text_size =
-								ImGui::CalcTextSize(choice.short_label.c_str());
+								ImGui::CalcTextSize(i18n::tr(choice.short_label.c_str()));
 							const ImVec2 text_pos(
 								cell_min.x + (cell_width - text_size.x) * 0.5f,
 								cell_min.y + (cell_height - text_size.y) * 0.5f);
 							draw_list->AddText(
-								text_pos, ImGui::GetColorU32(ImGuiCol_Text),
-								choice.short_label.c_str());
+								text_pos, PaintUi::Roles::text(),
+								i18n::tr(choice.short_label.c_str()));
 						}
 
-						if (hovered)
+						if (state.hovered)
 						{
-							ImGui::SetTooltip("%s", choice.label.c_str());
+							ImGui::SetTooltip("%s", i18n::tr(choice.label.c_str()));
 						}
 
 						ImGui::PopID();
@@ -595,7 +562,7 @@ void PaintFrontend::renderToolOptions()
 				const bool icon_list =
 					!option.choices.empty() &&
 					option.choices.front().preview.empty();
-				float row_height = kToolOptionRowHeight;
+				float row_height = PaintUi::Size::kToolOptionRow;
 				if (!option.choices.empty())
 				{
 					const float available_height =
@@ -608,7 +575,7 @@ void PaintFrontend::renderToolOptions()
 								static_cast<float>(option.choices.size()));
 						row_height = icon_list
 							? distributed
-							: std::min(kToolOptionRowHeight, distributed);
+							: std::min(PaintUi::Size::kToolOptionRow, distributed);
 					}
 				}
 
@@ -619,29 +586,17 @@ void PaintFrontend::renderToolOptions()
 					const ImVec2 row_pos = ImGui::GetCursorScreenPos();
 					const ImVec2 row_size(ImGui::GetContentRegionAvail().x,
 					                      row_height);
-					ImGui::InvisibleButton("##option_row", row_size);
-					const bool clicked = ImGui::IsItemClicked();
-					const bool hovered = ImGui::IsItemHovered();
+					const PaintUi::OptionCellState state =
+						PaintUi::option_cell(
+							"##option_row", row_pos, row_size,
+							option.value == choice.value);
 
-					if (clicked)
+					if (state.clicked)
 					{
 						tool->set_option(option.id, choice.value);
 					}
 
 					ImDrawList* draw_list = ImGui::GetWindowDrawList();
-					const bool selected = (option.value == choice.value);
-					if (selected)
-					{
-						draw_list->AddRectFilled(
-							row_pos, ImVec2(row_pos.x + row_size.x, row_pos.y + row_size.y),
-							ImGui::GetColorU32(ImGuiCol_HeaderActive, 0.65f));
-					}
-					else if (hovered)
-					{
-						draw_list->AddRectFilled(
-							row_pos, ImVec2(row_pos.x + row_size.x, row_pos.y + row_size.y),
-							IM_COL32(255, 255, 255, 18));
-					}
 
 					if (!choice.preview.empty())
 					{
@@ -650,27 +605,27 @@ void PaintFrontend::renderToolOptions()
 							ImVec2(row_pos.x + row_size.x,
 							       row_pos.y + row_size.y),
 							list_reference_extent,
-							ImGui::GetColorU32(ImGuiCol_Text));
+							PaintUi::Roles::text());
 
 						const ImVec2 text_size =
-							ImGui::CalcTextSize(choice.short_label.c_str());
+							ImGui::CalcTextSize(i18n::tr(choice.short_label.c_str()));
 						const ImVec2 text_pos(
-							row_pos.x + row_size.x - text_size.x - 6.0f,
+							row_pos.x + row_size.x - text_size.x - PaintUi::Space::kSm,
 							row_pos.y + (row_size.y - text_size.y) * 0.5f);
 						draw_list->AddText(
-							text_pos, ImGui::GetColorU32(ImGuiCol_Text),
-							choice.short_label.c_str());
+							text_pos, PaintUi::Roles::text(),
+							i18n::tr(choice.short_label.c_str()));
 					}
 					else
 					{
 						const ImTextureID icon = m_backend.optionIcon(choice.icon);
 						const float icon_width = icon_list
-							? std::max(1.0f, row_size.x - 4.0f)
-							: std::min(kToolOptionIconWidth,
-							           std::max(1.0f, row_size.x - 4.0f));
+							? std::max(1.0f, row_size.x - PaintUi::Space::kXs)
+							: std::min(PaintUi::Size::kToolOptionIconWidth,
+							           std::max(1.0f, row_size.x - PaintUi::Space::kXs));
 						const float icon_height = icon_list
-							? std::max(1.0f, row_size.y - 4.0f)
-							: kToolOptionIconHeight;
+							? std::max(1.0f, row_size.y - PaintUi::Space::kXs)
+							: PaintUi::Size::kToolOptionIconHeight;
 						const ImVec2 icon_pos(
 							row_pos.x + (row_size.x - icon_width) * 0.5f,
 							row_pos.y + (row_size.y - icon_height) * 0.5f);
@@ -684,20 +639,20 @@ void PaintFrontend::renderToolOptions()
 						else
 						{
 							const ImVec2 text_size =
-								ImGui::CalcTextSize(choice.short_label.c_str());
+								ImGui::CalcTextSize(i18n::tr(choice.short_label.c_str()));
 							const ImVec2 text_pos(
 								row_pos.x + (row_size.x - text_size.x) * 0.5f,
 								row_pos.y + (row_size.y - text_size.y) * 0.5f);
 							draw_list->AddText(
 								text_pos,
-								ImGui::GetColorU32(ImGuiCol_Text),
-								choice.short_label.c_str());
+								PaintUi::Roles::text(),
+								i18n::tr(choice.short_label.c_str()));
 						}
 					}
 
-					if (hovered)
+					if (state.hovered)
 					{
-						ImGui::SetTooltip("%s", choice.label.c_str());
+						ImGui::SetTooltip("%s", i18n::tr(choice.label.c_str()));
 					}
 
 					ImGui::PopID();
@@ -715,7 +670,7 @@ void PaintFrontend::renderToolOptions()
 				}
 				if (ImGui::IsItemHovered())
 				{
-					ImGui::SetTooltip("%s", option.label.c_str());
+					ImGui::SetTooltip("%s", i18n::tr(option.label.c_str()));
 				}
 				break;
 			}
@@ -742,23 +697,20 @@ void PaintFrontend::renderPalette()
 	const float cellWidth =
 		(gridWidth - (columns - 1) * style.ItemSpacing.x) / columns;
 	const float rowGap = style.ItemSpacing.y;
-	const float gridHeight = kPaletteColorSize;
+	const float gridHeight = PaintUi::Size::kPaletteColor;
 	const float cellHeight = std::max(
 		1.0f, (gridHeight - (rows - 1) * rowGap) / rows);
 
 	const ImVec2 swatchPos = ImGui::GetCursorScreenPos();
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
-	const float swatchSize = kPaletteColorSize;
-	const ImU32 borderColor = ImGui::GetColorU32(ImGuiCol_Border);
-	const ImU32 bevelLight = IM_COL32(255, 255, 255, 255);
-	const ImU32 bevelDark = IM_COL32(0, 0, 0, 255);
+	const float swatchSize = PaintUi::Size::kPaletteColor;
 	const ImVec2 swatchEnd(
 		swatchPos.x + swatchSize,
 		swatchPos.y + swatchSize);
 
 	ImGui::InvisibleButton("##fg_bg_swatch", ImVec2(swatchSize, swatchSize));
 
-	auto draw_beveled_rect = [&](const ImVec2& pos, const ImVec2& end,
+	const auto draw_swatch = [&](const ImVec2& pos, const ImVec2& end,
 	                             ImU32 fill, bool transparent)
 	{
 		if (transparent)
@@ -769,43 +721,33 @@ void PaintFrontend::renderPalette()
 		{
 			drawList->AddRectFilled(pos, end, fill);
 		}
-		drawList->AddLine(
-			ImVec2(pos.x + 1.0f, pos.y + 1.0f),
-			ImVec2(end.x - 1.0f, pos.y + 1.0f),
-			bevelLight, kSwatchBevel);
-		drawList->AddLine(
-			ImVec2(pos.x + 1.0f, pos.y + 1.0f),
-			ImVec2(pos.x + 1.0f, end.y - 1.0f),
-			bevelLight, kSwatchBevel);
-		drawList->AddLine(
-			ImVec2(pos.x + 1.0f, end.y - 1.0f),
-			ImVec2(end.x - 1.0f, end.y - 1.0f),
-			bevelDark, kSwatchBevel);
-		drawList->AddLine(
-			ImVec2(end.x - 1.0f, pos.y + 1.0f),
-			ImVec2(end.x - 1.0f, end.y - 1.0f),
-			bevelDark, kSwatchBevel);
-		drawList->AddRect(pos, end, borderColor);
+		PaintUi::swatch_frame(drawList, pos, end);
 	};
 
-	draw_beveled_rect(swatchPos, swatchEnd,
-		ImGui::GetColorU32(ImGuiCol_FrameBg), false);
+	draw_swatch(swatchPos, swatchEnd, PaintUi::Roles::surface(), false);
 
-	const float swatchOffset = swatchSize - kSwatchGap - kSwatchSize;
-	const ImVec2 fgPos(swatchPos.x + kSwatchGap, swatchPos.y + kSwatchGap);
-	const ImVec2 bgPos(swatchPos.x + swatchOffset, swatchPos.y + swatchOffset);
-	const auto draw_swatch = [&](const ImVec2& pos,
-	                             const PaintCore::Color& color,
-	                             PaintCore::ColorIndex index)
-	{
-		draw_beveled_rect(pos, ImVec2(pos.x + kSwatchSize, pos.y + kSwatchSize),
-			toImU32(color), m_backend.palette().is_transparent(index));
-	};
-
-	draw_swatch(bgPos, m_backend.palette().getColor(
-		m_backend.background_index()), m_backend.background_index());
-	draw_swatch(fgPos, m_backend.palette().getColor(
-		m_backend.foreground_index()), m_backend.foreground_index());
+	const float swatchOffset =
+		swatchSize - PaintUi::Size::kSwatchGap - PaintUi::Size::kSwatch;
+	const ImVec2 fgPos(
+		swatchPos.x + PaintUi::Size::kSwatchGap,
+		swatchPos.y + PaintUi::Size::kSwatchGap);
+	const ImVec2 bgPos(
+		swatchPos.x + swatchOffset,
+		swatchPos.y + swatchOffset);
+	const PaintCore::ColorIndex foreground = m_backend.foreground_index();
+	const PaintCore::ColorIndex background = m_backend.background_index();
+	draw_swatch(
+		bgPos,
+		ImVec2(bgPos.x + PaintUi::Size::kSwatch,
+		       bgPos.y + PaintUi::Size::kSwatch),
+		toImU32(m_backend.palette().getColor(background)),
+		m_backend.palette().is_transparent(background));
+	draw_swatch(
+		fgPos,
+		ImVec2(fgPos.x + PaintUi::Size::kSwatch,
+		       fgPos.y + PaintUi::Size::kSwatch),
+		toImU32(m_backend.palette().getColor(foreground)),
+		m_backend.palette().is_transparent(foreground));
 
 	const ImVec2 gridPos(
 		swatchPos.x + swatchSize + style.ItemSpacing.x,
@@ -829,7 +771,7 @@ void PaintFrontend::renderPalette()
 			("##palette" + std::to_string(i)).c_str(),
 			ImVec2(cellWidth, cellHeight));
 
-		draw_beveled_rect(cellPos,
+		draw_swatch(cellPos,
 			ImVec2(cellPos.x + cellWidth, cellPos.y + cellHeight),
 			toImU32(m_backend.palette().getColor(colorIndex)), transparent);
 
@@ -843,7 +785,7 @@ void PaintFrontend::renderPalette()
 		}
 		if (transparent && ImGui::IsItemHovered())
 		{
-			ImGui::SetTooltip("Transparent color (%d)",
+			ImGui::SetTooltip("%s %d", i18n::tr("Transparent color"),
 			                  static_cast<int>(colorIndex));
 		}
 	}
@@ -853,14 +795,14 @@ void PaintFrontend::renderPalette()
 
 	const float paletteContentWidth =
 		compute_palette_panel_width(style) - style.WindowPadding.x * 2.0f;
-	const float zoomLabelWidth = ImGui::CalcTextSize("Zoom").x;
+	const float zoomLabelWidth = ImGui::CalcTextSize(i18n::tr("Zoom")).x;
 	const float zoomSliderWidth = std::max(
 		1.0f, paletteContentWidth - style.ItemInnerSpacing.x - zoomLabelWidth);
 
 	ImGui::SetCursorScreenPos(ImVec2(swatchPos.x, bottom));
 	ImGui::SetNextItemWidth(zoomSliderWidth);
 	int zoom = m_zoom;
-	if (ImGui::SliderInt("Zoom", &zoom, 1, 64))
+	if (ImGui::SliderInt(i18n::tr("Zoom"), &zoom, 1, 64))
 	{
 		m_zoom_slider_target = zoom;
 	}
@@ -885,7 +827,7 @@ void PaintFrontend::renderStatusBar()
 		has_anchor = tool->drag_anchor(anchor);
 	}
 
-	const float gap = style.ItemSpacing.x * 2.0f;
+	const float gap = PaintUi::Space::kLg;
 	const auto separator = [&]()
 	{
 		ImGui::SameLine(0.0f, gap);
@@ -893,11 +835,11 @@ void PaintFrontend::renderStatusBar()
 		ImGui::SameLine(0.0f, gap);
 	};
 
-	ImGui::Text("Canvas: %dx%d",
+	ImGui::Text("%s %dx%d", i18n::tr("Canvas:"),
 	            m_backend.session().getWidth(),
 	            m_backend.session().getHeight());
 	separator();
-	ImGui::Text("Zoom: %dx", m_zoom);
+	ImGui::Text("%s %dx", i18n::tr("Zoom:"), m_zoom);
 	separator();
 
 	if (has_anchor)
@@ -924,8 +866,8 @@ void PaintFrontend::renderStatusBar()
 		const float swatch = ImGui::GetTextLineHeight();
 		const ImVec2 swatch_pos = ImGui::GetCursorScreenPos();
 		ImGui::Dummy(ImVec2(swatch, swatch));
-		ImGui::SameLine(0.0f, 4.0f);
-		ImGui::Text("Color: %d", static_cast<int>(color));
+		ImGui::SameLine(0.0f, PaintUi::Space::kXs);
+		ImGui::Text("%s %d", i18n::tr("Color:"), static_cast<int>(color));
 
 		ImDrawList* draw_list = ImGui::GetWindowDrawList();
 		const ImVec2 swatch_end(swatch_pos.x + swatch, swatch_pos.y + swatch);
@@ -940,14 +882,16 @@ void PaintFrontend::renderStatusBar()
 				toImU32(m_backend.palette().getColor(color)));
 		}
 		draw_list->AddRect(swatch_pos, swatch_end,
-		                   ImGui::GetColorU32(ImGuiCol_Border));
+		                   PaintUi::Roles::border());
 	}
 	else
 	{
-		ImGui::TextDisabled("Color: --");
+		ImGui::TextDisabled("%s --", i18n::tr("Color:"));
 	}
 	separator();
-	ImGui::TextUnformatted(m_backend.is_modified() ? "Modified" : "Saved");
+	ImGui::TextUnformatted(m_backend.is_modified()
+		? i18n::tr("Modified")
+		: i18n::tr("Saved"));
 
 	ImGui::EndChild();
 }

@@ -91,7 +91,8 @@ TEST_BINS := \
 	$(BUILDDIR)/test_fill \
 	$(BUILDDIR)/test_pick_color \
 	$(BUILDDIR)/test_circle \
-	$(BUILDDIR)/test_floating_region
+	$(BUILDDIR)/test_floating_region \
+	$(BUILDDIR)/test_i18n
 
 IMAGE_OBJS := $(OBJDIR)/src/paint/image_buffer.o
 PALETTE_OBJS := $(IMAGE_OBJS) $(OBJDIR)/src/paint/palette.o
@@ -266,6 +267,10 @@ $(BUILDDIR)/test_pick_color: $(OBJDIR)/tests/test_pick_color.o \
 
 $(BUILDDIR)/test_floating_region: $(OBJDIR)/tests/test_floating_region.o \
 		$(CANVAS_OBJS) $(OBJDIR)/src/tools/selection_tool.o $(DOCTEST_OBJ)
+	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+$(BUILDDIR)/test_i18n: $(OBJDIR)/tests/test_i18n.o \
+		$(OBJDIR)/src/paint/i18n.o $(DOCTEST_OBJ)
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 clean:

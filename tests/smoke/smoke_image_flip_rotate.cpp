@@ -144,10 +144,10 @@ ImVec2 modal_button_position(const char* name, int button_index)
 
 	const ImGuiStyle& style = ImGui::GetStyle();
 	const float frame_height = ImGui::GetFrameHeight();
-	const float x = window->Pos.x + style.WindowPadding.x +
+	const float x = window->Pos.x + window->WindowPadding.x +
 		(button_index == 0 ? 40.0f : 80.0f + style.ItemSpacing.x + 40.0f);
 	const float y = window->Pos.y + window->Size.y -
-		style.WindowPadding.y - frame_height * 0.5f;
+		window->WindowPadding.y - frame_height * 0.5f;
 	return ImVec2(x, y);
 }
 
@@ -254,19 +254,19 @@ int run()
 		else if (frame == 10)
 		{
 			save_frame(renderer, "temp/smoke_image_flip_rotate_modal.ppm");
-			const ImVec2 cancel = modal_button_position("Flip/Rotate", 1);
+			const ImVec2 cancel = modal_button_position("Flip/Rotate###flip_rotate", 1);
 			push_motion(window, static_cast<int>(cancel.x),
 			            static_cast<int>(cancel.y));
 		}
 		else if (frame == 11)
 		{
-			const ImVec2 cancel = modal_button_position("Flip/Rotate", 1);
+			const ImVec2 cancel = modal_button_position("Flip/Rotate###flip_rotate", 1);
 			push_button(window, static_cast<int>(cancel.x),
 			            static_cast<int>(cancel.y), true);
 		}
 		else if (frame == 12)
 		{
-			const ImVec2 cancel = modal_button_position("Flip/Rotate", 1);
+			const ImVec2 cancel = modal_button_position("Flip/Rotate###flip_rotate", 1);
 			push_button(window, static_cast<int>(cancel.x),
 			            static_cast<int>(cancel.y), false);
 		}
@@ -287,19 +287,19 @@ int run()
 		else if (frame == 23)
 		{
 			save_frame(renderer, "temp/smoke_image_flip_rotate_rotate.ppm");
-			const ImVec2 ok = modal_button_position("Flip/Rotate", 0);
+			const ImVec2 ok = modal_button_position("Flip/Rotate###flip_rotate", 0);
 			push_motion(window, static_cast<int>(ok.x),
 			            static_cast<int>(ok.y));
 		}
 		else if (frame == 24)
 		{
-			const ImVec2 ok = modal_button_position("Flip/Rotate", 0);
+			const ImVec2 ok = modal_button_position("Flip/Rotate###flip_rotate", 0);
 			push_button(window, static_cast<int>(ok.x),
 			            static_cast<int>(ok.y), true);
 		}
 		else if (frame == 25)
 		{
-			const ImVec2 ok = modal_button_position("Flip/Rotate", 0);
+			const ImVec2 ok = modal_button_position("Flip/Rotate###flip_rotate", 0);
 			push_button(window, static_cast<int>(ok.x),
 			            static_cast<int>(ok.y), false);
 		}
@@ -327,19 +327,19 @@ int run()
 		}
 		else if (frame == 37)
 		{
-			const ImVec2 ok = modal_button_position("Flip/Rotate", 0);
+			const ImVec2 ok = modal_button_position("Flip/Rotate###flip_rotate", 0);
 			push_motion(window, static_cast<int>(ok.x),
 			            static_cast<int>(ok.y));
 		}
 		else if (frame == 38)
 		{
-			const ImVec2 ok = modal_button_position("Flip/Rotate", 0);
+			const ImVec2 ok = modal_button_position("Flip/Rotate###flip_rotate", 0);
 			push_button(window, static_cast<int>(ok.x),
 			            static_cast<int>(ok.y), true);
 		}
 		else if (frame == 39)
 		{
-			const ImVec2 ok = modal_button_position("Flip/Rotate", 0);
+			const ImVec2 ok = modal_button_position("Flip/Rotate###flip_rotate", 0);
 			push_button(window, static_cast<int>(ok.x),
 			            static_cast<int>(ok.y), false);
 		}
@@ -356,13 +356,13 @@ int run()
 
 		if (frame == 10)
 		{
-			CHECK(popup_open_by_name("Flip/Rotate"));
+			CHECK(popup_open_by_name("Flip/Rotate###flip_rotate"));
 			CHECK(h.frontend.m_flip_rotate_target ==
 			      PaintFrontend::FlipRotateTarget::Canvas);
 		}
 		else if (frame == 13)
 		{
-			CHECK_FALSE(popup_open_by_name("Flip/Rotate"));
+			CHECK_FALSE(popup_open_by_name("Flip/Rotate###flip_rotate"));
 			CHECK_EQ(session.getWidth(), 4);
 			CHECK_EQ(session.getHeight(), 2);
 			CHECK(session.get_main_buffer().data() == pattern);
@@ -370,7 +370,7 @@ int run()
 		}
 		else if (frame == 26)
 		{
-			CHECK_FALSE(popup_open_by_name("Flip/Rotate"));
+			CHECK_FALSE(popup_open_by_name("Flip/Rotate###flip_rotate"));
 			CHECK_EQ(session.getWidth(), 2);
 			CHECK_EQ(session.getHeight(), 4);
 			CHECK(session.get_main_buffer().data() ==
@@ -392,13 +392,13 @@ int run()
 		}
 		else if (frame == 35)
 		{
-			CHECK(popup_open_by_name("Flip/Rotate"));
+			CHECK(popup_open_by_name("Flip/Rotate###flip_rotate"));
 			CHECK(h.frontend.m_flip_rotate_target ==
 			      PaintFrontend::FlipRotateTarget::Canvas);
 		}
 		else if (frame == 40)
 		{
-			CHECK_FALSE(popup_open_by_name("Flip/Rotate"));
+			CHECK_FALSE(popup_open_by_name("Flip/Rotate###flip_rotate"));
 			CHECK_FALSE(session.has_floating_region());
 			CHECK_EQ(session.getWidth(), 4);
 			CHECK_EQ(session.getHeight(), 2);

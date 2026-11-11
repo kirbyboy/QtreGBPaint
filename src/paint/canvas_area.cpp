@@ -4,6 +4,7 @@
 #include "paint/checkerboard.h"
 #include "paint/color_imgui.h"
 #include "paint/draw_buffer.h"
+#include "paint/ui_roles.h"
 #include "core/ibackend.h"
 #include <algorithm>
 #include <cmath>
@@ -122,7 +123,7 @@ void draw_canvas_edge_highlight(ImDrawList* draw_list,
 	}
 
 	// Same blue ImGui uses for selection/hover highlights.
-	const ImU32 color = ImGui::GetColorU32(ImGuiCol_HeaderActive);
+	const ImU32 color = PaintUi::Roles::selection();
 
 	if (end.x >= clip_min.x && end.x <= clip_max.x)
 	{
@@ -1116,7 +1117,7 @@ void CanvasArea::draw_stamp_preview(ImDrawList* draw_list,
 
 		// Fixed one-pixel border, independent of the zoom. It sits just
 		// outside the footprint so it never covers an erased pixel.
-		const ImU32 border = ImGui::GetColorU32(ImGuiCol_HeaderActive);
+		const ImU32 border = PaintUi::Roles::selection();
 		draw_list->AddRectFilled(ImVec2(p0.x - 1.0f, p0.y - 1.0f),
 		                         ImVec2(p1.x + 1.0f, p0.y), border);
 		draw_list->AddRectFilled(ImVec2(p0.x - 1.0f, p1.y),
@@ -1266,7 +1267,7 @@ void CanvasArea::draw_edit_overlay(ImDrawList* draw_list)
 		return;
 	}
 
-	const ImU32 guide_color = ImGui::GetColorU32(ImGuiCol_TextDisabled, 0.85f);
+	const ImU32 guide_color = PaintUi::Roles::guide();
 	for (const ToolBase::EditGuide& guide : overlay.guides)
 	{
 		const PaintCore::Vec2f from = m_view.image_to_screen(
@@ -1292,11 +1293,11 @@ void CanvasArea::draw_edit_overlay(ImDrawList* draw_list)
 		                std::floor(center.y + half));
 
 		ImU32 fill = handle.draggable
-			? ImGui::GetColorU32(ImGuiCol_HeaderActive)
-			: ImGui::GetColorU32(ImGuiCol_Text);
+			? PaintUi::Roles::selection()
+			: PaintUi::Roles::text();
 		if (static_cast<int>(i) == m_edit_handle)
 		{
-			fill = ImGui::GetColorU32(ImGuiCol_ButtonActive);
+			fill = PaintUi::Roles::accent();
 		}
 
 		draw_list->AddRectFilled(min, max, fill);

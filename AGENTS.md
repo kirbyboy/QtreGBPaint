@@ -18,9 +18,11 @@ marca. Las licencias de terceros están en `THIRD_PARTY_NOTICES.md`.
 
 - `src/` y `inc/`: código C++17.
   - `core/`: backend, bezier, brush, color, ellipse, fill, line, modifiers, shape_constraint, utilidades, vec2, window_geometry.
-  - `paint/`: app_config, theme, canvas_document, floating_region, floating_region_editor, paint_session, buffers, frontend, paleta, checkerboard, png_image, image_export.
+  - `paint/`: app_config, theme, i18n, ui_tokens, ui_roles, ui_widgets, canvas_document, floating_region, floating_region_editor, paint_session, buffers, frontend, paleta, checkerboard, png_image, image_export.
   - `tools/`: herramientas (base, draw, freehand, line, curve, pencil, brush, eraser, fill, pick_color, selection, shape, square, circle).
 - `scripts/`: `bootstrap_deps.sh` y los Makefiles de las dependencias locales.
+- `lang/`: traducciones `.po` (por ahora `es.po`) y `README.md` con las reglas.
+- `docs/ui.md`: sistema de diseño mínimo (tokens, roles, widgets y reglas).
 - `.github/workflows/ci.yml`: CI de GitHub Actions (`make deps`, `test-full` y smokes bajo Xvfb).
 - `lib/`: dependencias locales (imgui, doctest, ImGuiFileDialog) - ignoradas por git.
 - `tests/`: tests headless con doctest y su propio `Makefile`.
@@ -411,9 +413,10 @@ Cambiar de tool y `resize` confirman la región; `undo` la cancela y `redo` qued
 bloqueado mientras flota. No hay handles de selección ni menú contextual todavía.
 El menú `Settings > Theme` ofrece los presets de color de ImGui
 (`Light`, `Dark` y `Classic`, en ese orden; `Light` por defecto) y
-`PaintFrontend::set_theme()` los aplica en
-caliente. Los presets solo cambian colores, no métricas de layout; la elección
-todavía no se persiste.
+`PaintFrontend::set_theme()` los aplica en caliente. Los presets solo cambian
+colores, no métricas de layout; la elección se persiste en `AppConfig`.
+`Settings > Language` ofrece System default/English/Español; el idioma se
+cambia en caliente y se persiste en `AppConfig::language`.
 El orden del toolbar es Selection, Eraser, Fill, Pick Color, Pencil, Brush,
 Line, Curve, Rect y Circle (2 columnas); `main` selecciona Pencil al arrancar.
 Cada botón usa un único `assets/*_button.idx` de 32×32 (índice 0 transparente y
@@ -455,18 +458,35 @@ el scroll y el frontend lo aplica con `SetNextWindowContentSize()` +
 `SetNextWindowScroll()` en el frame siguiente. `CanvasArea::mouse_over_canvas()`
 evita mostrar coordenadas/color de imagen cuando el puntero está sobre la barra
 de estado, la paleta o los scrollbars.
+La UI sigue un sistema de diseño mínimo documentado en `docs/ui.md`: tokens
+(`PaintUi::Space`, `PaintUi::Size`, `PaintUi::Alpha`) y roles semánticos
+(`PaintUi::Roles`) que se leen del estilo ImGui en cada frame.
+`PaintUi::tool_button`, `option_cell` y `swatch_frame` centralizan los estados
+de toolbar, opciones y paleta. Los modales usan `PaintUi::open_modal`/
+`begin_modal` con padding de 16 px y un `###stable_id` que no cambia al
+traducir el título; `dialog_button` fija el ancho de 80 px.
+La UI está traducida al español con `i18n` (`inc/paint/i18n.h`): el inglés es
+la clave y el fallback, y `lang/es.po` contiene las traducciones. `main` fija
+`<assets>/../lang` como directorio; `Settings > Language` ofrece System
+default/English/Español y `AppConfig::language` persiste `system`/`en`/`es`.
+El cambio es inmediato (ImGui se redibuja cada frame); los nombres internos de
+tools y los `stable_id` de modales se quedan en inglés. ImGuiFileDialog sigue
+en inglés porque sus textos son macros de compilación; los detalles técnicos
+de error del backend también, aunque el título y el mensaje genérico se
+traducen.
 El paquete Debian `0.9.1` se genera con `make deb` (`packaging/build_deb.sh`):
 instala el binario en `/usr/bin`, los assets en `/usr/share/qtregbpaint/assets`,
-el `.desktop`, el icono, el MIME XML y la metadata AppStream en
+las traducciones en `/usr/share/qtregbpaint/lang`, el `.desktop`, el icono, el
+MIME XML y la metadata AppStream en
 `io.github.kirbyboy.QtreGBPaint.metainfo.xml`. `main::resolve_asset_base()`
 busca los assets junto al ejecutable, en `../assets`, en
 `../share/qtregbpaint/assets`, en `/usr/share/qtregbpaint/assets` y en
-`/usr/local/share/qtregbpaint/assets`. El icono de ventana se sube con
-`SDL_SetWindowIcon` (64×64; X11 rechaza iconos mayores) y el class/app_id es
-`io.github.kirbyboy.QtreGBPaint`, que coincide con el `.desktop` y su
-`StartupWMClass`. La CI de GitHub Actions (`.github/workflows/ci.yml`) ejecuta
-`make deps`, `make`, `test-full` y los 42 smokes bajo Xvfb; la primera
-ejecución terminó en verde.
-Tests actuales: 269 casos y 9780 aserciones (normal); `test-full` suma
-1076 casos y 39120 aserciones. Smokes: 42 en verde. Revisar `HANDOFF.md` y
+`/usr/local/share/qtregbpaint/assets`; `i18n` usa `<assets>/../lang`. El icono
+de ventana se sube con `SDL_SetWindowIcon` (64×64; X11 rechaza iconos mayores)
+y el class/app_id es `io.github.kirbyboy.QtreGBPaint`, que coincide con el
+`.desktop` y su `StartupWMClass`. La CI de GitHub Actions
+(`.github/workflows/ci.yml`) ejecuta `make deps`, `make`, `test-full` y los 43
+smokes bajo Xvfb; la primera ejecución terminó en verde.
+Tests actuales: 272 casos y 9792 aserciones (normal); `test-full` suma
+1088 casos y 39168 aserciones. Smokes: 43 en verde. Revisar `HANDOFF.md` y
 `git diff` antes de tocar estos archivos.

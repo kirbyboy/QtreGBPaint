@@ -32,6 +32,7 @@ rm -rf "$STAGE_DIR"
 mkdir -p "$PKG_DIR/DEBIAN" \
 	"$PKG_DIR/usr/bin" \
 	"$PKG_DIR/usr/share/qtregbpaint/assets" \
+	"$PKG_DIR/usr/share/qtregbpaint/lang" \
 	"$PKG_DIR/usr/share/applications" \
 	"$PKG_DIR/usr/share/icons/hicolor/256x256/apps" \
 	"$PKG_DIR/usr/share/mime/packages" \
@@ -41,6 +42,7 @@ mkdir -p "$PKG_DIR/DEBIAN" \
 install -Dm755 "$ROOT_DIR/build/QtreGBPaint-release" \
 	"$PKG_DIR/usr/bin/QtreGBPaint"
 cp -a "$ROOT_DIR/assets/." "$PKG_DIR/usr/share/qtregbpaint/assets/"
+cp -a "$ROOT_DIR/lang/." "$PKG_DIR/usr/share/qtregbpaint/lang/"
 install -Dm644 "$ROOT_DIR/packaging/qtregbpaint.png" \
 	"$PKG_DIR/usr/share/icons/hicolor/256x256/apps/qtregbpaint.png"
 install -Dm644 "$ROOT_DIR/packaging/qtregbpaint.desktop" \

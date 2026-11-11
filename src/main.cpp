@@ -11,6 +11,7 @@
 #include "core/imgui_manager.h"
 #include "core/sdl_renderer_backend.h"
 #include "paint/app_config.h"
+#include "paint/i18n.h"
 #include "paint/palette.h"
 #include "paint/paint_backend.h"
 #include "paint/paint_frontend.h"
@@ -109,6 +110,7 @@ int main(int argc, char** argv)
 
 	// Robust asset path (relative to the executable, not the cwd).
 	const std::string assetBase = resolve_asset_base();
+	i18n::set_language_directory(assetBase + "/../lang");
 
 	// Give the window a real icon. Wayland compositors normally use the
 	// application id instead; both paths point to the same desktop entry.
@@ -233,6 +235,7 @@ int main(int argc, char** argv)
 	                 assetBase + "/fill_options.idx", 46, 46);
 
 	PaintFrontend main_window(resources);
+	main_window.set_language(config.language);
 	main_window.set_about_logo_path(assetBase + "/QtreGBPaint.png");
 	main_window.set_theme(config.theme);
 	main_window.set_grid_enabled(config.grid_enabled);
@@ -258,6 +261,7 @@ int main(int argc, char** argv)
 	// intentionally not written every frame.
 	AppConfig saved = config;
 	saved.theme = main_window.theme();
+	saved.language = main_window.language();
 	saved.grid_enabled = main_window.grid_enabled();
 	saved.last_directory = main_window.last_directory();
 	saved.window = backend.window_geometry();

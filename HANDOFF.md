@@ -36,7 +36,7 @@ Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
 ## Estructura principal
 
 - `inc/core`: bezier, brush, color, cursor, backend, imgui manager, ellipse, fill, line, modifiers, shape_constraint, vec2, rect, view_transform, window_geometry, util.
-- `inc/paint`: app_config, theme, canvas_document, canvas_area, canvas_grid, canvas_renderer, canvas_resize_gizmo, canvas_tile_grid, checkerboard, png_image, cursor_asset, document_file, floating_region, floating_region_editor, paint_session, image_buffer, image_export, draw_buffer, indexed_image, palette, paint_backend, paint_frontend.
+- `inc/paint`: app_config, theme, i18n, ui_tokens, ui_roles, ui_widgets, canvas_document, canvas_area, canvas_grid, canvas_renderer, canvas_resize_gizmo, canvas_tile_grid, checkerboard, png_image, cursor_asset, document_file, floating_region, floating_region_editor, paint_session, image_buffer, image_export, draw_buffer, indexed_image, palette, paint_backend, paint_frontend.
 - `inc/tools`: base_tool, draw_tool, freehand_tool, line_tool, curve_tool, pencil_tool, brush_tool, eraser_tool, fill_tool, pick_color_tool, selection_tool, shape_tool, square_tool, circle_tool, tool_option.
 - `scripts/`: `bootstrap_deps.sh` y los Makefiles de imgui/ImGuiFileDialog.
 - `src/`: implementaciones correspondientes.
@@ -45,6 +45,8 @@ Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
   `rect_options.idx`, `selection_options.idx` y `fill_options.idx`, icono final
   `QtreGBPaint.png` (256×256 RGBA) y las licencias `LICENSE`/`LICENSE.es.md`.
 - `README.md`: presentación en inglés con características, build, uso, licencia y capturas; las imágenes están en `docs/screenshots/`.
+- `docs/ui.md`: sistema de diseño mínimo (tokens, roles, widgets y reglas de UI).
+- `lang/`: traducciones `.po` (por ahora `es.po`) y `README.md` con las reglas.
 - `packaging/`: `.desktop`, icono, MIME XML, metadata AppStream, script de AppImage y script del `.deb`.
 - `tests/`: tests headless con doctest y `tests/Makefile` autónomo.
 - `tests/smoke/`: smokes SDL/ImGui y `run.sh`; escriben binarios y capturas en `temp/`.
@@ -66,10 +68,34 @@ Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
   comparten el jobserver.
 - Smokes: `./tests/smoke/run.sh circle buttons` compila en paralelo y ejecuta
   solo esos; sin argumentos ejecuta todos. `--list`, `--build-only`,
-  `--no-build` y `-j N` están soportados. El script vive en `temp/` (ignorado
-  por git).
+  `--no-build` y `-j N` están soportados. El script vive en `tests/smoke/`.
 - Durante el desarrollo usar el test/smoke afectado; reservar la matriz completa
   y todos los smokes para cerrar un bloque.
+
+## Sistema de diseño e i18n (2026-11-11)
+
+- **Tokens y roles.** `inc/paint/ui_tokens.h` define `PaintUi::Space`,
+  `PaintUi::Size` y `PaintUi::Alpha`; `inc/paint/ui_roles.h` define los colores
+  semánticos (`accent`, `selection`, `guide`, `border`, `surface`, `text`,
+  `hover_overlay`, `pressed_overlay`, `selected_fill`, bisel). Los roles se leen
+  del estilo ImGui en cada llamada, así que el cambio de tema es inmediato.
+- **Widgets.** `inc/paint/ui_widgets.h` centraliza `tool_button`, `option_cell`,
+  `swatch_frame`, `dialog_button` y los modales con `###stable_id` y padding de
+  16 px. La toolbar, las opciones, la paleta y los diálogos usan estas piezas.
+  `docs/ui.md` documenta tokens, roles, estados y reglas por zona.
+- **i18n.** `inc/paint/i18n.h` implementa un catálogo gettext mínimo: el texto
+  inglés es la clave y el fallback, y `lang/es.po` contiene la traducción. El
+  parser soporta `msgctxt` opcional, `msgid`/`msgstr`, comentarios, multilínea y
+  escapes; no hay plurales todavía. `main` fija `<assets>/../lang`; `Settings >
+  Language` cambia entre System default/English/Español y
+  `AppConfig::language` persiste `system`/`en`/`es`. El cambio es inmediato y
+  no requiere reiniciar. Los IDs internos y los `stable_id` no se traducen.
+- **Pruebas.** `tests/test_i18n.cpp` cubre catálogo, fallback y detección de
+  `LANGUAGE`; `tests/smoke/smoke_i18n.cpp` valida el cambio en caliente y los
+  IDs estables, y guarda `temp/smoke_i18n_es.ppm`/`_en.ppm`.
+- **Pendiente.** UI kit de desarrollo con todos los estados y temas, un
+  pseudo-locale para desbordamientos, y traducción de los textos internos de
+  ImGuiFileDialog (hoy son macros de compilación y siguen en inglés).
 
 ## Conceptos clave
 

@@ -269,7 +269,7 @@ int run()
 		}
 		else if (frame == 9)
 		{
-			CHECK(window_exists("New Image"));
+			CHECK(window_exists("New Image###new_image"));
 		}
 		else if (frame == 12)
 		{
@@ -285,7 +285,7 @@ int run()
 		}
 		else if (frame == 23)
 		{
-			CHECK(window_exists("Unsaved Changes"));
+			CHECK(window_exists("Unsaved Changes###unsaved_changes"));
 			CHECK(h.frontend.m_pending_file_action ==
 			      PaintFrontend::FileAction::New);
 		}
@@ -317,7 +317,7 @@ int run()
 		}
 		else if (frame == 62)
 		{
-			CHECK(window_exists("Properties"));
+			CHECK(window_exists("Properties###properties"));
 		}
 		else if (frame == 64)
 		{

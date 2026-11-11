@@ -35,6 +35,8 @@ public:
 	bool save_default(std::string& error) const;
 
 	AppTheme theme = AppTheme::Light;
+	// "system", "en" or "es". The catalog itself lives in lang/<locale>.po.
+	std::string language = "system";
 	bool grid_enabled = true;
 	PaintCore::WindowGeometry window;
 	// Last directory used by Open/Save As. If it no longer exists or cannot be

@@ -162,17 +162,16 @@ int run()
 		else if (frame == 3)
 		{
 			ImGuiWindow* options =
-				ImGui::FindWindowByName("IDX Options");
+				ImGui::FindWindowByName("IDX Options###idx_options");
 			REQUIRE(options != nullptr);
 			save_frame(renderer, "temp/smoke_idx_options.ppm");
 
 			h.frontend.m_save_format = IndexedFormat::BinaryPacked;
-			const ImGuiStyle& style = ImGui::GetStyle();
 			click_x = static_cast<int>(
-				options->Pos.x + style.WindowPadding.x + 40.0f);
+				options->Pos.x + options->WindowPadding.x + 40.0f);
 			click_y = static_cast<int>(
 				options->Pos.y + options->Size.y -
-				style.WindowPadding.y - ImGui::GetFrameHeight() * 0.5f);
+				options->WindowPadding.y - ImGui::GetFrameHeight() * 0.5f);
 			push_motion(window, click_x, click_y);
 		}
 		else if (frame == 4)

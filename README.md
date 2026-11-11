@@ -32,6 +32,7 @@ Current release: **0.9.1**.
 - Save `.idx` files in `Index`, `Binary`, `Packed` or `BinaryPacked` formats.
 - Export copies as 24-bit BMP or indexed PNG.
 - Atomic `.idx` saving, recent files and persistent application settings.
+- English and Spanish UI, following the system language by default.
 - Custom `.ipx` cursors and a native About dialog.
 
 ## Screenshots

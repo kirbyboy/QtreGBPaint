@@ -1,5 +1,6 @@
 #include "paint/paint_frontend.h"
 #include "paint_frontend_internal.h"
+#include "paint/i18n.h"
 
 #include <cfloat>
 #include <filesystem>
@@ -138,8 +139,11 @@ void PaintFrontend::request_export(ImageExportFormat format)
 	const bool bitmap = format == ImageExportFormat::Bmp;
 	const char* extension = bitmap ? ".bmp" : ".png";
 	const char* dialog_key = bitmap ? "ExportBitmap" : "ExportPng";
-	const char* title = bitmap ? "Export Bitmap" : "Export PNG";
-	const char* filters = bitmap ? "Bitmap{.bmp}" : "PNG{.png}";
+	const std::string title =
+		i18n::tr(bitmap ? "Export Bitmap" : "Export PNG");
+	const std::string filters =
+		std::string(i18n::tr(bitmap ? "Bitmap" : "PNG")) +
+		(bitmap ? "{.bmp}" : "{.png}");
 
 	std::string base_name = "untitled";
 	std::string directory = file_dialog_directory();
@@ -162,7 +166,8 @@ void PaintFrontend::request_export(ImageExportFormat format)
 	config.flags = ImGuiFileDialogFlags_Default;
 	config.path = directory;
 	config.fileName = base_name + extension;
-	ImGuiFileDialog::Instance()->OpenDialog(dialog_key, title, filters, config);
+	ImGuiFileDialog::Instance()->OpenDialog(
+		dialog_key, title.c_str(), filters.c_str(), config);
 }
 
 void PaintFrontend::export_to_path(const std::string& path,
@@ -242,9 +247,11 @@ void PaintFrontend::open_open_dialog()
 	{
 		config.path = file_dialog_directory();
 	}
+	const std::string filters =
+		std::string(i18n::tr("Indexed Image")) + "{.idx}," +
+		i18n::tr("All files") + "{.*}";
 	ImGuiFileDialog::Instance()->OpenDialog(
-		"OpenImage", "Open Image",
-		"Indexed Image{.idx},All files{.*}", config);
+		"OpenImage", i18n::tr("Open Image"), filters.c_str(), config);
 }
 
 void PaintFrontend::open_save_as_dialog()
@@ -272,7 +279,7 @@ void PaintFrontend::open_save_as_dialog()
 		config.fileName = "untitled.idx";
 	}
 	ImGuiFileDialog::Instance()->OpenDialog(
-		"SaveImage", "Save Image", ".idx", config);
+		"SaveImage", i18n::tr("Save Image"), ".idx", config);
 }
 
 void PaintFrontend::save_to_path(const std::string& path, bool continue_pending)
@@ -303,6 +310,6 @@ void PaintFrontend::save_to_path(const std::string& path, bool continue_pending,
 
 void PaintFrontend::show_file_error(const std::string& message)
 {
-	m_error_message = message.empty() ? "Unknown error" : message;
+	m_error_message = message.empty() ? i18n::tr("Unknown error") : message;
 	m_open_error_popup = true;
 }

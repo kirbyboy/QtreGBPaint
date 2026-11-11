@@ -40,6 +40,10 @@ class PaintFrontend
 		bool grid_enabled() const { return m_show_grid; }
 		void set_grid_enabled(bool enabled) { m_show_grid = enabled; }
 
+		// "system", "en" or "es" (persisted in AppConfig).
+		const std::string& language() const { return m_language; }
+		void set_language(const std::string& language);
+
 		// Last directory used by Open/Save As (persisted in AppConfig).
 		const std::string& last_directory() const { return m_last_directory; }
 		void set_last_directory(const std::string& directory)
@@ -77,6 +81,7 @@ class PaintFrontend
 		void draw_checkerboard(ImDrawList* draw_list, const ImVec2& min,
 		                       const ImVec2& max, const ImVec2& origin);
 		void ensure_about_logo();
+		std::string document_display_name() const;
 		std::string file_dialog_directory() const;
 		void remember_file_directory(const std::string& path);
 
@@ -127,6 +132,7 @@ class PaintFrontend
 		ImVec2 m_pending_canvas_scroll{};
 		bool m_apply_pending_canvas_scroll = false;
 		bool m_show_grid = true;
+		std::string m_language = "system";
 		std::string m_last_directory;
 		bool m_open_properties_popup = false;
 		bool m_open_flip_rotate_popup = false;

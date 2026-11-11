@@ -170,7 +170,7 @@ int run()
 		else if (frame == 4)
 		{
 			ImGuiWindow* properties =
-				ImGui::FindWindowByName("Properties");
+				ImGui::FindWindowByName("Properties###properties");
 			REQUIRE(properties != nullptr);
 			const ImGuiStyle& style = ImGui::GetStyle();
 			click_x = static_cast<int>(

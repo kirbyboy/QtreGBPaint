@@ -197,6 +197,14 @@ AppConfig AppConfig::load(const std::string& path)
 				config.theme = theme;
 			}
 		}
+		else if (key == "language")
+		{
+			const std::string language = lowercase(trim(value));
+			if (language == "system" || language == "en" || language == "es")
+			{
+				config.language = language;
+			}
+		}
 		else if (key == "grid")
 		{
 			bool enabled = true;
@@ -327,6 +335,7 @@ bool AppConfig::save(const std::string& path, std::string& error) const
 	output << "# QtreGBPaint configuration\n";
 	output << "version=1\n";
 	output << "theme=" << theme_name(theme) << '\n';
+	output << "language=" << language << '\n';
 	output << "grid=" << (grid_enabled ? 1 : 0) << '\n';
 	if (window.has_position)
 	{

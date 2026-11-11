@@ -1,6 +1,8 @@
 #include "paint/paint_frontend.h"
 #include "paint_frontend_internal.h"
+#include "paint/i18n.h"
 #include "paint/png_image.h"
+#include "paint/ui_widgets.h"
 
 #include <algorithm>
 #include <cfloat>
@@ -57,12 +59,11 @@ void PaintFrontend::renderDialogs()
 			ImVec2(viewport->Pos.x + viewport->Size.x * 0.5f,
 			       viewport->Pos.y + viewport->Size.y * 0.5f),
 			ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-		ImGui::OpenPopup("About QtreGBPaint");
+		PaintUi::open_modal("About QtreGBPaint", "about");
 		m_open_about_popup = false;
 	}
 
-	if (ImGui::BeginPopupModal("About QtreGBPaint", nullptr,
-	                           ImGuiWindowFlags_AlwaysAutoResize))
+	if (PaintUi::begin_modal("About QtreGBPaint", "about"))
 	{
 		ensure_about_logo();
 		if (m_about_logo_texture)
@@ -95,53 +96,55 @@ void PaintFrontend::renderDialogs()
 		};
 
 		centered_text("QtreGBPaint");
-		centered_text("Made by kirbyboy");
+		centered_text(i18n::tr("Made by kirbyboy"));
 		ImGui::Separator();
-		ImGui::TextUnformatted("Copyright (C) 2026 the QtreGBPaint project");
 		ImGui::TextUnformatted(
-			"License: GNU General Public License v3.0 or later");
-		ImGui::TextDisabled("Code: GPL-3.0-or-later");
-		ImGui::TextDisabled("Visual assets: CC0 1.0");
+			i18n::tr("Copyright (C) 2026 the QtreGBPaint project"));
+		ImGui::TextUnformatted(
+			i18n::tr("License: GNU General Public License v3.0 or later"));
+		ImGui::TextDisabled("%s", i18n::tr("Code: GPL-3.0-or-later"));
+		ImGui::TextDisabled("%s", i18n::tr("Visual assets: CC0 1.0"));
 		ImGui::TextDisabled("https://www.gnu.org/licenses/gpl-3.0.html");
 		ImGui::TextDisabled("https://github.com/kirbyboy/QtreGBPaint");
 		ImGui::Spacing();
-		if (ImGui::Button("Close"))
+		if (PaintUi::dialog_button(i18n::tr("Close")))
 		{
 			ImGui::CloseCurrentPopup();
 		}
-		ImGui::EndPopup();
+		PaintUi::end_modal();
 	}
 
 	if (m_open_properties_popup)
 	{
-		ImGui::OpenPopup("Properties");
+		PaintUi::open_modal("Properties", "properties");
 		m_open_properties_popup = false;
 	}
 
-	if (ImGui::BeginPopupModal("Properties", nullptr,
-	                           ImGuiWindowFlags_AlwaysAutoResize))
+	if (PaintUi::begin_modal("Properties", "properties"))
 	{
-		ImGui::InputInt("Width", &m_canvas_size_width);
-		ImGui::InputInt("Height", &m_canvas_size_height);
+		ImGui::InputInt(i18n::tr("Width"), &m_canvas_size_width);
+		ImGui::InputInt(i18n::tr("Height"), &m_canvas_size_height);
 		m_canvas_size_width = std::max(1, m_canvas_size_width);
 		m_canvas_size_height = std::max(1, m_canvas_size_height);
-		ImGui::SliderInt("Bits per pixel", &m_canvas_size_bpp, 1, 8);
+		ImGui::SliderInt(i18n::tr("Bits per pixel"), &m_canvas_size_bpp, 1, 8);
 		m_canvas_size_bpp = std::clamp(m_canvas_size_bpp, 1, 8);
-		ImGui::Text("Colors: %d", palette_usable_color_count(m_canvas_size_bpp));
-		ImGui::TextDisabled("New area uses the current background color.");
+		ImGui::Text("%s %d", i18n::tr("Colors:"),
+		            palette_usable_color_count(m_canvas_size_bpp));
+		ImGui::TextDisabled("%s",
+			i18n::tr("New area uses the current background color."));
 		if (m_canvas_size_bpp != m_backend.session().getBitsPerPixel())
 		{
 			ImGui::Spacing();
 			ImGui::TextUnformatted(
-				"Changing bits per pixel rewrites the image:");
+				i18n::tr("Changing bits per pixel rewrites the image:"));
 			ImGui::TextUnformatted(
-				"all pixels are remapped to the closest tone");
+				i18n::tr("all pixels are remapped to the closest tone"));
 			ImGui::TextUnformatted(
-				"in the new palette; the saved file uses the new format.");
+				i18n::tr("in the new palette; the saved file uses the new format."));
 		}
 
 		ImGui::Separator();
-		if (ImGui::Button("OK", ImVec2(80.0f, 0.0f)))
+		if (PaintUi::dialog_button(i18n::tr("OK")))
 		{
 			const int target_bpp = m_canvas_size_bpp;
 			m_backend.resize_canvas(m_canvas_size_width, m_canvas_size_height);
@@ -152,51 +155,53 @@ void PaintFrontend::renderDialogs()
 			ImGui::CloseCurrentPopup();
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Cancel", ImVec2(80.0f, 0.0f)))
+		if (PaintUi::dialog_button(i18n::tr("Cancel")))
 		{
 			ImGui::CloseCurrentPopup();
 		}
-		ImGui::EndPopup();
+		PaintUi::end_modal();
 	}
 
 	if (m_open_flip_rotate_popup)
 	{
-		ImGui::OpenPopup("Flip/Rotate");
+		PaintUi::open_modal("Flip/Rotate", "flip_rotate");
 		m_open_flip_rotate_popup = false;
 	}
 
-	if (ImGui::BeginPopupModal("Flip/Rotate", nullptr,
-	                           ImGuiWindowFlags_AlwaysAutoResize))
+	if (PaintUi::begin_modal("Flip/Rotate", "flip_rotate"))
 	{
 		ImGui::TextUnformatted(
 			m_flip_rotate_target == FlipRotateTarget::Selection
-				? "Transform selection"
-				: "Transform image");
-		ImGui::RadioButton("Flip horizontal", &m_flip_rotate_mode, 0);
-		ImGui::RadioButton("Flip vertical", &m_flip_rotate_mode, 1);
-		ImGui::RadioButton("Rotate", &m_flip_rotate_mode, 2);
+				? i18n::tr("Transform selection")
+				: i18n::tr("Transform image"));
+		ImGui::RadioButton(i18n::tr("Flip horizontal"), &m_flip_rotate_mode, 0);
+		ImGui::RadioButton(i18n::tr("Flip vertical"), &m_flip_rotate_mode, 1);
+		ImGui::RadioButton(i18n::tr("Rotate"), &m_flip_rotate_mode, 2);
 		if (m_flip_rotate_mode == 2)
 		{
 			ImGui::Indent();
-			ImGui::RadioButton("90 degrees", &m_flip_rotate_angle, 90);
+			ImGui::RadioButton(i18n::tr("90 degrees"),
+			                   &m_flip_rotate_angle, 90);
 			ImGui::SameLine();
-			ImGui::RadioButton("180 degrees", &m_flip_rotate_angle, 180);
+			ImGui::RadioButton(i18n::tr("180 degrees"),
+			                   &m_flip_rotate_angle, 180);
 			ImGui::SameLine();
-			ImGui::RadioButton("270 degrees", &m_flip_rotate_angle, 270);
+			ImGui::RadioButton(i18n::tr("270 degrees"),
+			                   &m_flip_rotate_angle, 270);
 			ImGui::Unindent();
 		}
 		ImGui::Separator();
-		if (ImGui::Button("OK", ImVec2(80.0f, 0.0f)))
+		if (PaintUi::dialog_button(i18n::tr("OK")))
 		{
 			apply_flip_rotate();
 			ImGui::CloseCurrentPopup();
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Cancel", ImVec2(80.0f, 0.0f)))
+		if (PaintUi::dialog_button(i18n::tr("Cancel")))
 		{
 			ImGui::CloseCurrentPopup();
 		}
-		ImGui::EndPopup();
+		PaintUi::end_modal();
 	}
 
 	// Global shortcuts. Shortcut respects focus and text widgets, and does not
@@ -321,17 +326,17 @@ void PaintFrontend::renderFileDialogs()
 	if (m_open_new_popup)
 	{
 		m_open_new_popup = false;
-		ImGui::OpenPopup("New Image");
+		PaintUi::open_modal("New Image", "new_image");
 	}
 	if (m_open_unsaved_popup)
 	{
 		m_open_unsaved_popup = false;
-		ImGui::OpenPopup("Unsaved Changes");
+		PaintUi::open_modal("Unsaved Changes", "unsaved_changes");
 	}
 	if (m_open_error_popup)
 	{
 		m_open_error_popup = false;
-		ImGui::OpenPopup("File Error");
+		PaintUi::open_modal("File Error", "file_error");
 	}
 
 	if (ImGuiFileDialog::Instance()->Display("OpenImage",
@@ -415,19 +420,19 @@ void PaintFrontend::renderFileDialogs()
 		m_open_idx_options_popup = false;
 		if (!m_pending_save_path.empty())
 		{
-			ImGui::OpenPopup("IDX Options");
+			PaintUi::open_modal("IDX Options", "idx_options");
 		}
 	}
 
-	if (ImGui::BeginPopupModal("IDX Options", nullptr,
-	                           ImGuiWindowFlags_AlwaysAutoResize))
+	if (PaintUi::begin_modal("IDX Options", "idx_options"))
 	{
-		ImGui::TextUnformatted("Storage format for the .idx file:");
-		ImGui::TextUnformatted("Format");
+		ImGui::TextUnformatted(i18n::tr("Storage format for the .idx file:"));
+		ImGui::TextUnformatted(i18n::tr("Format"));
 		ImGui::SameLine();
 		ImGui::SetNextItemWidth(180.0f);
-		static const char* formats[] = {
-			"Index", "Binary", "Packed", "BinaryPacked"};
+		const char* formats[] = {
+			i18n::tr("Index"), i18n::tr("Binary"),
+			i18n::tr("Packed"), i18n::tr("BinaryPacked")};
 		int format_index = static_cast<int>(m_save_format);
 		if (ImGui::Combo("##idx_format", &format_index, formats, 4))
 		{
@@ -441,13 +446,13 @@ void PaintFrontend::renderFileDialogs()
 		const int width = m_backend.session().getWidth();
 		const int height = m_backend.session().getHeight();
 		const int bpp = m_backend.session().getBitsPerPixel();
-		ImGui::TextUnformatted("Approx. file sizes:");
+		ImGui::TextUnformatted(i18n::tr("Approx. file sizes:"));
 		if (ImGui::BeginTable("##idx_sizes", 2,
 		                      ImGuiTableFlags_SizingFixedFit |
 		                          ImGuiTableFlags_RowBg))
 		{
-			ImGui::TableSetupColumn("Format");
-			ImGui::TableSetupColumn("Approx. size");
+			ImGui::TableSetupColumn(i18n::tr("Format"));
+			ImGui::TableSetupColumn(i18n::tr("Approx. size"));
 			ImGui::TableHeadersRow();
 			for (IndexedFormat format : {IndexedFormat::Index,
 			                             IndexedFormat::Binary,
@@ -456,7 +461,7 @@ void PaintFrontend::renderFileDialogs()
 			{
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
-				ImGui::TextUnformatted(indexed_format_name(format));
+				ImGui::TextUnformatted(i18n::tr(indexed_format_name(format)));
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted(format_byte_size(
 					indexed_image_estimated_file_size(
@@ -466,11 +471,14 @@ void PaintFrontend::renderFileDialogs()
 		}
 		const std::size_t data_size = indexed_image_data_size(
 			width, height, bpp, m_save_format);
-		ImGui::TextDisabled("Selected data: %s + ~64 B header",
-		                    format_byte_size(data_size).c_str());
+		char data_summary[256] = {};
+		std::snprintf(data_summary, sizeof(data_summary),
+		              i18n::tr("Selected data: %s + ~64 B header"),
+		              format_byte_size(data_size).c_str());
+		ImGui::TextDisabled("%s", data_summary);
 
 		ImGui::Separator();
-		if (ImGui::Button("Save", ImVec2(80.0f, 0.0f)))
+		if (PaintUi::dialog_button(i18n::tr("Save")))
 		{
 			const std::string path = std::move(m_pending_save_path);
 			m_pending_save_path.clear();
@@ -480,7 +488,7 @@ void PaintFrontend::renderFileDialogs()
 			save_to_path(path, continue_pending, m_save_format);
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Cancel", ImVec2(80.0f, 0.0f)))
+		if (PaintUi::dialog_button(i18n::tr("Cancel")))
 		{
 			ImGui::CloseCurrentPopup();
 			m_save_then_pending = false;
@@ -488,13 +496,13 @@ void PaintFrontend::renderFileDialogs()
 			m_pending_open_path.clear();
 			m_pending_save_path.clear();
 		}
-		ImGui::EndPopup();
+		PaintUi::end_modal();
 	}
 
 	// If the modal was dismissed without pressing Save/Cancel, discard the
 	// pending path so the next Save/Save As starts cleanly.
 	if (!m_open_idx_options_popup && !m_pending_save_path.empty() &&
-	    !ImGui::IsPopupOpen("IDX Options"))
+	    !PaintUi::is_modal_open("IDX Options", "idx_options"))
 	{
 		m_pending_save_path.clear();
 		m_save_then_pending = false;
@@ -502,19 +510,19 @@ void PaintFrontend::renderFileDialogs()
 		m_pending_open_path.clear();
 	}
 
-	if (ImGui::BeginPopupModal("New Image", nullptr,
-	                           ImGuiWindowFlags_AlwaysAutoResize))
+	if (PaintUi::begin_modal("New Image", "new_image"))
 	{
-		ImGui::InputInt("Width", &m_new_width);
-		ImGui::InputInt("Height", &m_new_height);
+		ImGui::InputInt(i18n::tr("Width"), &m_new_width);
+		ImGui::InputInt(i18n::tr("Height"), &m_new_height);
 		m_new_width = std::max(1, m_new_width);
 		m_new_height = std::max(1, m_new_height);
-		ImGui::SliderInt("Bits per pixel", &m_new_bpp, 1, 8);
+		ImGui::SliderInt(i18n::tr("Bits per pixel"), &m_new_bpp, 1, 8);
 		m_new_bpp = std::clamp(m_new_bpp, 1, 8);
-		ImGui::Text("Colors: %d", palette_usable_color_count(m_new_bpp));
+		ImGui::Text("%s %d", i18n::tr("Colors:"),
+		            palette_usable_color_count(m_new_bpp));
 		ImGui::Separator();
 
-		if (ImGui::Button("Create", ImVec2(80.0f, 0.0f)))
+		if (PaintUi::dialog_button(i18n::tr("Create")))
 		{
 			std::string error;
 			if (m_backend.new_document(m_new_width, m_new_height,
@@ -529,24 +537,25 @@ void PaintFrontend::renderFileDialogs()
 			}
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Cancel", ImVec2(80.0f, 0.0f)))
+		if (PaintUi::dialog_button(i18n::tr("Cancel")))
 		{
 			ImGui::CloseCurrentPopup();
 		}
-		ImGui::EndPopup();
+		PaintUi::end_modal();
 	}
 
-	if (ImGui::BeginPopupModal("Unsaved Changes", nullptr,
-	                           ImGuiWindowFlags_AlwaysAutoResize))
+	if (PaintUi::begin_modal("Unsaved Changes", "unsaved_changes"))
 	{
-		const std::string name = m_backend.file_display_name();
+		const std::string name = document_display_name();
 		const char* question = m_pending_file_action == FileAction::Quit
-			? "before closing?"
-			: "before continuing?";
-		ImGui::Text("Save changes to \"%s\" %s", name.c_str(), question);
+			? i18n::tr("Save changes to \"%s\" before closing?")
+			: i18n::tr("Save changes to \"%s\" before continuing?");
+		char message[512] = {};
+		std::snprintf(message, sizeof(message), question, name.c_str());
+		ImGui::TextUnformatted(message);
 		ImGui::Separator();
 
-		if (ImGui::Button("Save", ImVec2(80.0f, 0.0f)))
+		if (PaintUi::dialog_button(i18n::tr("Save")))
 		{
 			ImGui::CloseCurrentPopup();
 			if (!m_backend.has_file_path())
@@ -570,30 +579,29 @@ void PaintFrontend::renderFileDialogs()
 			}
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Discard", ImVec2(80.0f, 0.0f)))
+		if (PaintUi::dialog_button(i18n::tr("Discard")))
 		{
 			ImGui::CloseCurrentPopup();
 			perform_pending_file_action();
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Cancel", ImVec2(80.0f, 0.0f)))
+		if (PaintUi::dialog_button(i18n::tr("Cancel")))
 		{
 			ImGui::CloseCurrentPopup();
 			m_pending_file_action = FileAction::None;
 			m_pending_open_path.clear();
 		}
-		ImGui::EndPopup();
+		PaintUi::end_modal();
 	}
 
-	if (ImGui::BeginPopupModal("File Error", nullptr,
-	                           ImGuiWindowFlags_AlwaysAutoResize))
+	if (PaintUi::begin_modal("File Error", "file_error"))
 	{
 		ImGui::TextWrapped("%s", m_error_message.c_str());
 		ImGui::Separator();
-		if (ImGui::Button("OK", ImVec2(80.0f, 0.0f)))
+		if (PaintUi::dialog_button(i18n::tr("OK")))
 		{
 			ImGui::CloseCurrentPopup();
 		}
-		ImGui::EndPopup();
+		PaintUi::end_modal();
 	}
 }

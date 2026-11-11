@@ -1,0 +1,461 @@
+# Spanish translation for QtreGBPaint.
+# The English source strings in the code are the keys and the fallback.
+# License: GPL-3.0-or-later, same as the application.
+msgid ""
+msgstr ""
+"Project-Id-Version: QtreGBPaint 0.9.1\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "File"
+msgstr "Archivo"
+
+msgid "New"
+msgstr "Nuevo"
+
+msgid "Open"
+msgstr "Abrir"
+
+msgid "Save"
+msgstr "Guardar"
+
+msgid "Save As..."
+msgstr "Guardar como..."
+
+msgid "Export"
+msgstr "Exportar"
+
+msgid "Bitmap..."
+msgstr "BMP..."
+
+msgid "PNG..."
+msgstr "PNG..."
+
+msgid "Exit"
+msgstr "Salir"
+
+msgid "Edit"
+msgstr "Edición"
+
+msgid "Undo"
+msgstr "Deshacer"
+
+msgid "Redo"
+msgstr "Rehacer"
+
+msgid "Select All"
+msgstr "Seleccionar todo"
+
+msgid "View"
+msgstr "Ver"
+
+msgid "Grid"
+msgstr "Cuadrícula"
+
+msgid "Zoom +"
+msgstr "Zoom +"
+
+msgid "Zoom -"
+msgstr "Zoom -"
+
+msgid "Selection"
+msgstr "Selección"
+
+msgid "Copy"
+msgstr "Copiar"
+
+msgid "Cut"
+msgstr "Cortar"
+
+msgid "Paste"
+msgstr "Pegar"
+
+msgid "Delete"
+msgstr "Eliminar"
+
+msgid "Flip/Rotate..."
+msgstr "Voltear/Rotar..."
+
+msgid "Invert Colors"
+msgstr "Invertir colores"
+
+msgid "Image"
+msgstr "Imagen"
+
+msgid "Properties..."
+msgstr "Propiedades..."
+
+msgid "Palette"
+msgstr "Paleta"
+
+msgid "DMG"
+msgstr "DMG"
+
+msgid "Grayscale"
+msgstr "Escala de grises"
+
+msgid "Red"
+msgstr "Rojo"
+
+msgid "Green"
+msgstr "Verde"
+
+msgid "Blue"
+msgstr "Azul"
+
+msgid "Invert Palette"
+msgstr "Invertir paleta"
+
+msgid "Transparent Foreground"
+msgstr "Primer plano transparente"
+
+msgid "Clear Transparent Color"
+msgstr "Borrar color transparente"
+
+msgid "Settings"
+msgstr "Ajustes"
+
+msgid "Theme"
+msgstr "Tema"
+
+msgid "Light"
+msgstr "Claro"
+
+msgid "Dark"
+msgstr "Oscuro"
+
+msgid "Classic"
+msgstr "Clásico"
+
+msgid "Language"
+msgstr "Idioma"
+
+msgid "System default"
+msgstr "Predeterminado del sistema"
+
+msgid "Help"
+msgstr "Ayuda"
+
+msgid "About QtreGBPaint..."
+msgstr "Acerca de QtreGBPaint..."
+
+msgid "About QtreGBPaint"
+msgstr "Acerca de QtreGBPaint"
+
+msgid "Properties"
+msgstr "Propiedades"
+
+msgid "Flip/Rotate"
+msgstr "Voltear/Rotar"
+
+msgid "New Image"
+msgstr "Nueva imagen"
+
+msgid "Unsaved Changes"
+msgstr "Cambios sin guardar"
+
+msgid "File Error"
+msgstr "Error de archivo"
+
+msgid "IDX Options"
+msgstr "Opciones de IDX"
+
+msgid "Made by kirbyboy"
+msgstr "Hecho por kirbyboy"
+
+msgid "Copyright (C) 2026 the QtreGBPaint project"
+msgstr "Copyright (C) 2026 el proyecto QtreGBPaint"
+
+msgid "License: GNU General Public License v3.0 or later"
+msgstr "Licencia: GNU General Public License v3.0 o posterior"
+
+msgid "Code: GPL-3.0-or-later"
+msgstr "Código: GPL-3.0-or-later"
+
+msgid "Visual assets: CC0 1.0"
+msgstr "Recursos visuales: CC0 1.0"
+
+msgid "Close"
+msgstr "Cerrar"
+
+msgid "Width"
+msgstr "Ancho"
+
+msgid "Height"
+msgstr "Alto"
+
+msgid "Bits per pixel"
+msgstr "Bits por píxel"
+
+msgid "Colors:"
+msgstr "Colores:"
+
+msgid "New area uses the current background color."
+msgstr "El área nueva usa el color de fondo actual."
+
+msgid "Changing bits per pixel rewrites the image:"
+msgstr "Cambiar los bits por píxel reescribe la imagen:"
+
+msgid "all pixels are remapped to the closest tone"
+msgstr "todos los píxeles se reasignan al tono más cercano"
+
+msgid "in the new palette; the saved file uses the new format."
+msgstr "de la nueva paleta; el archivo guardado usa el nuevo formato."
+
+msgid "OK"
+msgstr "Aceptar"
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "Transform selection"
+msgstr "Transformar selección"
+
+msgid "Transform image"
+msgstr "Transformar imagen"
+
+msgid "Flip horizontal"
+msgstr "Voltear horizontalmente"
+
+msgid "Flip vertical"
+msgstr "Voltear verticalmente"
+
+msgid "Rotate"
+msgstr "Rotar"
+
+msgid "90 degrees"
+msgstr "90 grados"
+
+msgid "180 degrees"
+msgstr "180 grados"
+
+msgid "270 degrees"
+msgstr "270 grados"
+
+msgid "Storage format for the .idx file:"
+msgstr "Formato de almacenamiento del archivo .idx:"
+
+msgid "Format"
+msgstr "Formato"
+
+msgid "Index"
+msgstr "Índice"
+
+msgid "Binary"
+msgstr "Binario"
+
+msgid "Packed"
+msgstr "Empaquetado"
+
+msgid "BinaryPacked"
+msgstr "Binario empaquetado"
+
+msgid "Approx. file sizes:"
+msgstr "Tamaños aproximados de archivo:"
+
+msgid "Approx. size"
+msgstr "Tamaño aprox."
+
+msgid "Selected data: %s + ~64 B header"
+msgstr "Datos seleccionados: %s + ~64 B de cabecera"
+
+msgid "Create"
+msgstr "Crear"
+
+msgid "Discard"
+msgstr "Descartar"
+
+msgid "Save changes to \"%s\" before closing?"
+msgstr "¿Guardar los cambios de \"%s\" antes de cerrar?"
+
+msgid "Save changes to \"%s\" before continuing?"
+msgstr "¿Guardar los cambios de \"%s\" antes de continuar?"
+
+msgid "Unknown error"
+msgstr "Error desconocido"
+
+msgid "Untitled"
+msgstr "Sin título"
+
+msgid "Modified"
+msgstr "Modificado"
+
+msgid "Saved"
+msgstr "Guardado"
+
+msgid "Canvas:"
+msgstr "Lienzo:"
+
+msgid "Zoom:"
+msgstr "Zoom:"
+
+msgid "Color:"
+msgstr "Color:"
+
+msgid "Zoom"
+msgstr "Zoom"
+
+msgid "Transparent color"
+msgstr "Color transparente"
+
+msgid "Open Image"
+msgstr "Abrir imagen"
+
+msgid "Save Image"
+msgstr "Guardar imagen"
+
+msgid "Export Bitmap"
+msgstr "Exportar BMP"
+
+msgid "Export PNG"
+msgstr "Exportar PNG"
+
+msgid "Indexed Image"
+msgstr "Imagen indexada"
+
+msgid "All files"
+msgstr "Todos los archivos"
+
+msgid "Bitmap"
+msgstr "BMP"
+
+msgid "PNG"
+msgstr "PNG"
+
+msgid "Plain decimal text, one value per pixel. Easy to inspect, but the largest format."
+msgstr "Texto decimal simple, un valor por píxel. Fácil de inspeccionar, pero el formato más grande."
+
+msgid "One raw byte per pixel, without row packing. Simple and exact, but not human-readable."
+msgstr "Un byte crudo por píxel, sin empaquetado por filas. Simple y exacto, pero no legible por humanos."
+
+msgid "MSB-first row packing stored as hexadecimal text. Compact and still inspectable; 2bpp halves the data."
+msgstr "Empaquetado por filas MSB-first guardado como texto hexadecimal. Compacto y aún inspeccionable; 2bpp reduce los datos a la mitad."
+
+msgid "MSB-first row packing stored as raw bytes. The smallest format, not human-readable."
+msgstr "Empaquetado por filas MSB-first guardado como bytes crudos. El formato más pequeño, no legible por humanos."
+
+msgid "Eraser"
+msgstr "Goma"
+
+msgid "Fill"
+msgstr "Relleno"
+
+msgid "Pick Color"
+msgstr "Cuentagotas"
+
+msgid "Pencil"
+msgstr "Lápiz"
+
+msgid "Brush"
+msgstr "Pincel"
+
+msgid "Line"
+msgstr "Línea"
+
+msgid "Curve"
+msgstr "Curva"
+
+msgid "Rect"
+msgstr "Rectángulo"
+
+msgid "Circle"
+msgstr "Círculo"
+
+msgid "Size"
+msgstr "Tamaño"
+
+msgid "Fill mode"
+msgstr "Modo de relleno"
+
+msgid "Mode"
+msgstr "Modo"
+
+msgid "Shape"
+msgstr "Forma"
+
+msgid "Circle r3"
+msgstr "Círculo r3"
+
+msgid "Circle r2"
+msgstr "Círculo r2"
+
+msgid "Circle r1"
+msgstr "Círculo r1"
+
+msgid "Square 8"
+msgstr "Cuadrado 8"
+
+msgid "Square 5"
+msgstr "Cuadrado 5"
+
+msgid "Square 2"
+msgstr "Cuadrado 2"
+
+msgid "Diagonal 45 8"
+msgstr "Diagonal 45 8"
+
+msgid "Diagonal 45 5"
+msgstr "Diagonal 45 5"
+
+msgid "Diagonal 45 2"
+msgstr "Diagonal 45 2"
+
+msgid "Diagonal 135 8"
+msgstr "Diagonal 135 8"
+
+msgid "Diagonal 135 5"
+msgstr "Diagonal 135 5"
+
+msgid "Diagonal 135 2"
+msgstr "Diagonal 135 2"
+
+msgid "Eraser 4"
+msgstr "Goma 4"
+
+msgid "Eraser 6"
+msgstr "Goma 6"
+
+msgid "Eraser 8"
+msgstr "Goma 8"
+
+msgid "Eraser 10"
+msgstr "Goma 10"
+
+msgid "Contiguous"
+msgstr "Contiguo"
+
+msgid "Global"
+msgstr "Global"
+
+msgid "Normal"
+msgstr "Normal"
+
+msgid "Transparent"
+msgstr "Transparente"
+
+msgid "Outline"
+msgstr "Contorno"
+
+msgid "Both"
+msgstr "Ambos"
+
+msgid "Area"
+msgstr "Área"
+
+msgid "Width 1 px"
+msgstr "Ancho 1 px"
+
+msgid "Width 2 px"
+msgstr "Ancho 2 px"
+
+msgid "Width 3 px"
+msgstr "Ancho 3 px"
+
+msgid "Width 4 px"
+msgstr "Ancho 4 px"
+
+msgid "Width 5 px"
+msgstr "Ancho 5 px"

@@ -1,4 +1,5 @@
 #include "paint_frontend_internal.h"
+#include "paint/i18n.h"
 
 #include <cstdio>
 #include <utility>
@@ -60,17 +61,21 @@ const char* indexed_format_description(IndexedFormat format)
 	switch (format)
 	{
 		case IndexedFormat::Index:
-			return "Plain decimal text, one value per pixel. Easy to inspect, "
-			       "but the largest format.";
+			return i18n::tr(
+				"Plain decimal text, one value per pixel. Easy to inspect, "
+				"but the largest format.");
 		case IndexedFormat::Binary:
-			return "One raw byte per pixel, without row packing. Simple and "
-			       "exact, but not human-readable.";
+			return i18n::tr(
+				"One raw byte per pixel, without row packing. Simple and "
+				"exact, but not human-readable.");
 		case IndexedFormat::Packed:
-			return "MSB-first row packing stored as hexadecimal text. Compact "
-			       "and still inspectable; 2bpp halves the data.";
+			return i18n::tr(
+				"MSB-first row packing stored as hexadecimal text. Compact "
+				"and still inspectable; 2bpp halves the data.");
 		case IndexedFormat::BinaryPacked:
-			return "MSB-first row packing stored as raw bytes. The smallest "
-			       "format, not human-readable.";
+			return i18n::tr(
+				"MSB-first row packing stored as raw bytes. The smallest "
+				"format, not human-readable.");
 	}
 	return "";
 }

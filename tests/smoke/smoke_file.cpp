@@ -202,17 +202,17 @@ int run()
 		}
 		else if (frame == 8)
 		{
-			CHECK(window_exists("File Error"));
+			CHECK(window_exists("File Error###file_error"));
 			close_all_popups();
 		}
 		else if (frame == 10)
 		{
-			CHECK(window_exists("New Image"));
+			CHECK(window_exists("New Image###new_image"));
 			close_all_popups();
 		}
 		else if (frame == 12)
 		{
-			CHECK(window_exists("Unsaved Changes"));
+			CHECK(window_exists("Unsaved Changes###unsaved_changes"));
 		}
 
 		SDL_Delay(frame_ms);

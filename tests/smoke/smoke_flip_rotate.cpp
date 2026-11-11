@@ -157,10 +157,10 @@ ImVec2 modal_button_position(const char* name, int button_index)
 
 	const ImGuiStyle& style = ImGui::GetStyle();
 	const float frame_height = ImGui::GetFrameHeight();
-	const float x = window->Pos.x + style.WindowPadding.x +
+	const float x = window->Pos.x + window->WindowPadding.x +
 		(button_index == 0 ? 40.0f : 80.0f + style.ItemSpacing.x + 40.0f);
 	const float y = window->Pos.y + window->Size.y -
-		style.WindowPadding.y - frame_height * 0.5f;
+		window->WindowPadding.y - frame_height * 0.5f;
 	return ImVec2(x, y);
 }
 
@@ -252,19 +252,19 @@ int run()
 		else if (frame == 9)
 		{
 			save_frame(renderer, "temp/smoke_flip_rotate_modal.ppm");
-			const ImVec2 cancel = modal_button_position("Flip/Rotate", 1);
+			const ImVec2 cancel = modal_button_position("Flip/Rotate###flip_rotate", 1);
 			push_motion(window, static_cast<int>(cancel.x),
 			            static_cast<int>(cancel.y));
 		}
 		else if (frame == 10)
 		{
-			const ImVec2 cancel = modal_button_position("Flip/Rotate", 1);
+			const ImVec2 cancel = modal_button_position("Flip/Rotate###flip_rotate", 1);
 			push_button(window, static_cast<int>(cancel.x),
 			            static_cast<int>(cancel.y), true);
 		}
 		else if (frame == 11)
 		{
-			const ImVec2 cancel = modal_button_position("Flip/Rotate", 1);
+			const ImVec2 cancel = modal_button_position("Flip/Rotate###flip_rotate", 1);
 			push_button(window, static_cast<int>(cancel.x),
 			            static_cast<int>(cancel.y), false);
 		}
@@ -297,19 +297,19 @@ int run()
 		}
 		else if (frame == 21)
 		{
-			const ImVec2 ok = modal_button_position("Flip/Rotate", 0);
+			const ImVec2 ok = modal_button_position("Flip/Rotate###flip_rotate", 0);
 			push_motion(window, static_cast<int>(ok.x),
 			            static_cast<int>(ok.y));
 		}
 		else if (frame == 22)
 		{
-			const ImVec2 ok = modal_button_position("Flip/Rotate", 0);
+			const ImVec2 ok = modal_button_position("Flip/Rotate###flip_rotate", 0);
 			push_button(window, static_cast<int>(ok.x),
 			            static_cast<int>(ok.y), true);
 		}
 		else if (frame == 23)
 		{
-			const ImVec2 ok = modal_button_position("Flip/Rotate", 0);
+			const ImVec2 ok = modal_button_position("Flip/Rotate###flip_rotate", 0);
 			push_button(window, static_cast<int>(ok.x),
 			            static_cast<int>(ok.y), false);
 		}
@@ -327,11 +327,11 @@ int run()
 
 		if (frame == 8)
 		{
-			CHECK(popup_open_by_name("Flip/Rotate"));
+			CHECK(popup_open_by_name("Flip/Rotate###flip_rotate"));
 		}
 		else if (frame == 12)
 		{
-			CHECK_FALSE(popup_open_by_name("Flip/Rotate"));
+			CHECK_FALSE(popup_open_by_name("Flip/Rotate###flip_rotate"));
 			REQUIRE(session.has_floating_region());
 			CHECK_EQ(session.floating_region().rect.w, 3);
 			CHECK_EQ(session.floating_region().rect.h, 2);
@@ -340,11 +340,11 @@ int run()
 		}
 		else if (frame == 17)
 		{
-			CHECK(popup_open_by_name("Flip/Rotate"));
+			CHECK(popup_open_by_name("Flip/Rotate###flip_rotate"));
 		}
 		else if (frame == 24)
 		{
-			CHECK_FALSE(popup_open_by_name("Flip/Rotate"));
+			CHECK_FALSE(popup_open_by_name("Flip/Rotate###flip_rotate"));
 			REQUIRE(session.has_floating_region());
 			CHECK_EQ(session.floating_region().rect.w, 2);
 			CHECK_EQ(session.floating_region().rect.h, 3);

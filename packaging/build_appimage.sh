@@ -40,9 +40,10 @@ make -C "$ROOT_DIR" deps
 make -C "$ROOT_DIR" release
 
 rm -rf "$APPDIR"
-mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/assets"
+mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/assets" "$APPDIR/usr/lang"
 cp "$ROOT_DIR/build/QtreGBPaint-release" "$APPDIR/usr/bin/QtreGBPaint"
 cp -a "$ROOT_DIR/assets/." "$APPDIR/usr/assets/"
+cp -a "$ROOT_DIR/lang/." "$APPDIR/usr/lang/"
 cp "$ROOT_DIR/packaging/qtregbpaint.desktop" \
 	"$APPDIR/io.github.kirbyboy.QtreGBPaint.desktop"
 cp "$ROOT_DIR/packaging/qtregbpaint.png" "$APPDIR/"

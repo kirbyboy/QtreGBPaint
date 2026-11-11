@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "paint/i18n.h"
+
 using namespace PaintFrontendInternal;
 
 void PaintFrontend::renderMenuBar()
@@ -14,35 +16,35 @@ void PaintFrontend::renderMenuBar()
 
 	if (ImGui::BeginMenuBar())
 	{
-		if (ImGui::BeginMenu("File"))
+		if (ImGui::BeginMenu(i18n::tr("File")))
 		{
-			if (ImGui::MenuItem("New", "Ctrl+N"))
+			if (ImGui::MenuItem(i18n::tr("New"), "Ctrl+N"))
 			{
 				request_new_document();
 			}
-			if (ImGui::MenuItem("Open", "Ctrl+O"))
+			if (ImGui::MenuItem(i18n::tr("Open"), "Ctrl+O"))
 			{
 				request_open_document();
 			}
 			ImGui::Separator();
 			const bool can_save =
 				m_backend.is_modified() || !m_backend.has_file_path();
-			if (ImGui::MenuItem("Save", "Ctrl+S", false, can_save))
+			if (ImGui::MenuItem(i18n::tr("Save"), "Ctrl+S", false, can_save))
 			{
 				request_save();
 			}
-			if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S"))
+			if (ImGui::MenuItem(i18n::tr("Save As..."), "Ctrl+Shift+S"))
 			{
 				request_save_as();
 			}
 			ImGui::Separator();
-			if (ImGui::BeginMenu("Export"))
+			if (ImGui::BeginMenu(i18n::tr("Export")))
 			{
-				if (ImGui::MenuItem("Bitmap..."))
+				if (ImGui::MenuItem(i18n::tr("Bitmap...")))
 				{
 					request_export(ImageExportFormat::Bmp);
 				}
-				if (ImGui::MenuItem("PNG..."))
+				if (ImGui::MenuItem(i18n::tr("PNG...")))
 				{
 					request_export(ImageExportFormat::Png);
 				}
@@ -71,97 +73,106 @@ void PaintFrontend::renderMenuBar()
 				}
 				ImGui::Separator();
 			}
-			if (ImGui::MenuItem("Exit", "Alt+F4"))
+			if (ImGui::MenuItem(i18n::tr("Exit"), "Alt+F4"))
 			{
 				request_close_window();
 			}
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Edit"))
+		if (ImGui::BeginMenu(i18n::tr("Edit")))
 		{
-			if (ImGui::MenuItem("Undo", "Ctrl+Z", false, m_backend.can_undo()))
+			if (ImGui::MenuItem(i18n::tr("Undo"), "Ctrl+Z", false,
+			                    m_backend.can_undo()))
 			{
 				m_backend.undo();
 			}
-			if (ImGui::MenuItem("Redo", "Ctrl+Y", false, m_backend.can_redo()))
+			if (ImGui::MenuItem(i18n::tr("Redo"), "Ctrl+Y", false,
+			                    m_backend.can_redo()))
 			{
 				m_backend.redo();
 			}
 			ImGui::Separator();
-			if (ImGui::MenuItem("Select All", "Ctrl+A"))
+			if (ImGui::MenuItem(i18n::tr("Select All"), "Ctrl+A"))
 			{
 				select_all();
 			}
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("View"))
+		if (ImGui::BeginMenu(i18n::tr("View")))
 		{
-			ImGui::MenuItem("Grid", "Ctrl+G", &m_show_grid);
-			if (ImGui::MenuItem("Zoom +", "Ctrl++", false, m_zoom < 64))
+			ImGui::MenuItem(i18n::tr("Grid"), "Ctrl+G", &m_show_grid);
+			if (ImGui::MenuItem(i18n::tr("Zoom +"), "Ctrl++", false,
+			                    m_zoom < 64))
 			{
 				request_zoom_steps(1);
 			}
-			if (ImGui::MenuItem("Zoom -", "Ctrl+-", false, m_zoom > 1))
+			if (ImGui::MenuItem(i18n::tr("Zoom -"), "Ctrl+-", false,
+			                    m_zoom > 1))
 			{
 				request_zoom_steps(-1);
 			}
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Selection"))
+		if (ImGui::BeginMenu(i18n::tr("Selection")))
 		{
 			const bool has_floating = session.has_floating_region();
-			if (ImGui::MenuItem("Copy", "Ctrl+C", false, has_floating))
+			if (ImGui::MenuItem(i18n::tr("Copy"), "Ctrl+C", false,
+			                    has_floating))
 			{
 				copy_selection();
 			}
-			if (ImGui::MenuItem("Cut", "Ctrl+X", false, has_floating))
+			if (ImGui::MenuItem(i18n::tr("Cut"), "Ctrl+X", false,
+			                    has_floating))
 			{
 				cut_selection();
 			}
-			if (ImGui::MenuItem("Paste", "Ctrl+V", false, session.has_clipboard()))
+			if (ImGui::MenuItem(i18n::tr("Paste"), "Ctrl+V", false,
+			                    session.has_clipboard()))
 			{
 				paste_selection();
 			}
-			if (ImGui::MenuItem("Delete", "Del", false, has_floating))
+			if (ImGui::MenuItem(i18n::tr("Delete"), "Del", false,
+			                    has_floating))
 			{
 				session.delete_floating_region();
 			}
 			ImGui::Separator();
-			if (ImGui::MenuItem("Flip/Rotate...", "Ctrl+R", false,
+			if (ImGui::MenuItem(i18n::tr("Flip/Rotate..."), "Ctrl+R", false,
 			                    has_floating))
 			{
 				open_flip_rotate_dialog(FlipRotateTarget::Selection);
 			}
 			ImGui::Separator();
-			if (ImGui::MenuItem("Invert Colors", nullptr, false, has_floating))
+			if (ImGui::MenuItem(i18n::tr("Invert Colors"), nullptr, false,
+			                    has_floating))
 			{
 				session.invert_floating_region_colors();
 			}
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Image"))
+		if (ImGui::BeginMenu(i18n::tr("Image")))
 		{
-			if (ImGui::MenuItem("Flip/Rotate...", "Ctrl+R"))
+			if (ImGui::MenuItem(i18n::tr("Flip/Rotate..."), "Ctrl+R"))
 			{
 				open_flip_rotate_dialog(FlipRotateTarget::Canvas);
 			}
 			ImGui::Separator();
-			if (ImGui::MenuItem("Properties...", "Ctrl+E"))
+			if (ImGui::MenuItem(i18n::tr("Properties..."), "Ctrl+E"))
 			{
 				open_properties_dialog();
 			}
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Palette"))
+		if (ImGui::BeginMenu(i18n::tr("Palette")))
 		{
 			const auto palette_item = [this](const char* label, PaletteMode mode)
 			{
-				if (ImGui::MenuItem(label, nullptr,
+				if (ImGui::MenuItem(i18n::tr(label), nullptr,
 				                    m_backend.palette_mode() == mode))
 				{
 					m_backend.select_palette(mode);
@@ -175,7 +186,7 @@ void PaintFrontend::renderMenuBar()
 			palette_item("Blue", PaletteMode::Blue);
 
 			ImGui::Separator();
-			if (ImGui::MenuItem("Invert Palette", nullptr,
+			if (ImGui::MenuItem(i18n::tr("Invert Palette"), nullptr,
 			                    m_backend.palette_inverted()))
 			{
 				m_backend.toggle_palette_inverted();
@@ -190,13 +201,15 @@ void PaintFrontend::renderMenuBar()
 				transparent.has_value() && *transparent == foreground;
 			const bool foreground_visible = is_visual_palette_index(
 				foreground, m_backend.session().getBitsPerPixel());
-			if (ImGui::MenuItem("Transparent Foreground", nullptr, false,
+			if (ImGui::MenuItem(i18n::tr("Transparent Foreground"), nullptr,
+			                    false,
 			                    foreground_visible &&
 			                    !foreground_is_transparent))
 			{
 				m_backend.set_transparent_foreground();
 			}
-			if (ImGui::MenuItem("Clear Transparent Color", nullptr, false,
+			if (ImGui::MenuItem(i18n::tr("Clear Transparent Color"), nullptr,
+			                    false,
 			                    m_backend.has_transparent_color()))
 			{
 				m_backend.clear_transparent_color();
@@ -204,13 +217,14 @@ void PaintFrontend::renderMenuBar()
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Settings"))
+		if (ImGui::BeginMenu(i18n::tr("Settings")))
 		{
-			if (ImGui::BeginMenu("Theme"))
+			if (ImGui::BeginMenu(i18n::tr("Theme")))
 			{
 				const auto theme_item = [this](const char* label, Theme value)
 				{
-					if (ImGui::MenuItem(label, nullptr, m_theme == value))
+					if (ImGui::MenuItem(i18n::tr(label), nullptr,
+					                    m_theme == value))
 					{
 						set_theme(value);
 					}
@@ -221,12 +235,29 @@ void PaintFrontend::renderMenuBar()
 				theme_item("Classic", Theme::Classic);
 				ImGui::EndMenu();
 			}
+			if (ImGui::BeginMenu(i18n::tr("Language")))
+			{
+				const auto language_item = [this](const char* label,
+				                                  const char* value)
+				{
+					if (ImGui::MenuItem(label, nullptr,
+					                    m_language == value))
+					{
+						set_language(value);
+					}
+				};
+
+				language_item(i18n::tr("System default"), "system");
+				language_item("English", "en");
+				language_item("Español", "es");
+				ImGui::EndMenu();
+			}
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Help"))
+		if (ImGui::BeginMenu(i18n::tr("Help")))
 		{
-			if (ImGui::MenuItem("About QtreGBPaint..."))
+			if (ImGui::MenuItem(i18n::tr("About QtreGBPaint...")))
 			{
 				m_open_about_popup = true;
 			}

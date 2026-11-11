@@ -59,6 +59,7 @@ TEST_CASE("AppConfig defaults when the file does not exist")
 	const AppConfig config = AppConfig::load(dir.file("missing.ini"));
 
 	CHECK(config.theme == AppTheme::Light);
+	CHECK_EQ(config.language, "system");
 	CHECK(config.grid_enabled);
 	CHECK_EQ(config.window.width, 800);
 	CHECK_EQ(config.window.height, 600);
@@ -74,6 +75,7 @@ TEST_CASE("AppConfig round-trips theme, grid, window and recent files")
 
 	AppConfig config;
 	config.theme = AppTheme::Classic;
+	config.language = "es";
 	config.grid_enabled = false;
 	config.window = PaintCore::WindowGeometry{-40, 25, 1000, 700, true, true};
 	config.last_directory = "/tmp/a folder/with spaces";
@@ -89,6 +91,7 @@ TEST_CASE("AppConfig round-trips theme, grid, window and recent files")
 
 	const AppConfig loaded = AppConfig::load(path);
 	CHECK(loaded.theme == AppTheme::Classic);
+	CHECK_EQ(loaded.language, "es");
 	CHECK_FALSE(loaded.grid_enabled);
 	CHECK_EQ(loaded.window.x, -40);
 	CHECK_EQ(loaded.window.y, 25);
@@ -104,6 +107,7 @@ TEST_CASE("AppConfig round-trips theme, grid, window and recent files")
 
 	const std::string contents = read_file(path);
 	CHECK(contents.find("theme=classic") != std::string::npos);
+	CHECK(contents.find("language=es") != std::string::npos);
 	CHECK(contents.find("grid=0") != std::string::npos);
 	CHECK(contents.find("window.maximized=1") != std::string::npos);
 	CHECK(contents.find("last_directory=\"/tmp/a folder/with spaces\"") !=
