@@ -13,6 +13,7 @@
 #include "paint/paint_frontend.h"
 #include "paint/checkerboard.h"
 #include "paint/color_imgui.h"
+#include "paint/file_dialog_i18n.h"
 #include "paint/i18n.h"
 #include "paint/ui_roles.h"
 #include "paint/ui_tokens.h"
@@ -220,6 +221,7 @@ void PaintFrontend::set_language(const std::string& language)
 {
 	m_language = language.empty() ? "system" : language;
 	i18n::set_locale(m_language);
+	PaintFrontendInternal::apply_file_dialog_language();
 }
 
 std::string PaintFrontend::document_display_name() const

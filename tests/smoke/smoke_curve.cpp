@@ -4,9 +4,9 @@
 //
 // Build from the repository root:
 //   g++ -std=c++17 -Iinc -Ilib/imgui/src -Ilib/imgui/src/backends \
-//       -Ilib/ImGuiFileDialog $(sdl2-config --cflags) tests/smoke/smoke_curve.cpp \
+//       -Ithird_party/ImGuiFileDialog $(sdl2-config --cflags) tests/smoke/smoke_curve.cpp \
 //       $(find obj -name '*.o' ! -path '*/main.o') \
-//       lib/ImGuiFileDialog/libImGuiFileDialog.a lib/imgui/libimgui.a \
+//       third_party/ImGuiFileDialog/libImGuiFileDialog.a lib/imgui/libimgui.a \
 //       lib/tinyfiledialogs/libtinyfiledialog.a \
 //       $(sdl2-config --libs) -pthread -o temp/smoke_curve
 

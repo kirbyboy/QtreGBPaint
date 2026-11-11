@@ -7,7 +7,7 @@
 //       $(sdl2-config --cflags) tests/smoke/smoke_file.cpp \
 //       $(find obj -name '*.o' ! -path '*/main.o') \
 //       lib/imgui/libimgui.a lib/tinyfiledialogs/libtinyfiledialog.a \
-//       lib/ImGuiFileDialog/libImGuiFileDialog.a \
+//       third_party/ImGuiFileDialog/libImGuiFileDialog.a \
 //       $(sdl2-config --libs) -pthread -o temp/smoke_file
 
 #include <SDL.h>

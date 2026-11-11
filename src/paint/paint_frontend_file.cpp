@@ -250,6 +250,8 @@ void PaintFrontend::open_open_dialog()
 	const std::string filters =
 		std::string(i18n::tr("Indexed Image")) + "{.idx}," +
 		i18n::tr("All files") + "{.*}";
+	// ImGuiFileDialog 0.6.8 has no runtime text API: its own labels are
+	// compile-time macros, so only the title and filters are localized here.
 	ImGuiFileDialog::Instance()->OpenDialog(
 		"OpenImage", i18n::tr("Open Image"), filters.c_str(), config);
 }

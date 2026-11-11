@@ -37,7 +37,8 @@ bool begin_modal(const char* title, const char* stable_id,
 void end_modal();
 bool is_modal_open(const char* title, const char* stable_id);
 
-// Standard footer button. Returns true when pressed.
+// Standard footer button (80 px minimum, grows with the label). Returns true
+// when pressed.
 bool dialog_button(const char* label);
 } // namespace PaintUi
 

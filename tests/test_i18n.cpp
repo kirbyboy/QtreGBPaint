@@ -49,6 +49,20 @@ TEST_CASE("i18n loads the Spanish catalog")
 	CHECK_EQ(std::string(i18n::tr("Open")), "Open");
 }
 
+TEST_CASE("i18n pseudo-locale expands source strings")
+{
+	i18n::set_language_directory("");
+	i18n::set_locale("en_XA");
+
+	CHECK_EQ(i18n::resolved_locale(), "en_XA");
+	const std::string open = i18n::tr("Open");
+	CHECK(open.rfind("[!! ", 0) == 0);
+	CHECK(open.find("!!]") != std::string::npos);
+	CHECK(open.size() > std::string("Open").size());
+
+	i18n::set_locale("en");
+}
+
 TEST_CASE("i18n detects Spanish from LANGUAGE")
 {
 	const char* previous = std::getenv("LANGUAGE");

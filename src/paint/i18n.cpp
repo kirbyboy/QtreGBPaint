@@ -44,6 +44,11 @@ std::string supported_locale(const std::string& value)
 	{
 		normalized.erase(encoding);
 	}
+	// Test-only pseudo-locale. Check it before stripping the region suffix.
+	if (normalized == "en_xa" || normalized == "en-xa")
+	{
+		return "en_XA";
+	}
 	const std::size_t separator = normalized.find_first_of("_-");
 	if (separator != std::string::npos)
 	{
@@ -111,6 +116,54 @@ std::string parse_quoted(const std::string& line)
 			out += character;
 		}
 	}
+	return out;
+}
+
+std::string pseudolocalize(const std::string& text)
+{
+	std::string out;
+	out.reserve(text.size() + 12);
+	out += "[!! ";
+	for (const char character : text)
+	{
+		switch (character)
+		{
+			case 'a':
+				out += "á";
+				break;
+			case 'e':
+				out += "é";
+				break;
+			case 'i':
+				out += "í";
+				break;
+			case 'o':
+				out += "ó";
+				break;
+			case 'u':
+				out += "ú";
+				break;
+			case 'A':
+				out += "Á";
+				break;
+			case 'E':
+				out += "É";
+				break;
+			case 'I':
+				out += "Í";
+				break;
+			case 'O':
+				out += "Ó";
+				break;
+			case 'U':
+				out += "Ú";
+				break;
+			default:
+				out += character;
+				break;
+		}
+	}
+	out += " !!]";
 	return out;
 }
 
@@ -207,7 +260,9 @@ namespace
 std::string g_directory;
 std::string g_locale = "system";
 std::string g_resolved = "en";
+bool g_pseudo = false;
 std::unordered_map<std::string, std::string> g_catalog;
+std::unordered_map<std::string, std::string> g_pseudo_cache;
 } // namespace
 
 void set_language_directory(std::string directory)
@@ -225,10 +280,11 @@ void set_locale(const std::string& locale)
 	{
 		g_resolved = "en";
 	}
+	g_pseudo = g_resolved == "en_XA";
 
 	clear_catalog();
 
-	if (g_resolved == "en" || g_directory.empty())
+	if (g_pseudo || g_resolved == "en" || g_directory.empty())
 	{
 		return;
 	}
@@ -296,6 +352,16 @@ const char* tr(const char* text)
 	{
 		return "";
 	}
+	if (g_pseudo)
+	{
+		const auto existing = g_pseudo_cache.find(text);
+		if (existing != g_pseudo_cache.end())
+		{
+			return existing->second.c_str();
+		}
+		return g_pseudo_cache.emplace(text, pseudolocalize(text))
+			.first->second.c_str();
+	}
 	const auto entry = g_catalog.find(text);
 	return entry == g_catalog.end() ? text : entry->second.c_str();
 }
@@ -362,5 +428,6 @@ bool load_catalog(const std::string& path)
 void clear_catalog()
 {
 	g_catalog.clear();
+	g_pseudo_cache.clear();
 }
 } // namespace i18n

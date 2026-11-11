@@ -10,6 +10,7 @@ TARGET := libImGuiFileDialog.a
 OBJDIR := build
 SRCS := ImGuiFileDialog.cpp
 OBJS := $(patsubst %.cpp,$(OBJDIR)/%.o,$(SRCS))
+DEPS := $(OBJS:.o=.d)
 
 all: $(TARGET)
 
@@ -18,9 +19,11 @@ $(TARGET): $(OBJS)
 
 $(OBJDIR)/%.o: %.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 clean:
 	$(RM) -r $(OBJDIR) $(TARGET)
+
+-include $(DEPS)
 
 .PHONY: all clean

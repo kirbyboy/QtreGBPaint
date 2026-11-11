@@ -108,11 +108,11 @@ if [[ "$DO_BUILD" -eq 1 ]]; then
 				-I"$ROOT_DIR/inc" \
 				-I"$ROOT_DIR/lib/imgui/src" \
 				-I"$ROOT_DIR/lib/imgui/src/backends" \
-				-I"$ROOT_DIR/lib/ImGuiFileDialog" \
+				-I"$ROOT_DIR/third_party/ImGuiFileDialog" \
 				$(sdl2-config --cflags) \
 				"$SMOKE_DIR/smoke_${name}.cpp" \
 				"${OBJECTS[@]}" \
-				"$ROOT_DIR/lib/ImGuiFileDialog/libImGuiFileDialog.a" \
+				"$ROOT_DIR/third_party/ImGuiFileDialog/libImGuiFileDialog.a" \
 				"$ROOT_DIR/lib/imgui/libimgui.a" \
 				$(sdl2-config --libs) -lz -pthread \
 				-o "$WORK_DIR/smoke_${name}"

@@ -1,5 +1,6 @@
 #include "paint/ui_widgets.h"
 
+#include <algorithm>
 #include <string>
 
 #include "paint/i18n.h"
@@ -126,6 +127,10 @@ bool is_modal_open(const char* title, const char* stable_id)
 
 bool dialog_button(const char* label)
 {
-	return ImGui::Button(label, ImVec2(Size::kDialogButton, 0.0f));
+	const float width = std::max(
+		Size::kDialogButton,
+		ImGui::CalcTextSize(label).x +
+			ImGui::GetStyle().FramePadding.x * 2.0f);
+	return ImGui::Button(label, ImVec2(width, 0.0f));
 }
 } // namespace PaintUi

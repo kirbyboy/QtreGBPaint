@@ -12,6 +12,7 @@ namespace i18n
 void set_language_directory(std::string directory);
 
 // "system", "en" or "es". Missing catalogs fall back to the English source.
+// "en_XA" is a test-only pseudo-locale; it needs no .po file.
 void set_locale(const std::string& locale);
 
 // The requested setting ("system", "en", "es").
