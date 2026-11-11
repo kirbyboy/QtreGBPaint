@@ -464,7 +464,9 @@ busca los assets junto al ejecutable, en `../assets`, en
 `/usr/local/share/qtregbpaint/assets`. El icono de ventana se sube con
 `SDL_SetWindowIcon` (64×64; X11 rechaza iconos mayores) y el class/app_id es
 `io.github.kirbyboy.QtreGBPaint`, que coincide con el `.desktop` y su
-`StartupWMClass`.
+`StartupWMClass`. La CI de GitHub Actions (`.github/workflows/ci.yml`) ejecuta
+`make deps`, `make`, `test-full` y los 42 smokes bajo Xvfb; la primera
+ejecución terminó en verde.
 Tests actuales: 269 casos y 9780 aserciones (normal); `test-full` suma
 1076 casos y 39120 aserciones. Smokes: 42 en verde. Revisar `HANDOFF.md` y
 `git diff` antes de tocar estos archivos.

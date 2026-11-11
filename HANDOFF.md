@@ -166,18 +166,19 @@ Stack: C++17, ImGui, SDL2. Backend abstracto (`IGuiBackend`).
 
 Repositorio: <https://github.com/kirbyboy/QtreGBPaint>
 
-Rama `main`, HEAD `110aa1f` ("Release 0.9.1"). Ese commit incluye el trabajo
-de las sesiones 2026-11-10/11: título/cierre/atajos, barra de
-estado/cuentagotas, menús/atajos, zoom anclado, Select All, Flip/Rotate de
-selección y de imagen, tema Light/Both/icono Outline, botones de toolbar sin
-fondo, transparencia de paleta, configuración `.ini`/geometría de ventana,
-recientes pulsables con corrección de rutas corruptas, cambio de bpp en
-Properties, exportación BMP/PNG, formatos de almacenamiento `.idx`, apertura
-desde `%f`/CLI, MIME por magic, guardado atómico, preview por tiles, damero con
-textura, About con logo PNG, la licencia CC0 de todos los assets, el README,
-el bootstrap de dependencias (`make deps`), el empaquetado `.deb`/AppImage, el
-icono de ventana/class y la separación de `PaintFrontend`. Último backup:
-`tmp/backup/20261111_153859/`.
+Rama `main`, HEAD `feed82e` ("Add GitHub Actions CI and version smoke
+tests"). Ese commit incluye el trabajo de las sesiones 2026-11-10/11:
+título/cierre/atajos, barra de estado/cuentagotas, menús/atajos, zoom anclado,
+Select All, Flip/Rotate de selección y de imagen, tema Light/Both/icono
+Outline, botones de toolbar sin fondo, transparencia de paleta, configuración
+`.ini`/geometría de ventana, recientes pulsables con corrección de rutas
+corruptas, cambio de bpp en Properties, exportación BMP/PNG, formatos de
+almacenamiento `.idx`, apertura desde `%f`/CLI, MIME por magic, guardado
+atómico, preview por tiles, damero con textura, About con logo PNG, la licencia
+CC0 de todos los assets, el README, el bootstrap de dependencias (`make deps`),
+el empaquetado `.deb`/AppImage, el icono de ventana/class, la separación de
+`PaintFrontend`, los smokes versionados en `tests/smoke/` y la CI de GitHub
+Actions. Último backup: `tmp/backup/20261111_153859/`.
 
 - `IndexedImage` y formato `.idx` estricto; `ppm_image` eliminado.
 - Tests headless con doctest en `tests/` y su propio `Makefile`.
@@ -190,13 +191,13 @@ icono de ventana/class y la separación de `PaintFrontend`. Último backup:
 
 La release `v0.9.1` está publicada con el `.deb`, el AppImage y
 `SHA256SUMS-0.9.1`:
-<https://github.com/kirbyboy/QtreGBPaint/releases/tag/v0.9.1>. El bloque de CI
-(`.github/workflows/ci.yml`, `tests/smoke/`, `make smoke`, README, AGENTS y
-HANDOFF) queda **staged** pendiente del siguiente commit. Los artefactos
-ignorados son `compile_commands.json`, `deps*/`, `obj*/`, `build/`, `lib/`,
-`imgui.ini`, `tmp/` y `temp/`. Los assets `.idx`/`.ipx`, los tests y el código
-de rejilla/handles ya estaban versionados desde `7c0d30c`. `canvas.h`/`canvas.cpp`
-se renombraron a `canvas_document.h`/`canvas_document.cpp` con `git mv`.
+<https://github.com/kirbyboy/QtreGBPaint/releases/tag/v0.9.1>. La CI de GitHub
+Actions también está en verde en `feed82e`. El árbol queda limpio. Los
+artefactos ignorados son `compile_commands.json`, `deps*/`, `obj*/`, `build/`,
+`lib/`, `imgui.ini`, `tmp/` y `temp/`. Los assets `.idx`/`.ipx`, los tests y el
+código de rejilla/handles ya estaban versionados desde `7c0d30c`.
+`canvas.h`/`canvas.cpp` se renombraron a `canvas_document.h`/
+`canvas_document.cpp` con `git mv`.
 
 ## Pendiente inmediato
 
@@ -2228,9 +2229,9 @@ colores reflejado en el canvas) y capturas
   Timeout de 45 minutos y cancelación de ejecuciones antiguas.
 - **Documentación.** README incluye el badge de CI y el comando de smokes;
   `tests/smoke/README.md`, AGENTS y HANDOFF actualizados.
-- **Verificación local.** `make test-full` y los 42 smokes (con el runner ya
-  movido) pasan. La primera ejecución real de GitHub Actions queda pendiente de
-  push; si Xvfb revela alguna diferencia de entorno, se ajustará el workflow.
+- **Verificación.** `make test-full` y los 42 smokes (con el runner ya movido)
+  pasan. La primera ejecución real de GitHub Actions terminó en verde en
+  `feed82e`; el badge del README queda activo.
 
 ## Plan de cierre — 2026-11-10
 
